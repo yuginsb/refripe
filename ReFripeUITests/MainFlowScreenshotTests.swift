@@ -88,7 +88,10 @@ final class MainFlowScreenshotTests: XCTestCase {
             coach.tap()
         }
         let card = swipeTopCard
-        _ = require(card, "top swipe card")
+        if require(card, "top swipe card") {
+            // Regression check: after signing in, the deck must not offer Awa her own listings.
+            XCTAssertFalse(card.label.hasPrefix("Robe wax imprimé"), "own listing in the swipe deck after sign-in")
+        }
         snap("01-discover-swipe")
     }
 
@@ -112,24 +115,23 @@ final class MainFlowScreenshotTests: XCTestCase {
         _ = close.waitForNonExistence(timeout: timeout)
     }
 
-    /// Back to Swipe, pass the Boubou (it already has a negotiation) so the next card — the leather bag,
-    /// negotiable, no thread yet — shows "Faire une offre" on its product page.
+    /// Back to Swipe, then pass cards until the leather bag (negotiable, no negotiation yet) is on top,
+    /// so its product page shows "Faire une offre".
     private func product() {
         openTab("Découvrir")
         let swipe = button("Swipe")
         if swipe.waitForExistence(timeout: timeout) { swipe.tap() }
-        let card = swipeTopCard
-        guard require(card, "top swipe card") else { return }
-        if card.label.hasPrefix("Boubou") {
-            let pass = button("Passer")
-            if require(pass, "Passer button") {
-                pass.tap()
-                let next = NSPredicate(format: "label BEGINSWITH %@", "Sac à main")
-                expectation(for: next, evaluatedWith: swipeTopCard)
-                waitForExpectations(timeout: timeout) { error in
-                    if error != nil { XCTFail("next swipe card is not the bag (got \(self.swipeTopCard.label))") }
-                }
-            }
+        guard require(swipeTopCard, "top swipe card") else { return }
+        let pass = button("Passer")
+        for _ in 0..<8 where !swipeTopCard.label.hasPrefix("Sac à main") {
+            guard require(pass, "Passer button") else { break }
+            let before = swipeTopCard.label
+            pass.tap()
+            let changed = NSPredicate(format: "label != %@", before)
+            _ = XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: changed, object: swipeTopCard)], timeout: 5)
+        }
+        if !swipeTopCard.label.hasPrefix("Sac à main") {
+            XCTFail("leather bag not found in the swipe deck (top: \(swipeTopCard.label))")
         }
         swipeTopCard.tap()
         _ = require(app.navigationBars["Annonce"], "product page")

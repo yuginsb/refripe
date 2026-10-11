@@ -12,6 +12,9 @@ struct DiscoverSwipeSection: View {
 
     @State private var deck: [Listing] = []
     @State private var hasLoaded = false
+    /// User + categories the deck was loaded for: signing in from the onboarding cover must reload it
+    /// (own listings excluded, preferred categories first).
+    @State private var loadedFor: String?
     @State private var loadError: Error?
     @State private var drag: CGSize = .zero
     @State private var isFlying = false
@@ -59,14 +62,19 @@ struct DiscoverSwipeSection: View {
         .sensoryFeedback(.impact(weight: .medium), trigger: likeTick)
         .sensoryFeedback(.impact(weight: .light), trigger: passTick)
         .sensoryFeedback(.selection, trigger: crossedSide) { _, new in new != 0 }
-        .task {
-            if !hasLoaded { await load() }
+        .task(id: deckKey) {
+            if !hasLoaded || loadedFor != deckKey { await load() }
         }
     }
 
     // MARK: Data
 
+    private var deckKey: String {
+        "\(store.me?.id.uuidString ?? "-")|\(store.preferences.categories.map(\.rawValue).sorted())"
+    }
+
     private func load() async {
+        loadedFor = deckKey
         do {
             let items = try await store.repo.swipeDeck(preferences: store.preferences)
             deck = items
