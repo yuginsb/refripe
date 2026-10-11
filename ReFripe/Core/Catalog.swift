@@ -156,7 +156,7 @@ enum OfferRules {
 
     /// Initial amount shown in the offer composer.
     static func initialDraft(listing: Listing, thread: OfferThread?) -> FCFA {
-        let step = step(for: listing.price)
+        let step = Self.step(for: listing.price)
         var draft: FCFA
         if let t = thread, let s = t.lastSellerCounter, let b = t.lastBuyerOffer {
             draft = round(Double(b.amount + s.amount) / 2, step: step)
@@ -168,7 +168,7 @@ enum OfferRules {
 
     /// Simulated seller answer (demo mode only; real sellers answer themselves).
     static func simulatedSellerResponse(listing: Listing, thread: OfferThread) -> (OfferAction, FCFA) {
-        let step = step(for: listing.price)
+        let step = Self.step(for: listing.price)
         let buyer = thread.lastBuyerOffer?.amount ?? 0
         let highEnough = buyer >= round(Double(listing.price) * 0.9, step: step)
         if highEnough || thread.buyerOfferCount >= maxBuyerOffers {

@@ -19,6 +19,7 @@ private struct PreviewEnvironment: ViewModifier {
 }
 
 extension View {
+    @MainActor
     func previewEnvironment() -> some View {
         modifier(PreviewEnvironment())
     }

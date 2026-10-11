@@ -187,8 +187,8 @@ stateDiagram-v2
     PAYMENT_PENDING --> PAID : webhook / sandbox (system)
     PAID --> AWAITING_SHIPMENT : automatique
     PAYMENT_PENDING --> CANCELLED : acheteuse, vendeuse, cron 30 min, paiement échoué
-    PAID --> CANCELLED : vendeuse, system
-    AWAITING_SHIPMENT --> CANCELLED : vendeuse, system
+    PAID --> CANCELLED : acheteuse, vendeuse, system
+    AWAITING_SHIPMENT --> CANCELLED : acheteuse, vendeuse, system
     AWAITING_SHIPMENT --> SHIPPED : vendeuse
     SHIPPED --> DELIVERED : vendeuse ou acheteuse
     SHIPPED --> DISPUTED : acheteuse
@@ -219,7 +219,7 @@ stateDiagram-v2
 
 ### Négociation
 
-- `make_offer` (acheteuse) vérifie : annonce active et négociable, pas la sienne, `0 < montant < prix`, 3 offres max (`offer_limit_reached` → `RepositoryError.offerLimitReached`), une offre à la fois, et chaque offre doit dépasser la précédente. Une offre supérieure ou égale à la contre-offre en cours vaut acceptation de cette contre-offre. Après un refus ou une expiration, l'acheteuse peut relancer tant qu'elle n'a pas fait 3 offres.
+- `make_offer` (acheteuse) vérifie : annonce active et négociable, pas la sienne, `0 < montant < prix`, 3 offres max (`offer_limit_reached` → `RepositoryError.offerLimitReached`), une offre à la fois, et chaque offre doit dépasser la précédente. Une offre supérieure ou égale à la contre-offre en cours vaut acceptation de cette contre-offre. Un refus de la vendeuse (ou une expiration) clôt le fil (`offer_refused`) ; l'article reste achetable au prix affiché.
 - `respond_offer` (vendeuse uniquement) : `accept`, `refuse`, ou `counter` avec un montant strictement compris entre la dernière offre et le prix. Pas de contre-offre après la 3e offre.
 - L'article reste achetable au prix affiché par n'importe qui pendant la négociation. Les fils sans réponse depuis 48 h expirent (cron).
 - `min_offer` reste un repère privé pour la vendeuse : le serveur ne refuse pas automatiquement les offres en dessous, pour ne pas révéler le plancher par tâtonnement.

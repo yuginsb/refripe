@@ -626,13 +626,13 @@ final class SupabaseRepository: Repository, @unchecked Sendable {
         if error is RepositoryError || error is CancellationError { return error }
 
         if let e = error as? PostgrestError {
-            switch e.hint {
+            switch e.hint ?? "" {
             case "offer_limit_reached": return RepositoryError.offerLimitReached
             case "not_authenticated": return RepositoryError.notAuthenticated
             case "not_found": return RepositoryError.notFound
             default: break
             }
-            switch e.code {
+            switch e.code ?? "" {
             case "PGRST116": return RepositoryError.notFound
             case "PGRST301", "PGRST302", "PGRST303": return RepositoryError.notAuthenticated
             case "42501": return RepositoryError.invalidState("Action non autorisée.")

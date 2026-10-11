@@ -456,7 +456,7 @@ struct SellPriceStep: View {
                     PriceStepper(value: $model.draft.minOffer, step: model.priceStep, range: minOfferRange, compact: true)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 6)
-                    Text("Privée : jamais montrée aux acheteuses. Les offres en dessous sont refusées automatiquement.")
+                    Text("Privée : jamais montrée aux acheteuses. Elle t’aide à juger chaque offre : tu restes libre d’accepter, de refuser ou de contre-proposer.")
                         .font(RF.F.body(10.5))
                         .foregroundStyle(RF.C.textDim)
                         .padding(.top, 6)

@@ -156,7 +156,7 @@ begin
     when v_from = 'PAYMENT_PENDING'  and p_to = 'PAID'              then p_actor = 'system'
     when v_from = 'PAYMENT_PENDING'  and p_to = 'CANCELLED'         then true
     when v_from = 'PAID'             and p_to = 'AWAITING_SHIPMENT' then p_actor = 'system'
-    when v_from in ('PAID', 'AWAITING_SHIPMENT') and p_to = 'CANCELLED' then p_actor in ('seller', 'system')
+    when v_from in ('PAID', 'AWAITING_SHIPMENT') and p_to = 'CANCELLED' then p_actor in ('buyer', 'seller', 'system')
     when v_from = 'AWAITING_SHIPMENT' and p_to = 'SHIPPED'          then p_actor in ('seller', 'system')
     when v_from = 'SHIPPED'          and p_to = 'DELIVERED'         then true
     when v_from = 'SHIPPED'          and p_to = 'DISPUTED'          then p_actor in ('buyer', 'system')
@@ -388,6 +388,9 @@ begin
 
   if t.status = 'accepted' then
     raise exception 'Ton offre a déjà été acceptée : tu peux acheter au prix négocié.' using hint = 'already_accepted';
+  end if;
+  if t.status in ('refused', 'expired') then
+    raise exception 'La vendeuse a décliné ton offre. Tu peux toujours acheter au prix affiché.' using hint = 'offer_refused';
   end if;
 
   select count(*), max(amount) into v_count, v_last_buyer

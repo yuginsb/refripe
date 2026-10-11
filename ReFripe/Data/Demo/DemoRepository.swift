@@ -394,7 +394,7 @@ actor DemoState {
             thread = threads[i]
             switch thread.status {
             case .accepted: throw RepositoryError.invalidState("Ton offre a déjà été acceptée : tu peux passer au paiement.")
-            case .refused, .expired: throw RepositoryError.offerLimitReached
+            case .refused, .expired: throw RepositoryError.invalidState("La vendeuse a décliné ton offre. Tu peux toujours acheter au prix affiché.")
             case .pending: break
             }
             guard thread.buyerOfferCount < OfferRules.maxBuyerOffers else { throw RepositoryError.offerLimitReached }
