@@ -10,6 +10,9 @@ concurrency:
   group: ios-${{ github.ref }}
   cancel-in-progress: true
 
+permissions:
+  contents: write   # lets a failed build publish its error summary to the ci-logs branch
+
 jobs:
   build:
     name: Build (simulator, no signing)
@@ -46,7 +49,17 @@ jobs:
             -destination 'generic/platform=iOS Simulator' \
             -derivedDataPath build \
             CODE_SIGNING_ALLOWED=NO \
-            | tee build.log | xcpretty || (grep -E "error:" build.log | head -50; exit 1)
+            > build.log 2>&1 || {
+              grep -E "error:|fatal error|BUILD FAILED|Package resolution|could not resolve" build.log | sort -u > errors.txt
+              head -c 60000 errors.txt
+              # One annotation per error so they show up in the run summary and the API.
+              grep -E "^/.*:[0-9]+:[0-9]+: error:" errors.txt | head -50 | while IFS= read -r line; do
+                f=$(echo "$line" | cut -d: -f1 | sed "s|$GITHUB_WORKSPACE/||"); l=$(echo "$line" | cut -d: -f2)
+                m=$(echo "$line" | cut -d: -f5-)
+                echo "::error file=$f,line=$l::$m"
+              done
+              exit 1
+            }
 
       - name: Upload build log
         if: failure()
@@ -54,3 +67,16 @@ jobs:
         with:
           name: build-log
           path: build.log
+
+      # Error summary readable with plain git (git fetch origin ci-logs).
+      - name: Publish error summary to ci-logs branch
+        if: failure()
+        run: |
+          [ -f errors.txt ] || grep -E "error|fatal" build.log | sort -u > errors.txt || true
+          tail -n 300 build.log > build-tail.txt
+          mkdir /tmp/ci-logs && cp errors.txt build-tail.txt /tmp/ci-logs/
+          cd /tmp/ci-logs
+          git init -q -b ci-logs
+          git -c user.name="ci" -c user.email="ci@users.noreply.github.com" add -A
+          git -c user.name="ci" -c user.email="ci@users.noreply.github.com" commit -qm "Build errors for ${GITHUB_SHA::7} (run ${GITHUB_RUN_ID})"
+          git push -f "https://x-access-token:${{ github.token }}@github.com/${GITHUB_REPOSITORY}.git" ci-logs
