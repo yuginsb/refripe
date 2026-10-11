@@ -90,7 +90,7 @@ targets:
 
   # UI test: walks the main flow in demo mode and attaches a screenshot of each screen.
   ReFripeUITests:
-    type: bundle.ui-test
+    type: bundle.ui-testing
     platform: iOS
     sources:
       - path: ReFripeUITests
