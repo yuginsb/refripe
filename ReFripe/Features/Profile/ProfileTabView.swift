@@ -11,6 +11,8 @@ struct ProfileTabView: View {
     @State private var sellerOrders: [Order] = []
     @State private var buyerOrders: [Order] = []
     @State private var stats: SellerStats?
+    /// Pending offers awaiting my answer, by listing id.
+    @State private var pendingOffers: [UUID: Int] = [:]
     @State private var editing: PreferenceEditorKind?
     @State private var showGuide = false
     @State private var confirmSignOut = false
@@ -207,6 +209,7 @@ struct ProfileTabView: View {
                         ForEach(myListings.prefix(Self.gridLimit)) { listing in
                             ListingCard(listing: listing)
                                 .overlay(alignment: .topLeading) { statusBadge(listing.status) }
+                                .overlay(alignment: .topTrailing) { offersBadge(for: listing) }
                         }
                     }
                     RFButton("Vendre un autre article", symbol: "plus", style: .ghost) { router.isSellPresented = true }
@@ -229,6 +232,27 @@ struct ProfileTabView: View {
                 .padding(7)
         default:
             EmptyView()
+        }
+    }
+
+    /// "n offres" pill on listings with offers awaiting my answer (sits on the photo's bottom edge).
+    @ViewBuilder private func offersBadge(for listing: Listing) -> some View {
+        if let count = pendingOffers[listing.id], count > 0 {
+            Button { router.push(.receivedOffers(listing.id)) } label: {
+                HStack(spacing: 3) {
+                    Image(systemName: "arrow.left.arrow.right").font(.system(size: 8, weight: .bold))
+                    Text("\(count) offre\(count > 1 ? "s" : "")")
+                }
+                .font(RF.F.body(9, .extraBold))
+                .foregroundStyle(.white)
+                .padding(.vertical, 3)
+                .padding(.horizontal, 7)
+                .background(Capsule().fill(RF.C.hibiscus))
+            }
+            .buttonStyle(RFPressStyle(scale: 0.9))
+            .padding(.trailing, 7)
+            .padding(.top, 93)   // bottom-right corner of the 118 pt photo, clear of the heart
+            .accessibilityLabel("\(count) offre\(count > 1 ? "s" : "") en attente sur \(listing.title)")
         }
     }
 
@@ -338,7 +362,10 @@ struct ProfileTabView: View {
         async let sellerTask = try? repo.orders(role: .seller)
         async let buyerTask = try? repo.orders(role: .buyer)
         async let statsTask = try? repo.sellerStats()
+        async let threadsTask = try? repo.offerThreads(role: .seller)
         let (listings, sOrders, bOrders, s) = await (listingsTask, sellerTask, buyerTask, statsTask)
+        let waiting = (await threadsTask ?? []).filter { $0.status == .pending && $0.rounds.last?.by == .buyer }
+        pendingOffers = Dictionary(grouping: waiting, by: \.listingId).mapValues(\.count)
         myListings = (listings ?? [])
             .filter { $0.status != .removed }
             .sorted { a, b in

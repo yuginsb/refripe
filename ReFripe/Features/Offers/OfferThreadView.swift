@@ -17,7 +17,22 @@ struct OfferThreadView: View {
     @State private var loadError: Error?
     @State private var isAccepting = false
 
+    /// The seller opened her own listing's negotiation (e.g. from a "new offer" notification):
+    /// show the seller-side screen instead.
+    private var isMyListing: Bool {
+        guard let listing, let me = store.me?.id else { return false }
+        return listing.sellerId == me
+    }
+
     var body: some View {
+        if isMyListing {
+            ReceivedOffersView(listingId: listingId)
+        } else {
+            buyerBody
+        }
+    }
+
+    private var buyerBody: some View {
         Group {
             if let listing, hasLoaded {
                 content(listing)
@@ -179,11 +194,11 @@ struct OfferThreadView: View {
     private func timeline(_ t: OfferThread) -> some View {
         VStack(spacing: 10) {
             ForEach(t.rounds) { round in
-                OfferBubble(round: round, sellerName: sellerName)
+                OfferBubble(round: round, otherName: sellerName)
                     .transition(.asymmetric(insertion: .move(edge: .bottom).combined(with: .opacity), removal: .opacity))
             }
             if waitingForSeller {
-                OfferWaitingIndicator(sellerName: sellerName)
+                OfferWaitingIndicator(name: sellerName)
                     .transition(.opacity)
             }
         }
@@ -261,25 +276,28 @@ struct OfferThreadView: View {
 
 // MARK: - Pieces (mockup `.offer-bubble`, `.offer-waiting`, `.offer-result`)
 
-private struct OfferBubble: View {
+struct OfferBubble: View {
     let round: OfferRound
-    let sellerName: String
+    /// Name of the other party (seller when I am the buyer, buyer when I am the seller).
+    let otherName: String
+    /// My side of the negotiation: my rounds are drawn on the right in hibiscus.
+    var me: OfferParty = .buyer
 
-    private var isBuyer: Bool { round.by == .buyer }
+    private var isMine: Bool { round.by == me }
 
     private var who: String {
-        let name = isBuyer ? "Toi" : sellerName
+        let name = isMine ? "Toi" : otherName
         switch round.action {
         case .offer: return name
         case .counter: return "\(name) · contre-offre"
-        case .accept: return isBuyer ? "\(name) · as accepté" : "\(name) · a accepté"
-        case .refuse: return isBuyer ? "\(name) · as refusé" : "\(name) · a refusé"
+        case .accept: return isMine ? "\(name) · as accepté" : "\(name) · a accepté"
+        case .refuse: return isMine ? "\(name) · as refusé" : "\(name) · a refusé"
         }
     }
 
     var body: some View {
         HStack {
-            if isBuyer { Spacer(minLength: 60) }
+            if isMine { Spacer(minLength: 60) }
             VStack(alignment: .leading, spacing: 2) {
                 Text(who.uppercased())
                     .font(RF.F.body(9.5, .bold))
@@ -299,24 +317,24 @@ private struct OfferBubble: View {
                     .font(RF.F.body(9))
                     .opacity(0.6)
             }
-            .foregroundStyle(isBuyer ? Color.white : RF.C.text)
+            .foregroundStyle(isMine ? Color.white : RF.C.text)
             .padding(.vertical, 10)
             .padding(.horizontal, 13)
-            .background(isBuyer ? RF.C.hibiscus : RF.C.paperDim, in: UnevenRoundedRectangle(
+            .background(isMine ? RF.C.hibiscus : RF.C.paperDim, in: UnevenRoundedRectangle(
                 topLeadingRadius: 14,
-                bottomLeadingRadius: isBuyer ? 14 : 4,
-                bottomTrailingRadius: isBuyer ? 4 : 14,
+                bottomLeadingRadius: isMine ? 14 : 4,
+                bottomTrailingRadius: isMine ? 4 : 14,
                 topTrailingRadius: 14,
                 style: .continuous))
-            if !isBuyer { Spacer(minLength: 60) }
+            if !isMine { Spacer(minLength: 60) }
         }
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("\(who), \(Fmt.fcfa(round.amount)), \(Fmt.relative(round.at))")
     }
 }
 
-private struct OfferWaitingIndicator: View {
-    let sellerName: String
+struct OfferWaitingIndicator: View {
+    let name: String
 
     var body: some View {
         HStack(spacing: 8) {
@@ -328,7 +346,7 @@ private struct OfferWaitingIndicator: View {
                 } animation: { _ in
                     .easeInOut(duration: 0.55)
                 }
-            Text("\(sellerName) répond…")
+            Text("\(name) répond…")
                 .font(RF.F.body(11.5))
                 .foregroundStyle(RF.C.textDim)
             Spacer()
@@ -336,7 +354,7 @@ private struct OfferWaitingIndicator: View {
         .padding(.vertical, 6)
         .padding(.horizontal, 2)
         .accessibilityElement(children: .combine)
-        .accessibilityLabel("En attente de la réponse de \(sellerName)")
+        .accessibilityLabel("En attente de la réponse de \(name)")
     }
 }
 

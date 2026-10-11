@@ -16,6 +16,8 @@ struct ProductView: View {
     @State private var didRecordView = false
     @State private var isOpeningChat = false
     @State private var photoIndex = 0
+    /// Seller side: offers waiting for my answer on my own listing.
+    @State private var pendingReceivedOffers = 0
 
     var body: some View {
         Group {
@@ -67,6 +69,11 @@ struct ProductView: View {
             seller = await store.profile(l.sellerId)
             if l.sellerId != store.me?.id, l.negotiable {
                 thread = try? await store.repo.offerThread(listingId: listingId)
+            } else if l.sellerId == store.me?.id {
+                let received = (try? await store.repo.offerThreads(role: .seller)) ?? []
+                pendingReceivedOffers = received.filter {
+                    $0.listingId == listingId && $0.status == .pending && $0.rounds.last?.by == .buyer
+                }.count
             }
             if !didRecordView {
                 didRecordView = true
@@ -366,6 +373,12 @@ struct ProductView: View {
                 .font(RF.F.body(12, .bold))
                 .foregroundStyle(RF.C.textDim)
                 .accessibilityElement(children: .combine)
+                if listing.negotiable {
+                    RFButton(receivedOffersTitle, symbol: "arrow.left.arrow.right",
+                             style: pendingReceivedOffers > 0 ? .primary : .ghost) {
+                        router.push(.receivedOffers(listing.id))
+                    }
+                }
                 RFButton("Voir mon tableau de bord", symbol: "chart.bar.fill", style: .ink) {
                     router.push(.dashboard)
                 }
@@ -379,6 +392,11 @@ struct ProductView: View {
         .padding(EdgeInsets(top: 12, leading: RF.S.gutter, bottom: 10, trailing: RF.S.gutter))
         .background(RF.C.paper)
         .overlay(alignment: .top) { Rectangle().fill(RF.C.line).frame(height: 1) }
+    }
+
+    private var receivedOffersTitle: String {
+        let n = pendingReceivedOffers
+        return n == 0 ? "Offres reçues" : "Offres reçues (\(n) en attente)"
     }
 
     @ViewBuilder

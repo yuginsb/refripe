@@ -17,7 +17,22 @@ struct OfferComposerView: View {
     @State private var isSending = false
     @State private var limitReached = false
 
+    /// The seller opened her own listing's negotiation (e.g. from a "new offer" notification):
+    /// show the seller-side screen instead.
+    private var isMyListing: Bool {
+        guard let listing, let me = store.me?.id else { return false }
+        return listing.sellerId == me
+    }
+
     var body: some View {
+        if isMyListing {
+            ReceivedOffersView(listingId: listingId)
+        } else {
+            buyerBody
+        }
+    }
+
+    private var buyerBody: some View {
         Group {
             if let listing {
                 content(listing)

@@ -32,7 +32,8 @@ struct SellerProfileView: View {
         .toolbar {
             if let profile {
                 ToolbarItem(placement: .topBarTrailing) {
-                    ShareLink(item: "Découvre la boutique de \(profile.username) sur ReFripe — fripe à \(profile.city), paiement sécurisé Wave / Orange Money.") {
+                    ShareLink(item: AppLinks.profile(profile.id),
+                              message: Text("Découvre la boutique de \(profile.username) sur ReFripe — fripe à \(profile.city), paiement sécurisé Wave / Orange Money.")) {
                         Image(systemName: "square.and.arrow.up")
                     }
                     .accessibilityLabel("Partager ce profil")

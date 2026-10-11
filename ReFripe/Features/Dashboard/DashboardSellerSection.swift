@@ -26,6 +26,7 @@ struct DashboardSellerSection: View {
             }
 
             ordersCard
+            receivedOffersCard
 
             if let stats = data.stats {
                 goalCard(stats)
@@ -90,6 +91,73 @@ struct DashboardSellerSection: View {
             }
         }
         .padding(.bottom, 12)
+    }
+
+    // MARK: Received offers (seller side → ReceivedOffersView)
+
+    @ViewBuilder private var receivedOffersCard: some View {
+        let threads = data.receivedOffers
+        if !threads.isEmpty {
+            DashCard {
+                HStack {
+                    DashCardLabel("Offres reçues", symbol: "arrow.left.arrow.right")
+                    Spacer()
+                    Text("\(threads.count)")
+                        .font(RF.F.body(10, .extraBold))
+                        .foregroundStyle(.white)
+                        .frame(minWidth: 18, minHeight: 18)
+                        .background(Circle().fill(RF.C.hibiscus))
+                        .accessibilityLabel("\(threads.count) offres en attente")
+                }
+                .padding(.bottom, 4)
+                ForEach(threads) { thread in
+                    Button { router.push(.receivedOffers(thread.listingId)) } label: {
+                        receivedOfferRow(thread)
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityHint("Accepter, refuser ou contre-proposer")
+                    if thread.id != threads.last?.id { Divider().overlay(RF.C.line) }
+                }
+            }
+            .padding(.bottom, 12)
+        }
+    }
+
+    private func receivedOfferRow(_ thread: OfferThread) -> some View {
+        let listing = data.listings[thread.listingId]
+        let buyer = data.buyers[thread.buyerId]?.username ?? store.cachedProfile(thread.buyerId)?.username ?? "Une acheteuse"
+        return HStack(spacing: 10) {
+            ListingPhotoView(photo: listing?.photos.first, listingId: thread.listingId)
+                .frame(width: 44, height: 44)
+                .clipShape(RoundedRectangle(cornerRadius: RF.R.sm, style: .continuous))
+            VStack(alignment: .leading, spacing: 1) {
+                Text(listing?.title ?? "Annonce")
+                    .font(RF.F.body(12.5, .bold))
+                    .foregroundStyle(RF.C.text)
+                    .lineLimit(1)
+                Text("\(buyer) · \(Fmt.relative(thread.updatedAt))")
+                    .font(RF.F.body(10.5))
+                    .foregroundStyle(RF.C.textDim)
+                    .lineLimit(1)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            VStack(alignment: .trailing, spacing: 3) {
+                if let offer = thread.lastBuyerOffer {
+                    Text(Fmt.fcfa(offer.amount))
+                        .font(RF.F.mono(12.5, .semibold))
+                        .foregroundStyle(RF.C.hibiscus)
+                }
+                if let price = listing?.price {
+                    Text("Affiché \(Fmt.fcfa(price))")
+                        .font(RF.F.mono(10))
+                        .foregroundStyle(RF.C.textDim)
+                }
+            }
+            .fixedSize()
+        }
+        .padding(.vertical, 10)
+        .contentShape(Rectangle())
+        .accessibilityElement(children: .combine)
     }
 
     // MARK: Monthly goal (ring)

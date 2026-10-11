@@ -107,6 +107,9 @@ struct DashboardData {
     var sellerOrders: [Order] = []
     var buyerOrders: [Order] = []
     var buyerThreads: [OfferThread] = []
+    var sellerThreads: [OfferThread] = []
+    /// Buyers of `sellerThreads`, for their public handle.
+    var buyers: [UUID: UserProfile] = [:]
     /// Listings referenced by buyer threads and the wishlist.
     var listings: [UUID: Listing] = [:]
     var wishlistIds: Set<UUID> = []
@@ -117,6 +120,7 @@ struct DashboardData {
         async let statsTask = try? repo.sellerStats()
         async let recosTask = try? repo.recommendations()
         async let threadsTask = try? repo.offerThreads(role: .buyer)
+        async let sellerThreadsTask = try? repo.offerThreads(role: .seller)
         let sellerOrders = try await repo.orders(role: .seller)
         let buyerOrders = try await repo.orders(role: .buyer)
 
@@ -126,9 +130,18 @@ struct DashboardData {
         data.stats = await statsTask
         data.recommendations = await recosTask ?? []
         data.buyerThreads = (await threadsTask ?? []).sorted { $0.updatedAt > $1.updatedAt }
+        data.sellerThreads = (await sellerThreadsTask ?? []).sorted { $0.updatedAt > $1.updatedAt }
         data.wishlistIds = store.wishlist
 
-        let ids = Set(data.buyerThreads.map(\.listingId)).union(store.wishlist)
+        let buyerIds = Array(Set(data.receivedOffers.map(\.buyerId)))
+        if !buyerIds.isEmpty {
+            data.buyers = (try? await repo.profiles(ids: buyerIds)) ?? [:]
+            store.cache(data.buyers)
+        }
+
+        let ids = Set(data.buyerThreads.map(\.listingId))
+            .union(data.receivedOffers.map(\.listingId))
+            .union(store.wishlist)
         data.listings = await withTaskGroup(of: Listing?.self) { group in
             for id in ids { group.addTask { try? await repo.listing(id: id) } }
             var out: [UUID: Listing] = [:]
@@ -146,6 +159,11 @@ struct DashboardData {
                     ? a.status.urgencyRank < b.status.urgencyRank
                     : a.createdAt > b.createdAt
             }
+    }
+
+    /// Offers on my listings waiting for my answer (pending, last round by the buyer).
+    var receivedOffers: [OfferThread] {
+        sellerThreads.filter { $0.status == .pending && $0.rounds.last?.by == .buyer }
     }
 
     // Buyer
