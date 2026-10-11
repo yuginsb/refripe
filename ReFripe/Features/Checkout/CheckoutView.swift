@@ -129,6 +129,13 @@ struct CheckoutView: View {
                 EscrowLockNote(text: "Fonds bloqués jusqu'à confirmation de réception — libérés automatiquement sous \(Catalog.escrowAutoReleaseHours)h si tout va bien.")
                     .padding(.top, 16)
 
+            }
+            .padding(.horizontal, RF.S.gutter)
+            .padding(.vertical, 14)
+        }
+        // Total + pay button pinned above the tab bar, always visible (like the product action bar).
+        .safeAreaInset(edge: .bottom, spacing: 0) {
+            VStack(spacing: 0) {
                 HStack(alignment: .firstTextBaseline) {
                     Text("Total")
                         .font(RF.F.body(12.5, .bold))
@@ -141,7 +148,7 @@ struct CheckoutView: View {
                         .contentTransition(.numericText(value: Double(total)))
                         .animation(.snappy(duration: 0.2), value: total)
                 }
-                .padding(.vertical, 18)
+                .padding(.vertical, 12)
                 .accessibilityElement(children: .combine)
 
                 RFButton("Payer avec \(payment.label)", symbol: "lock.fill", isLoading: isPaying) {
@@ -150,7 +157,9 @@ struct CheckoutView: View {
                 .disabled(delivery == nil)
             }
             .padding(.horizontal, RF.S.gutter)
-            .padding(.vertical, 14)
+            .padding(.bottom, 10)
+            .background(RF.C.paper)
+            .overlay(alignment: .top) { Divider().overlay(RF.C.line) }
         }
         .sensoryFeedback(.selection, trigger: delivery)
         .sensoryFeedback(.selection, trigger: payment)
