@@ -1,0 +1,8 @@
+.DS_Store
+*.xcodeproj/
+xcuserdata/
+DerivedData/
+build/
+Config/Secrets.local.xcconfig
+supabase/.temp/
+supabase/.env
