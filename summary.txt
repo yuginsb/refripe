@@ -1,0 +1,125 @@
+Result: Passed — total 87, passed 87, failed 0, skipped 0
+
+Test cases:
+  [Passed] ReFripeTests/CatalogTests/testActiveFilterCount()
+  [Passed] ReFripeTests/CatalogTests/testCategoryFilter()
+  [Passed] ReFripeTests/CatalogTests/testCombinedFilters()
+  [Passed] ReFripeTests/CatalogTests/testConditionBrandAndQueryFilters()
+  [Passed] ReFripeTests/CatalogTests/testDefaultFeedReturnsAllActiveListings()
+  [Passed] ReFripeTests/CatalogTests/testNegotiableOnly()
+  [Passed] ReFripeTests/CatalogTests/testPriceDropSetsOldPrice()
+  [Passed] ReFripeTests/CatalogTests/testPriceRangeIsInclusive()
+  [Passed] ReFripeTests/CatalogTests/testPublishCreatesActiveListingWithClampedFloor()
+  [Passed] ReFripeTests/CatalogTests/testPublishValidatesDraft()
+  [Passed] ReFripeTests/CatalogTests/testRecentSortPutsPreferredCategoriesFirst()
+  [Passed] ReFripeTests/CatalogTests/testReservedListingsLeaveTheFeed()
+  [Passed] ReFripeTests/CatalogTests/testSortOrders()
+  [Passed] ReFripeTests/CatalogTests/testSwipedCardsLeaveTheDeck()
+  [Passed] ReFripeTests/CatalogTests/testSwipeDeckExcludesOwnListingsAndPrefersMyCategories()
+  [Passed] ReFripeTests/FormattingAndModelTests/testAppConfigRequiresBothKeys()
+  [Passed] ReFripeTests/FormattingAndModelTests/testAppConfigValidatesURL()
+  [Passed] ReFripeTests/FormattingAndModelTests/testCIBuildRunsInDemoMode()
+  [Passed] ReFripeTests/FormattingAndModelTests/testDemoIDsAreDeterministic()
+  [Passed] ReFripeTests/FormattingAndModelTests/testFcfaGroupsThousandsWithNarrowNoBreakSpace()
+  [Passed] ReFripeTests/FormattingAndModelTests/testFcfaSmallAmounts()
+  [Passed] ReFripeTests/FormattingAndModelTests/testListingDraftResolvedBrand()
+  [Passed] ReFripeTests/FormattingAndModelTests/testListingHelpers()
+  [Passed] ReFripeTests/FormattingAndModelTests/testNumber()
+  [Passed] ReFripeTests/FormattingAndModelTests/testOfferThreadHelpers()
+  [Passed] ReFripeTests/FormattingAndModelTests/testRelative()
+  [Passed] ReFripeTests/FormattingAndModelTests/testSeniority()
+  [Passed] ReFripeTests/FormattingAndModelTests/testSizeLabels()
+  [Passed] ReFripeTests/FormattingAndModelTests/testUserProfileHelpers()
+  [Passed] ReFripeTests/NegotiationTests/testAtMostThreeBuyerOffers()
+  [Passed] ReFripeTests/NegotiationTests/testFirstOfferOpensPendingThreadAndBlocksUntilSellerAnswers()
+  [Passed] ReFripeTests/NegotiationTests/testNewOfferMustBeatPreviousOffer()
+  [Passed] ReFripeTests/NegotiationTests/testNoOfferOnOwnOrFixedPriceListing()
+  [Passed] ReFripeTests/NegotiationTests/testOfferBelowCounterStaysPending()
+  [Passed] ReFripeTests/NegotiationTests/testOfferExactlyAtCounterAccepts()
+  [Passed] ReFripeTests/NegotiationTests/testOfferMeetingSellerCounterAcceptsItAtCounterAmount()
+  [Passed] ReFripeTests/NegotiationTests/testOfferMustBeBelowListedPrice()
+  [Passed] ReFripeTests/NegotiationTests/testOfferMustBePositive()
+  [Passed] ReFripeTests/NegotiationTests/testOfferThreadsByRole()
+  [Passed] ReFripeTests/NegotiationTests/testOnlySellerCanRespond()
+  [Passed] ReFripeTests/NegotiationTests/testSellerAcceptSetsAcceptedAmount()
+  [Passed] ReFripeTests/NegotiationTests/testSellerBotAcceptsHighOfferAndOrderUsesAcceptedPrice()
+  [Passed] ReFripeTests/NegotiationTests/testSellerBotCountersLowFirstOffer()
+  [Passed] ReFripeTests/NegotiationTests/testSellerBotRefusalAfterThirdLowOfferClosesThread()
+  [Passed] ReFripeTests/NegotiationTests/testSellerCounterMustBeBetweenOfferAndPrice()
+  [Passed] ReFripeTests/NegotiationTests/testSellerRefusalClosesThreadForBuyer()
+  [Passed] ReFripeTests/OfferRulesTests/testInitialDraftIsRaisedToSellerFloor()
+  [Passed] ReFripeTests/OfferRulesTests/testInitialDraftNeverReachesListedPrice()
+  [Passed] ReFripeTests/OfferRulesTests/testInitialDraftWithCounterIsMidpointOfLastOfferAndCounter()
+  [Passed] ReFripeTests/OfferRulesTests/testInitialDraftWithoutThreadIs75PercentClampedToSellerFloor()
+  [Passed] ReFripeTests/OfferRulesTests/testMaxBuyerOffersIsThree()
+  [Passed] ReFripeTests/OfferRulesTests/testRoundGoesToNearestStepHalfUp()
+  [Passed] ReFripeTests/OfferRulesTests/testSellerBotAcceptsOfferAtNinetyPercent()
+  [Passed] ReFripeTests/OfferRulesTests/testSellerBotCountersHalfwayOnLowFirstOffer()
+  [Passed] ReFripeTests/OfferRulesTests/testSellerBotCounterStaysStrictlyBetweenOfferAndPrice()
+  [Passed] ReFripeTests/OfferRulesTests/testSellerBotDecidesOnThirdOfferUsingFloor()
+  [Passed] ReFripeTests/OfferRulesTests/testStepIs250Below6000And500From6000()
+  [Passed] ReFripeTests/OrderTests/testAcceptedOfferPriceIsUsedByCreateOrder()
+  [Passed] ReFripeTests/OrderTests/testBuyerCanCancelBeforeShipment()
+  [Passed] ReFripeTests/OrderTests/testCancelAllowedWhileAwaitingShipment()
+  [Passed] ReFripeTests/OrderTests/testCannotCancelAfterShipment()
+  [Passed] ReFripeTests/OrderTests/testCannotGoBackwards()
+  [Passed] ReFripeTests/OrderTests/testCannotSkipSteps()
+  [Passed] ReFripeTests/OrderTests/testCompletedOrderIsFinal()
+  [Passed] ReFripeTests/OrderTests/testCreateOrderRejectsOwnListingAndUnofferedDelivery()
+  [Passed] ReFripeTests/OrderTests/testCreateOrderReservesListingAndStartsPaymentPending()
+  [Passed] ReFripeTests/OrderTests/testDeliveryFees()
+  [Passed] ReFripeTests/OrderTests/testDisputePaths()
+  [Passed] ReFripeTests/OrderTests/testHappyPathShippedDeliveredValidationCompleted()
+  [Passed] ReFripeTests/OrderTests/testOrdersByRole()
+  [Passed] ReFripeTests/OrderTests/testOrderTotalIsItemPricePlusDeliveryFee()
+  [Passed] ReFripeTests/OrderTests/testPaymentSimulationFundsEscrow()
+  [Passed] ReFripeTests/OrderTests/testPendingNegotiationDoesNotChangePrice()
+  [Passed] ReFripeTests/OrderTests/testReturnPathRefundsAndRelists()
+  [Passed] ReFripeTests/OrderTests/testSeedOrderTotals()
+  [Passed] ReFripeTests/OrderTests/testShippedToDelivered()
+  [Passed] ReFripeTests/OrderTests/testStatusMetadata()
+  [Passed] ReFripeTests/OrderTests/testUnknownOrder()
+  [Passed] ReFripeTests/OrderTests/testValidationToCompletedMarksListingSold()
+  [Passed] ReFripeTests/WishlistTests/testBootstrapRestoresDemoSession()
+  [Passed] ReFripeTests/WishlistTests/testLikingUnknownListingFails()
+  [Passed] ReFripeTests/WishlistTests/testSeedWishlist()
+  [Passed] ReFripeTests/WishlistTests/testSetLikedIsIdempotentAndUpdatesFavoritesCount()
+  [Passed] ReFripeTests/WishlistTests/testSignedOutStoreNeedsOnboarding()
+  [Passed] ReFripeTests/WishlistTests/testStoreToggleLikeIsOptimisticAndPersisted()
+  [Passed] ReFripeTests/WishlistTests/testStoreToggleLikeRollsBackOnError()
+  [Passed] ReFripeUITests/MainFlowScreenshotTests/testMainFlowScreenshots()
+
+xcodebuild log tail:
+  	 Executed 1 test, with 0 failures (0 unexpected) in 141.093 (141.096) seconds
+  Test Suite 'ReFripeUITests.xctest' passed at 2026-10-11 15:24:14.117.
+  	 Executed 1 test, with 0 failures (0 unexpected) in 141.093 (141.097) seconds
+  Test Suite 'All tests' passed at 2026-10-11 15:24:14.118.
+  	 Executed 1 test, with 0 failures (0 unexpected) in 141.093 (141.098) seconds
+  2026-10-11 15:24:15.750 xcodebuild[7591:27341] [MT] IDETestOperationsObserverDebug: 233.613 elapsed -- Testing started completed.
+  2026-10-11 15:24:15.758 xcodebuild[7591:27341] [MT] IDETestOperationsObserverDebug: 0.000 sec, +0.000 sec -- start
+  2026-10-11 15:24:15.758 xcodebuild[7591:27341] [MT] IDETestOperationsObserverDebug: 233.613 sec, +233.613 sec -- end
+  Test session results, code coverage, and logs:
+  	/Users/runner/work/refripe/refripe/TestResults.xcresult
+  ** TEST SUCCEEDED **
+  Testing started
+
+Screenshots:
+  00-signup-phone.png
+  00-signup-start.png
+  01-discover-swipe-coach.png
+  01-discover-swipe.png
+  02-discover-grid.png
+  03-filter-sheet.png
+  04-product.png
+  05-offer-composer.png
+  06-checkout.png
+  07-wishlist.png
+  08-sell-step1.png
+  09-messages.png
+  10-chat.png
+  11-profile.png
+  12-dashboard.png
+  13-notifications.png
+
+Notes:
+  exported 16 attachment(s) with `xcresulttool export attachments`
