@@ -146,7 +146,7 @@ struct ListingCard: View {
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(accessibilityText)
         .accessibilityAddTraits(.isButton)
-        .accessibilityAction(openListing)
+        .accessibilityAction { openListing() }
     }
 
     private var accessibilityText: String {

@@ -183,7 +183,7 @@ struct ConversationListRow: View {
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(accessibilityText)
         .accessibilityAddTraits(.isButton)
-        .accessibilityAction(action)
+        .accessibilityAction { action() }
     }
 
     private var accessibilityText: String {
