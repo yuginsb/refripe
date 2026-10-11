@@ -29,6 +29,7 @@ targets:
       path: ReFripe/ReFripe.entitlements
       properties:
         com.apple.developer.applesignin: [Default]
+        com.apple.developer.sensitivecontentanalysis.client: [analysis]
     info:
       path: ReFripe/Info.plist
       properties:

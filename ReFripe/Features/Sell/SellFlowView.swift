@@ -1,9 +1,178 @@
 import SwiftUI
+import UIKit
 
-// STUB — owned by agent C. Replace the body; keep the type name and initializer signature.
+/// "Vendre" — 10-step listing wizard presented full screen by `MainTabView` (`router.isSellPresented`).
+/// Mockup `screenSell` + `sellStep*`; quality control of photos happens on-device before step 2.
 struct SellFlowView: View {
+    @Environment(AppStore.self) private var store
+    @Environment(Router.self) private var router
+    @State private var model = SellFlowModel()
+    @State private var confirmClose = false
 
     var body: some View {
-        Text("SellFlowView").font(RF.F.display(15))
+        NavigationStack {
+            Group {
+                if let listing = model.published {
+                    SellSuccessView(model: model, listing: listing, close: close)
+                        .transition(.opacity.combined(with: .scale(scale: 0.96)))
+                } else {
+                    wizard
+                }
+            }
+            .rfScreenBackground()
+        }
+        .tint(RF.C.hibiscus)
+        .onAppear { model.notify = { store.show($0) } }
     }
+
+    // MARK: Wizard
+
+    private var wizard: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 0) {
+                Text("Étape \(model.step.rawValue)/\(SellFlowModel.Step.allCases.count)")
+                    .font(RF.F.body(10, .bold))
+                    .kerning(0.5)
+                    .textCase(.uppercase)
+                    .foregroundStyle(RF.C.textDim)
+                    .padding(.bottom, 14)
+                    .accessibilityHidden(true)
+                stepContent
+            }
+            .padding(.horizontal, RF.S.gutter)
+            .padding(.top, 16)
+            .padding(.bottom, 24)
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
+        .id(model.step)
+        .transition(.asymmetric(
+            insertion: .move(edge: model.movingForward ? .trailing : .leading).combined(with: .opacity),
+            removal: .opacity))
+        .scrollDismissesKeyboard(.interactively)
+        .safeAreaInset(edge: .top, spacing: 0) { progressBar }
+        .safeAreaInset(edge: .bottom, spacing: 0) { bottomBar }
+        .navigationTitle(model.step.title)
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar { toolbarItems }
+        .toolbar {
+            ToolbarItemGroup(placement: .keyboard) {
+                Spacer()
+                Button("OK") { hideKeyboard() }.font(RF.F.body(14, .bold))
+            }
+        }
+        .confirmationDialog("Abandonner cette annonce ?", isPresented: $confirmClose, titleVisibility: .visible) {
+            Button("Abandonner l'annonce", role: .destructive) { close() }
+            Button("Continuer à remplir", role: .cancel) {}
+        } message: {
+            Text("Les photos et informations saisies seront perdues.")
+        }
+    }
+
+    @ViewBuilder private var stepContent: some View {
+        switch model.step {
+        case .photos: SellPhotosStep(model: model)
+        case .category: SellCategoryStep(model: model)
+        case .brand: SellBrandStep(model: model)
+        case .size: SellSizeStep(model: model)
+        case .condition: SellConditionStep(model: model)
+        case .color: SellColorStep(model: model)
+        case .details: SellDetailsStep(model: model)
+        case .price: SellPriceStep(model: model)
+        case .delivery: SellDeliveryStep(model: model)
+        case .review: SellReviewStep(model: model)
+        }
+    }
+
+    @ToolbarContentBuilder private var toolbarItems: some ToolbarContent {
+        ToolbarItem(placement: .topBarLeading) {
+            if model.step.previous != nil {
+                Button { hideKeyboard(); model.back() } label: {
+                    Image(systemName: "chevron.left").font(.system(size: 15, weight: .semibold))
+                }
+                .accessibilityLabel("Étape précédente")
+            }
+        }
+        ToolbarItem(placement: .topBarTrailing) {
+            Button { requestClose() } label: {
+                Image(systemName: "xmark").font(.system(size: 14, weight: .semibold))
+            }
+            .accessibilityLabel("Fermer")
+        }
+    }
+
+    /// Mockup `.sell-progress`: 4 pt hibiscus bar under the title.
+    private var progressBar: some View {
+        let fraction = Double(model.step.rawValue) / Double(SellFlowModel.Step.allCases.count)
+        return GeometryReader { geo in
+            Capsule().fill(RF.C.line)
+                .overlay(alignment: .leading) {
+                    Capsule().fill(RF.C.hibiscus).frame(width: geo.size.width * fraction)
+                }
+        }
+        .frame(height: 4)
+        .padding(.horizontal, RF.S.gutter)
+        .padding(.top, 4)
+        .padding(.bottom, 2)
+        .background(RF.C.paper)
+        .animation(.snappy, value: model.step)
+        .accessibilityElement()
+        .accessibilityLabel("Progression")
+        .accessibilityValue("Étape \(model.step.rawValue) sur \(SellFlowModel.Step.allCases.count) : \(model.step.title)")
+    }
+
+    private var bottomBar: some View {
+        VStack(spacing: 8) {
+            if let hint = model.blockingHint {
+                Text(hint)
+                    .font(RF.F.body(11))
+                    .foregroundStyle(RF.C.textDim)
+                    .multilineTextAlignment(.center)
+                    .transition(.opacity)
+            }
+            RFButton(primaryTitle, symbol: model.step == .review ? "paperplane.fill" : nil,
+                     isLoading: model.isPublishing) {
+                primaryAction()
+            }
+            .disabled(!model.canContinue(model.step))
+        }
+        .padding(.horizontal, RF.S.gutter)
+        .padding(.top, 10)
+        .padding(.bottom, 8)
+        .background(RF.C.paper)
+        .overlay(alignment: .top) { Rectangle().fill(RF.C.line).frame(height: 1) }
+        .animation(.easeOut(duration: 0.2), value: model.blockingHint)
+    }
+
+    private var primaryTitle: String {
+        if model.step == .review { return model.isPublishing ? "Publication…" : "Publier l'annonce" }
+        return model.returnToReview ? "Revenir à la relecture" : "Continuer"
+    }
+
+    private func primaryAction() {
+        hideKeyboard()
+        if model.step == .review {
+            Task { await model.publish(using: store) }
+        } else {
+            model.advance()
+        }
+    }
+
+    // MARK: Closing
+
+    private func requestClose() {
+        hideKeyboard()
+        if model.isDirty && model.published == nil { confirmClose = true } else { close() }
+    }
+
+    private func close() {
+        router.isSellPresented = false
+    }
+
+    private func hideKeyboard() {
+        UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
+    }
+}
+
+#Preview {
+    SellFlowView().previewEnvironment()
 }

@@ -31,7 +31,7 @@ extension SizeType {
         switch self {
         case .haut: ["XS", "S", "M", "L", "XL"]
         case .pantalon: ["36", "38", "40", "42", "44"]
-        case .chaussures: ["38", "39", "40", "41", "42", "43"]
+        case .chaussures: ["36", "37", "38", "39", "40", "41", "42", "43", "44", "45"]
         case .enfant: ["0-3 mois", "3-6 mois", "6-12 mois", "2 ans", "4 ans", "6 ans", "8 ans", "10 ans", "12 ans"]
         case .unique: ["Taille unique"]
         }
@@ -128,6 +128,13 @@ extension PhotoFlag {
         case .watermark: "Watermark professionnel détecté"
         }
     }
+}
+
+/// Public links (universal links to configure on the refripe.app domain).
+enum AppLinks {
+    static let host = "https://refripe.app"
+    static func listing(_ id: UUID) -> URL { URL(string: "\(host)/a/\(id.uuidString.lowercased())")! }
+    static func profile(_ id: UUID) -> URL { URL(string: "\(host)/u/\(id.uuidString.lowercased())")! }
 }
 
 enum Catalog {

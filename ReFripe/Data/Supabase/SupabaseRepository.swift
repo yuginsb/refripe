@@ -534,8 +534,8 @@ final class SupabaseRepository: Repository, @unchecked Sendable {
     func notifications() async throws -> [AppNotification] {
         try await run {
             _ = try await requireUser()
-            let rows: [NotificationRow] = try await client.from("notifications")
-                .select(NotificationRow.columns)
+            let rows: [NotificationDTO] = try await client.from("notifications")
+                .select(NotificationDTO.columns)
                 .order("created_at", ascending: false)
                 .limit(100)
                 .execute().value

@@ -401,6 +401,14 @@ actor DemoState {
             if thread.rounds.last?.by == .buyer {
                 throw RepositoryError.invalidState("Attends la réponse de la vendeuse avant de refaire une offre.")
             }
+            // Same rule as the Supabase `make_offer` RPC: meeting the seller's pending counter accepts it.
+            if let counter = thread.rounds.last, counter.by == .seller, counter.action == .counter, amount >= counter.amount {
+                thread.rounds.append(OfferRound(by: .buyer, amount: counter.amount, action: .accept, at: now))
+                thread.status = .accepted
+                thread.updatedAt = now
+                threads[i] = thread
+                return thread
+            }
             thread.rounds.append(OfferRound(by: .buyer, amount: amount, action: .offer, at: now))
             thread.updatedAt = now
             threads[i] = thread

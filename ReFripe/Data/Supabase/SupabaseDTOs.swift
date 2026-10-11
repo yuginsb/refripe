@@ -442,7 +442,7 @@ struct MessageInsert: Encodable {
 
 // MARK: Notifications
 
-struct NotificationRow: Decodable {
+struct NotificationDTO: Decodable {
     static let columns = "id,kind,title,body,created_at,read,listing_id,order_id,conversation_id"
 
     let id: UUID

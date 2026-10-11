@@ -12,7 +12,8 @@ enum AppTab: Hashable, CaseIterable {
 enum Route: Hashable {
     case product(UUID)              // listing id
     case offer(UUID)                // listing id — compose an offer / counter-offer
-    case offerThread(UUID)          // listing id — negotiation thread
+    case offerThread(UUID)          // listing id — negotiation thread (buyer side)
+    case receivedOffers(UUID)       // listing id — offers received on MY listing (seller side: accept / refuse / counter)
     case checkout(UUID)             // listing id
     case order(UUID)                // order id — tracking (buyer & seller)
     case chat(UUID)                 // conversation id
@@ -56,6 +57,7 @@ extension View {
             case .product(let id): ProductView(listingId: id)
             case .offer(let id): OfferComposerView(listingId: id)
             case .offerThread(let id): OfferThreadView(listingId: id)
+            case .receivedOffers(let id): ReceivedOffersView(listingId: id)
             case .checkout(let id): CheckoutView(listingId: id)
             case .order(let id): OrderTrackingView(orderId: id)
             case .chat(let id): ChatThreadView(conversationId: id)
