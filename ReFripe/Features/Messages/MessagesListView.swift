@@ -32,6 +32,7 @@ struct MessagesListView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .rfScreenBackground()
         .navigationTitle("Messages")
+        .navigationBarTitleDisplayMode(.inline)
         .searchable(text: $query, placement: .navigationBarDrawer(displayMode: .always), prompt: "Rechercher une conversation")
         .task {
             await load()
