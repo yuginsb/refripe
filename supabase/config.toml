@@ -1,0 +1,86 @@
+# Supabase CLI — configuration locale de ReFripe (`supabase start`).
+# Le projet hébergé se configure dans le dashboard (voir docs/BACKEND.md).
+
+project_id = "refripe"
+
+[api]
+enabled = true
+port = 54321
+schemas = ["public", "graphql_public"]
+extra_search_path = ["public", "extensions"]
+max_rows = 1000
+
+[db]
+port = 54322
+shadow_port = 54320
+# Doit correspondre à la version du projet hébergé (Settings → Infrastructure).
+major_version = 17
+
+[db.seed]
+enabled = true
+sql_paths = ["./seed.sql"]
+
+[studio]
+enabled = true
+port = 54323
+
+[inbucket]
+enabled = true
+port = 54324
+
+[storage]
+enabled = true
+file_size_limit = "10MiB"
+
+[auth]
+enabled = true
+site_url = "refripe://auth-callback"
+additional_redirect_urls = ["refripe://auth-callback"]
+jwt_expiry = 3600
+enable_refresh_token_rotation = true
+refresh_token_reuse_interval = 10
+enable_signup = true
+enable_anonymous_sign_ins = false
+
+[auth.email]
+enable_signup = false
+
+[auth.sms]
+enable_signup = true
+enable_confirmations = true
+template = "Ton code ReFripe : {{ .Code }}"
+max_frequency = "60s"
+
+# Connexion locale sans SMS pour les comptes du seed (code 123456).
+[auth.sms.test_otp]
+2250700000001 = "123456"
+2250700000002 = "123456"
+2250700000003 = "123456"
+221770000004 = "123456"
+221770000005 = "123456"
+2250700000006 = "123456"
+
+# Fournisseur SMS réel (désactivé en local). Secret via variable d'environnement.
+[auth.sms.twilio]
+enabled = false
+account_sid = ""
+message_service_sid = ""
+auth_token = "env(SUPABASE_AUTH_SMS_TWILIO_AUTH_TOKEN)"
+
+# Sign in with Apple natif : le client_id est le Bundle ID de l'app.
+# Activer en local seulement si tu testes Apple sur simulateur/appareil.
+[auth.external.apple]
+enabled = false
+client_id = "dev.eugenebessan.refripe"
+secret = "env(SUPABASE_AUTH_EXTERNAL_APPLE_SECRET)"
+
+[edge_runtime]
+enabled = true
+policy = "per_worker"
+
+[functions.payment-init]
+verify_jwt = true
+
+# Appelée par Wave / Orange Money : authentifiée par signature, pas par JWT.
+[functions.payment-webhook]
+verify_jwt = false
