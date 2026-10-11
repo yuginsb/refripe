@@ -1,0 +1,146 @@
+[ReFripeUITests] testMainFlowScreenshots()
+    Failed to synthesize event: Neither element nor any descendant has keyboard focus. Event dispatch snapshot: Application, pid: 28283, label: 'ReFripe'
+Element debug description:
+Attributes: Application, 0x101a5cfb0, pid: 28283, label: 'ReFripe'
+Element subtree:
+ →Application, 0x101a5cfb0, pid: 28283, label: 'ReFripe'
+    Window (Main), 0x101b68da0, {{0.0, 0.0}, {402.0, 874.0}}
+      Other, 0x101b6b400, {{0.0, 0.0}, {402.0, 874.0}}
+        Other, 0x101b6b520, {{0.0, 0.0}, {402.0, 874.0}}
+          Other, 0x101b6b2b0, {{0.0, 0.0}, {402.0, 874.0}}
+            Other, 0x10197a7e0, {{0.0, 0.0}, {402.0, 874.0}}
+              Other, 0x101a7a0e0, {{0.0, 0.0}, {402.0, 874.0}}
+                Other, 0x101a5b4e0, {{0.0, 0.0}, {402.0, 874.0}}
+                  Other, 0x101a5d2f0, {{0.0, 0.0}, {402.0, 874.0}}
+                    Other, 0x101a66f50, {{0.0, 0.0}, {402.0, 874.0}}
+                      Other, 0x101a63590, {{0.0, 0.0}, {402.0, 874.0}}
+                        Other, 0x101a6e980, {{0.0, 0.0}, {402.0, 874.0}}
+                          Other, 0x101a0bd90, {{0.0, 0.0}, {402.0, 874.0}}
+                            Other, 0x101a6fdf0, {{0.0, 0.0}, {402.0, 874.0}}
+                              Other, 0x101a7a690, {{0.0, 0.0}, {402.0, 874.0}}
+                                Other, 0x101a7aab0, {{0.0, 0.0}, {402.0, 874.0}}
+                                  Other, 0x101a789a0, {{0.0, 0.0}, {402.0, 874.0}}
+                                    StaticText, 0x101a7d0d0, {{16.0, 88.7}, {79.3, 18.7}}, label: 'Salut toi'
+                                    Button, 0x101a7d1f0, {{347.0, 81.0}, {34.0, 34.0}}, identifier: 'bell', label: 'Notifications'
+                                    Button, 0x101a7d310, {{19.0, 135.0}, {182.0, 32.7}}, label: 'Swipe', Selected
+                                    Button, 0x101a7d430, {{201.0, 135.0}, {182.0, 32.7}}, label: 'Grille'
+                                    StaticText, 0x101a7d550, {{29.0, 194.7}, {210.3, 15.7}}, label: 'Nouveaux arrivages dans 02:13:39'
+                                      Image, 0x101a7d670, {{29.0, 196.3}, {12.3, 12.3}}, identifier: 'clock', label: 'Horloge'
+                                      StaticText, 0x101a7d790, {{48.3, 194.7}, {191.0, 15.7}}, label: 'Nouveaux arrivages dans 02:13:39'
+                                    Button, 0x101a7d8b0, {{32.7, 278.1}, {336.7, 400.4}}, identifier: 'discover.swipe.card', label: 'Baskets Nike Air, 8 000 FCFA, Pointure 42, Yopougon, Abidjan, Dernière pièce'
+                                      Image, 0x101a7d9d0, {{32.7, 267.2}, {336.7, 336.7}}, label: 'listing-3'
+                                      StaticText, 0x101a7daf0, {{41.8, 563.9}, {94.9, 19.7}}, label: 'Dernière pièce'
+                                        Image, 0x101b07e90, {{50.9, 568.7}, {7.9, 10.0}}, identifier: 'flame.fill', label: 'Flamme'
+                                        StaticText, 0x101b6b640, {{64.2, 567.5}, {64.3, 12.4}}, label: 'Dernière pièce'
+                                      StaticText, 0x101b6b760, {{47.2, 605.4}, {104.0, 22.8}}, label: '8 000 FCFA'
+                                      StaticText, 0x101b6b880, {{47.2, 630.9}, {91.6, 16.4}}, label: 'Baskets Nike Air'
+                                      StaticText, 0x101b6b9a0, {{47.2, 650.0}, {147.7, 14.0}}, label: 'Pointure 42 · Yopougon, Abidjan'
+                                      StaticText, 0x101b6bac0, {{46.8, 286.3}, {85.4, 43.5}}, label: 'J'AIME'
+                                      StaticText, 0x101b6bbe0, {{273.0, 286.7}, {82.2, 42.6}}, label: 'PASSE'
+                                    Button, 0x101b6bd00, {{24.3, 258.2}, {353.3, 420.2}}, identifier: 'discover.swipe.card', label: 'Chemise vintage à carreaux, 2 000 FCFA, Taille L, Plateau, Abidjan'
+                                      Image, 0x101b6be20, {{24.3, 246.8}, {353.3, 353.3}}, label: 'listing-2'
+                                      StaticText, 0x101b6bf40, {{39.6, 601.7}, {109.2, 23.9}}, label: '2 000 FCFA'
+                                      StaticText, 0x101b6c060, {{39.6, 628.5}, {166.8, 17.2}}, label: 'Chemise vintage à carreaux'
+                                      StaticText, 0x101b6c180, {{39.6, 648.5}, {119.1, 14.6}}, label: 'Taille L · Plateau, Abidjan'
+                                      StaticText, 0x101b6c2a0, {{39.2, 266.8}, {89.7, 45.6}}, label: 'J'AIME'
+                                      StaticText, 0x101b6c3c0, {{276.6, 267.2}, {86.3, 44.8}}, label: 'PASSE'
+                                    Button, 0x101b6c4e0, {{16.0, 238.3}, {370.0, 440.0}}, identifier: 'discover.swipe.topCard', label: 'Robe wax imprimé, motif Ankara, 4 500 FCFA, Taille M, Cocody, Abidjan'
+                                      Image, 0x101b6c600, {{16.0, 226.3}, {370.0, 370.0}}, label: 'listing-1'
+                                      StaticText, 0x101b6c720, {{32.0, 598.0}, {114.3, 25.0}}, label: '4 500 FCFA'
+                                      StaticText, 0x101b6c840, {{32.0, 626.0}, {200.7, 18.0}}, label: 'Robe wax imprimé, motif Ankara'
+                                      StaticText, 0x101b6c960, {{32.0, 647.0}, {128.3, 15.3}}, label: 'Taille M · Cocody, Abidjan'
+                                      StaticText, 0x101b6ca80, {{31.6, 247.3}, {93.9, 47.8}}, label: 'J'AIME'
+                                      StaticText, 0x101b6cba0, {{280.2, 247.7}, {90.3, 46.9}}, label: 'PASSE'
+                                    Alert, 0x101b6ccc0, {{16.0, 238.3}, {370.0, 440.0}}
+                                      Image, 0x101b6cde0, {{177.0, 338.3}, {48.0, 48.0}}, identifier: 'hand.draw', label: 'hand.draw'
+                                      StaticText, 0x101b6cf00, {{134.0, 398.3}, {134.0, 18.7}}, label: 'Glisse la carte'
+                                      Image, 0x101b6d020, {{50.0, 431.0}, {26.0, 26.0}}, identifier: 'arrow.left', label: 'Gauche'
+                                      StaticText, 0x101b6d140, {{86.0, 435.7}, {184.7, 16.7}}, label: 'Vers la gauche, tu passes l'article'
+                                      Image, 0x101b6d260, {{50.0, 466.0}, {26.0, 26.0}}, identifier: 'arrow.right', label: 'Droite'
+                                      StaticText, 0x101b6d380, {{86.0, 470.7}, {183.3, 16.7}}, label: 'Vers la droite, il rejoint tes envies'
+                                      StaticText, 0x101b6d4a0, {{71.8, 505.0}, {258.3, 15.3}}, label: 'Les deux boutons en dessous font la même chose.'
+                                      Button, 0x101b6d5c0, {{50.0, 534.3}, {302.0, 46.0}}, label: 'J'ai compris'
+                                    Button, 0x101b6d6e0, {{134.0, 694.3}, {54.0, 54.0}}, identifier: 'xmark', label: 'Passer'
+                                    Button, 0x101b6d800, {{214.0, 694.3}, {54.0, 54.0}}, identifier: 'heart.fill', label: 'J'aime, ajouter aux envies'
+                            Other, 0x101b6d920, {{0.0, 0.0}, {402.0, 874.0}}
+                              Other, 0x101b6da40, {{0.0, 0.0}, {402.0, 874.0}}
+                Other, 0x101b6db60, {{0.0, 791.0}, {402.0, 83.0}}
+                  Other, 0x101b6dc80, {{0.0, 0.0}, {402.0, 874.0}}
+                    TabBar, 0x101b6dda0, {{0.0, 791.0}, {402.0, 83.0}}, label: 'Barre d’onglets'
+                      Other, 0x101b6dec0, {{21.0, 791.0}, {360.0, 62.0}}
+                        Other, 0x101b6dfe0, {{21.0, 791.0}, {79.7, 54.0}}
+                        Other, 0x101990ab0, {{21.0, 791.0}, {360.0, 62.0}}
+                          Button, 0x10197ca80, {{25.0, 795.0}, {79.7, 54.0}}, identifier: 'house', label: 'Découvrir', Selected
+                            Image, 0x10197bc90, {{48.0, 801.0}, {33.3, 28.0}}, identifier: 'house.fill', label: 'accueil'
+                          Button, 0x101972ab0, {{97.0, 795.0}, {74.0, 54.0}}, identifier: 'heart', label: 'Envies'
+                            Image, 0x10197c380, {{120.0, 802.7}, {28.7, 25.0}}, identifier: 'heart.fill', label: 'amour'
+                          Button, 0x1019712e0, {{163.3, 795.0}, {74.0, 54.0}}, label: 'Vendre'
+                          Button, 0x1019914e0, {{229.7, 795.0}, {81.0, 54.0}}, identifier: 'bubble.left', label: 'Messages'
+                            Image, 0x101990730, {{254.7, 801.7}, {31.3, 27.7}}, identifier: 'bubble.left.fill', label: 'commentaire gauche'
+                          Button, 0x101a7dc10, {{303.0, 795.0}, {74.0, 54.0}}, identifier: 'person', label: 'Profil'
+                            Image, 0x101a7dd30, {{327.0, 802.7}, {25.3, 24.7}}, identifier: 'person.fill', label: 'person.fill'
+                        Other, 0x101b6e100, {{25.0, 795.0}, {79.7, 54.0}}
+                          Other, 0x101b6e220, {{25.0, 795.0}, {79.7, 54.0}}
+                            Other, 0x101b6e340, {{25.0, 795.0}, {79.7, 54.0}}
+                            Other, 0x101b6e460, {{25.0, 795.0}, {79.7, 54.0}}
+                              Other, 0x101b6e580, {{25.0, 795.0}, {79.7, 54.0}}
+                                Other, 0x101b6e6a0, {{25.0, 795.0}, {79.7, 54.0}}
+                                  Other, 0x101b6e7c0, {{25.0, 795.0}, {79.7, 54.0}}
+                                Other, 0x101b6e8e0, {{25.0, 795.0}, {79.7, 54.0}}
+                              Other, 0x101992240, {{25.0, 795.0}, {79.7, 54.0}}
+                  Other, 0x101992cc0, {{0.0, 791.0}, {402.0, 83.0}}
+                    Other, 0x101990e10, {{0.0, 791.0}, {402.0, 83.0}}
+                      Other, 0x101993060, {{0.0, 791.0}, {402.0, 83.0}}
+                        Other, 0x1019731b0, {{0.0, 791.0}, {402.0, 83.0}}
+                          Other, 0x1019925c0, {{0.0, 791.0}, {402.0, 83.0}}
+                            Other, 0x101972740, {{0.0, 791.0}, {402.0, 83.0}}
+                        Other, 0x101972e50, {{0.0, 791.0}, {402.0, 83.0}}
+                          Other, 0x101991160, {{0.0, 791.0}, {402.0, 83.0}}
+      Other, 0x101992950, {{0.0, 0.0}, {402.0, 874.0}}
+        Other, 0x101971650, {{0.0, 0.0}, {402.0, 874.0}}
+          Other, 0x10197df40, {{0.0, 0.0}, {402.0, 874.0}}
+            Other, 0x1019903b0, {{0.0, 0.0}, {402.0, 874.0}}
+              NavigationBar, 0x101991ef0, {{0.0, 62.0}, {402.0, 54.0}}, identifier: 'Numéro de téléphone'
+                Button, 0x1019808b0, {{16.0, 62.0}, {44.0, 44.0}}, identifier: 'BackButton', label: 'Précédent'
+                StaticText, 0x10197f700, {{101.0, 74.7}, {200.0, 18.7}}, label: 'Numéro de téléphone'
+              Other, 0x10197ecc0, {{0.0, 0.0}, {402.0, 874.0}}
+                Other, 0x1019719c0, {{0.0, 0.0}, {402.0, 874.0}}
+                  Other, 0x10197e2b0, {{0.0, 0.0}, {402.0, 874.0}}
+                    Other, 0x10197f3a0, {{0.0, 0.0}, {402.0, 874.0}}
+                      ScrollView, 0x10197fdb0, {{0.0, 0.0}, {402.0, 874.0}}
+                        Other, 0x10197d860, {{0.0, 0.0}, {402.0, 874.0}}
+                          Other, 0x10197d170, {{0.0, 0.0}, {402.0, 170.8}}
+                        Other, 0x10197dbc0, {{0.0, 0.0}, {402.0, 874.0}}
+                        Other, 0x10197e610, {{0.0, 116.0}, {402.0, 354.3}}
+                          StaticText, 0x101971d20, {{27.3, 138.0}, {347.3, 36.0}}, label: 'Ce numéro sert aussi pour Wave et Orange Money au moment de payer.'
+                          StaticText, 0x10197e970, {{16.0, 196.0}, {171.7, 16.3}}, label: 'NUMÉRO MOBILE, Code envoyé'
+                            StaticText, 0x101979630, {{16.0, 196.5}, {95.0, 15.3}}, label: 'NUMÉRO MOBILE'
+                            StaticText, 0x101978bd0, {{124.0, 198.0}, {56.7, 12.3}}, label: 'Code envoyé'
+                          Button, 0x101978870, {{29.0, 230.7}, {72.7, 19.3}}, label: 'Indicatif : Côte d'Ivoire, plus 225', Disabled
+                            Button, 0x101978510, {{29.0, 230.7}, {72.7, 19.3}}, Disabled
+                              StaticText, 0x101975870, {{29.0, 231.3}, {17.0, 18.0}}, label: '🇨🇮', Disabled
+                              StaticText, 0x101975150, {{50.0, 230.5}, {36.0, 19.7}}, label: '+225', Disabled
+                              Image, 0x101974a60, {{91.3, 237.7}, {9.0, 5.3}}, identifier: 'chevron.down', label: 'Descendre', Disabled
+                          TextField, 0x1019746e0, {{122.7, 229.7}, {250.3, 21.3}}, label: 'Numéro mobile', placeholderValue: '07 12 34 56 78', value: 07 07 07 07 07, Disabled
+                          StaticText, 0x101973fe0, {{51.3, 276.3}, {299.3, 15.3}}, label: 'Code envoyé par SMS au +225 07 07 07 07 07 (démo : 1234)'
+                          TextField, 0x101974380, {{200.7, 317.7}, {1.0, 22.0}}, label: 'Code de vérification à 4 chiffres'
+                          Button, 0x101977e60, {{16.0, 371.7}, {370.0, 46.0}}, label: 'Valider', Disabled
+                          Button, 0x1019754f0, {{69.7, 431.7}, {109.3, 16.7}}, label: 'Modifier le numéro'
+                          Button, 0x101975bd0, {{197.0, 431.7}, {135.3, 16.7}}, label: 'Renvoyer le code (22 s)', Disabled
+                        Other, 0x101976a30, {{369.0, 116.0}, {30.0, 696.0}}, label: 'Barre de défilement verticale, 1 page', value: 0 %
+                          Other, 0x101975f20, {{396.0, 567.3}, {3.0, 241.7}}
+                        Other, 0x101976d80, {{369.0, 116.0}, {30.0, 696.0}}, label: 'Barre de défilement verticale, 1 page', value: 0 %
+                          Other, 0x101977430, {{396.0, 567.3}, {3.0, 241.7}}
+              Other, 0x1019770f0, {{0.0, 0.0}, {402.0, 874.0}}
+                Other, 0x101977af0, {{0.0, 0.0}, {402.0, 874.0}}
+    Window, 0x101974de0, {{0.0, 0.0}, {402.0, 874.0}}
+      Other, 0x1019781b0, {{0.0, 0.0}, {402.0, 874.0}}
+        Other, 0x10197d510, {{0.0, 0.0}, {402.0, 874.0}}
+Path to element:
+ →Application, 0x101a5cfb0, pid: 28283, label: 'ReFripe'
+Query chain:
+ →Find: Target Application 'dev.eugenebessan.refripe'
+  Output: {
+    Application, 0x10197a440, pid: 28283, label: 'ReFripe'
+  }
+

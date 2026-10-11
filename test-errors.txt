@@ -1,0 +1,2 @@
+** TEST FAILED **
+/Users/runner/work/refripe/refripe/ReFripeUITests/MainFlowScreenshotTests.swift:70: error: -[ReFripeUITests.MainFlowScreenshotTests testMainFlowScreenshots] : Failed to synthesize event: Neither element nor any descendant has keyboard focus. Event dispatch snapshot: Application, pid: 28283, label: 'ReFripe'
