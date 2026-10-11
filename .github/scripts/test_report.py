@@ -45,6 +45,8 @@ def export_attachments_new():
             src = os.path.join(tmp, a["exportedFileName"])
             human = a.get("suggestedHumanReadableName") or a["exportedFileName"]
             base, ext = os.path.splitext(human)
+            if ext.lower() not in (".png", ".jpg", ".jpeg", ".heic"):
+                continue   # skip automatic failure attachments (UI hierarchy, recordings…)
             # "01-discover-swipe_0_1A2B…" → "01-discover-swipe"
             base = re.sub(r"_\d+_[0-9A-Fa-f-]{36}$", "", base)
             dst = os.path.join(screens, safe(base) + (ext or ".png"))

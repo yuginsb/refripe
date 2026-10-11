@@ -65,9 +65,12 @@ final class MainFlowScreenshotTests: XCTestCase {
         send.tap()
 
         guard require(button("Valider"), "OTP screen") else { return }
-        // The hidden code field gets the focus as soon as the code is sent.
-        _ = app.textFields["Code de vérification à 4 chiffres"].waitForExistence(timeout: 5)
-        app.typeText("1234")   // 4 digits → verifies automatically
+        // The real code field is a 1-pt hidden field under the digit boxes; tapping the boxes focuses it.
+        let code = app.textFields["Code de vérification à 4 chiffres"]
+        guard require(code, "code field") else { return }
+        code.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+        _ = app.keyboards.firstMatch.waitForExistence(timeout: 3)
+        code.typeText("1234")   // 4 digits → verifies automatically
 
         // Signed back in as Awa (onboarding already completed) → the cover closes on the tab bar.
         if !app.tabBars.firstMatch.waitForExistence(timeout: timeout) {
