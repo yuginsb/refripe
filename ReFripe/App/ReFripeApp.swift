@@ -19,7 +19,13 @@ struct ReFripeApp: App {
                 .environment(router)
                 .tint(RF.C.hibiscus)
                 .preferredColorScheme(.light)
-                .task { await store.bootstrap() }
+                .task {
+                    // UI tests: `-uiTestingSignedOut` starts the demo signed out, so the sign-up flow is shown.
+                    if store.isDemo && ProcessInfo.processInfo.arguments.contains("-uiTestingSignedOut") {
+                        try? await store.repo.signOut()
+                    }
+                    await store.bootstrap()
+                }
         }
     }
 }

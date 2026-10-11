@@ -40,12 +40,23 @@ Déploiement du backend, authentification (SMS, Sign in with Apple) et paiement 
 | `supabase/` | migrations SQL, seed, Edge Functions `payment-init` / `payment-webhook` |
 | `docs/` | [architecture](docs/ARCHITECTURE.md) et [backend](docs/BACKEND.md) |
 
+## Tests
+
+- `ReFripeTests` (XCTest) : règles de négociation (`OfferRules`, plafond de 3 offres, contre-offre acceptée, refus), machine à états des commandes et totaux (prix + frais de remise), filtres et tri de Découvrir, envies, formatage `Fmt`, sur le `DemoRepository`.
+- `ReFripeUITests` : parcourt l'app en mode démo (inscription → Découvrir swipe/grille → filtres → fiche → offre → paiement → envies → vente → messages → profil → tableau de bord → notifications) et joint une capture d'écran par écran.
+- Argument de lancement `-uiTestingSignedOut` (mode démo uniquement) : démarre déconnecté pour afficher l'inscription ; le numéro 07 07 07 07 07 et le code 1234 reconnectent Awa.
+
+Dans Xcode : schéma ReFripe → ⌘U.
+
 ## Intégration continue
 
-`.github/workflows/ios.yml` compile l'app pour le simulateur, sans signature, à chaque push sur `main` et sur chaque pull request.
+`.github/workflows/ios.yml` compile l'app pour le simulateur, sans signature, puis lance les tests unitaires et le test d'interface sur un iPhone simulé (choisi par `.github/scripts/pick_simulator.py`), à chaque push sur `main` et sur chaque pull request.
+
+- Branche `ci-screens` : captures d'écran du test d'interface + `summary.txt` (résultat de chaque test), publiée même si des tests échouent.
+- Branche `ci-logs` (en cas d'échec) : erreurs de compilation (`errors.txt`), tests en échec avec leurs messages (`test-failures.txt`), fin des journaux.
 
 ## Reste à faire avant la production
 
 - **Paiement** : contrats marchands Wave et Orange Money, puis compléter les `TODO(Wave)` / `TODO(Orange Money)` des Edge Functions.
 - **Livraison** : aujourd'hui, la vendeuse comme l'acheteuse peut marquer un colis « livré », ce qui lance le délai de 72 h avant libération du séquestre. Il faudra une confirmation par le point relais ou par Yango.
-- **Tests** : aucun test automatisé pour l'instant. Les premiers à écrire concernent les règles de négociation et la machine à états des commandes.
+- **Tests** : les tests couvrent le `DemoRepository` ; il manque des tests d'intégration des RPC Supabase (droits par rôle sur les transitions de commande, notamment).

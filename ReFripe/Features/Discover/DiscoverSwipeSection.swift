@@ -133,6 +133,7 @@ struct DiscoverSwipeSection: View {
             .accessibilityAction(named: "J'aime") { fly(liked: true) }
             .accessibilityAction(named: "Passer") { fly(liked: false) }
             .accessibilityHidden(!isTop)
+            .accessibilityIdentifier(isTop ? "discover.swipe.topCard" : "discover.swipe.card")
     }
 
     private func cardAccessibilityLabel(_ l: Listing) -> String {

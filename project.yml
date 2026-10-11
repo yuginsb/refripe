@@ -69,3 +69,35 @@ targets:
     configFiles:
       Debug: Config/Secrets.xcconfig
       Release: Config/Secrets.xcconfig
+    scheme:
+      testTargets:
+        - ReFripeTests
+        - ReFripeUITests
+
+  # Unit tests (business rules, demo repository) — hosted in the app, `@testable import ReFripe`.
+  ReFripeTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources:
+      - path: ReFripeTests
+    dependencies:
+      - target: ReFripe
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: dev.eugenebessan.refripe.tests
+        GENERATE_INFOPLIST_FILE: YES
+        TARGETED_DEVICE_FAMILY: "1"
+
+  # UI test: walks the main flow in demo mode and attaches a screenshot of each screen.
+  ReFripeUITests:
+    type: bundle.ui-test
+    platform: iOS
+    sources:
+      - path: ReFripeUITests
+    dependencies:
+      - target: ReFripe
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: dev.eugenebessan.refripe.uitests
+        GENERATE_INFOPLIST_FILE: YES
+        TARGETED_DEVICE_FAMILY: "1"

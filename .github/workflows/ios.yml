@@ -1,4 +1,4 @@
-name: iOS build
+name: iOS build & tests
 
 on:
   push:
@@ -11,13 +11,13 @@ concurrency:
   cancel-in-progress: true
 
 permissions:
-  contents: write   # lets a failed build publish its error summary to the ci-logs branch
+  contents: write   # lets the job publish its error summary (ci-logs) and screenshots (ci-screens) branches
 
 jobs:
   build:
-    name: Build (simulator, no signing)
+    name: Build & test (simulator, no signing)
     runs-on: macos-15
-    timeout-minutes: 40
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
 
@@ -61,22 +61,86 @@ jobs:
               exit 1
             }
 
-      - name: Upload build log
-        if: failure()
+      - name: Pick simulator
+        id: sim
+        run: |
+          python3 .github/scripts/pick_simulator.py | tee -a "$GITHUB_OUTPUT"
+
+      # Unit tests (ReFripeTests) + UI walk-through with screenshots (ReFripeUITests), demo mode.
+      - name: Test (unit + UI)
+        id: test
+        run: |
+          set -o pipefail
+          UDID="${{ steps.sim.outputs.udid }}"
+          xcrun simctl boot "$UDID" || true
+          xcrun simctl bootstatus "$UDID" -b || true
+          xcodebuild test \
+            -project ReFripe.xcodeproj \
+            -scheme ReFripe \
+            -configuration Debug \
+            -destination "id=$UDID" \
+            -derivedDataPath build \
+            -resultBundlePath TestResults.xcresult \
+            -parallel-testing-enabled NO \
+            CODE_SIGNING_ALLOWED=NO \
+            > test.log 2>&1 || {
+              # Compile errors (file:line:col) and XCTest failures (file:line) as annotations.
+              grep -E "^/.*:[0-9]+(:[0-9]+)?: (fatal )?error:" test.log | sort -u | head -50 | while IFS= read -r line; do
+                f=$(echo "$line" | cut -d: -f1 | sed "s|$GITHUB_WORKSPACE/||"); l=$(echo "$line" | cut -d: -f2)
+                m=$(echo "$line" | sed -E 's/^[^:]+:[0-9]+(:[0-9]+)?: (fatal )?error: //')
+                echo "::error file=$f,line=$l::$m"
+              done
+              grep -E "error:|Testing failed|TEST FAILED|\*\* TEST" test.log | sort -u | head -100
+              exit 1
+            }
+          grep -E "Executed [0-9]+ test|\*\* TEST" test.log | tail -5
+
+      - name: Test report & screenshots
+        if: always() && steps.test.outcome != 'skipped'
+        run: python3 .github/scripts/test_report.py TestResults.xcresult test.log test-report
+
+      # Screenshots + summary readable with plain git (git fetch origin ci-screens).
+      - name: Publish screenshots to ci-screens branch
+        if: always() && steps.test.outcome != 'skipped'
+        run: |
+          rm -rf /tmp/ci-screens && mkdir -p /tmp/ci-screens
+          cp -R test-report/screens/. /tmp/ci-screens/ 2>/dev/null || true
+          cp test-report/summary.txt test-report/failures.txt /tmp/ci-screens/ 2>/dev/null || true
+          cd /tmp/ci-screens
+          git init -q -b ci-screens
+          git -c user.name="ci" -c user.email="ci@users.noreply.github.com" add -A
+          git -c user.name="ci" -c user.email="ci@users.noreply.github.com" commit -qm "Screenshots for ${GITHUB_SHA::7} (run ${GITHUB_RUN_ID}, tests: ${{ steps.test.outcome }})"
+          git push -f "https://x-access-token:${{ github.token }}@github.com/${GITHUB_REPOSITORY}.git" ci-screens
+
+      - name: Upload logs and screenshots
+        if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: build-log
-          path: build.log
+          name: logs-and-screenshots
+          if-no-files-found: ignore
+          path: |
+            build.log
+            test.log
+            test-report
 
       # Error summary readable with plain git (git fetch origin ci-logs).
       - name: Publish error summary to ci-logs branch
         if: failure()
         run: |
-          [ -f errors.txt ] || grep -E "error|fatal" build.log | sort -u > errors.txt || true
-          tail -n 300 build.log > build-tail.txt
-          mkdir /tmp/ci-logs && cp errors.txt build-tail.txt /tmp/ci-logs/
+          mkdir -p /tmp/ci-logs
+          if [ -f build.log ]; then
+            [ -f errors.txt ] || grep -E "error:|fatal error|BUILD FAILED" build.log | sort -u > errors.txt || true
+            tail -n 300 build.log > /tmp/ci-logs/build-tail.txt
+          fi
+          [ -f errors.txt ] && cp errors.txt /tmp/ci-logs/
+          if [ -f test.log ]; then
+            grep -E "error:|fatal error|Testing failed|TEST FAILED|TEST BUILD FAILED" test.log | sort -u | head -300 > /tmp/ci-logs/test-errors.txt || true
+            tail -n 300 test.log > /tmp/ci-logs/test-tail.txt
+          fi
+          [ -f test-report/failures.txt ] && cp test-report/failures.txt /tmp/ci-logs/test-failures.txt
+          [ -f test-report/summary.txt ] && cp test-report/summary.txt /tmp/ci-logs/test-summary.txt
           cd /tmp/ci-logs
           git init -q -b ci-logs
           git -c user.name="ci" -c user.email="ci@users.noreply.github.com" add -A
-          git -c user.name="ci" -c user.email="ci@users.noreply.github.com" commit -qm "Build errors for ${GITHUB_SHA::7} (run ${GITHUB_RUN_ID})"
+          git -c user.name="ci" -c user.email="ci@users.noreply.github.com" commit -qm "Build/test errors for ${GITHUB_SHA::7} (run ${GITHUB_RUN_ID})"
           git push -f "https://x-access-token:${{ github.token }}@github.com/${GITHUB_REPOSITORY}.git" ci-logs
