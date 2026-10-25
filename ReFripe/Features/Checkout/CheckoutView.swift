@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// Écran 4 — Paiement (mockup `screenCheckout`, PANEL `checkout`).
+/// Paiement.
 /// Récap article, mode de remise proposé par l'annonce, Wave / Orange Money, note séquestre, total.
 /// « Payer » → `repo.createOrder` (en mode réel, le dépôt ouvre l'URL Wave/OM) → suivi de commande.
 @MainActor
@@ -68,7 +68,7 @@ struct CheckoutView: View {
         }
         guard listing.status == .active else {
             return ("bag.badge.minus", "Article plus disponible",
-                    "Cet article vient d'être réservé ou vendu. Découvre d'autres pièces qui pourraient te plaire.")
+                    "Il vient d'être réservé ou vendu.")
         }
         return nil
     }
@@ -93,213 +93,218 @@ struct CheckoutView: View {
     // MARK: Views
 
     private func blocked(_ reason: (symbol: String, title: String, message: String), listing: Listing) -> some View {
-        ScrollView {
-            EmptyStateView(symbol: reason.symbol, title: reason.title, message: reason.message,
-                           actionTitle: "Retour") {
-                router.pop()
-            }
+        ContentUnavailableView {
+            Label(reason.title, systemImage: reason.symbol)
+        } description: {
+            Text(reason.message)
+        } actions: {
+            Button("Retour") { router.pop() }
+                .buttonStyle(.bordered)
+                .tint(RF.C.hibiscus)
         }
     }
 
     private func content(_ listing: Listing) -> some View {
         let fee = delivery?.fee ?? 0
         let total = itemPrice(listing) + fee
+        let available = methods(listing)
         return ScrollView {
-            VStack(alignment: .leading, spacing: 0) {
+            VStack(alignment: .leading, spacing: RF.S.xl) {
                 summaryRow(listing)
 
-                coLabel("Livraison")
-                VStack(spacing: 10) {
-                    ForEach(methods(listing)) { method in
+                section("Livraison") {
+                    ProductGroupedRows(count: available.count) { i in
+                        let method = available[i]
                         CheckoutDeliveryOption(method: method, selected: delivery == method) {
                             delivery = method
                         }
                     }
                 }
 
-                coLabel("Moyen de paiement")
-                VStack(spacing: 10) {
-                    ForEach(PaymentMethod.allCases) { method in
+                section("Paiement") {
+                    ProductGroupedRows(count: PaymentMethod.allCases.count) { i in
+                        let method = PaymentMethod.allCases[i]
                         CheckoutPaymentRow(method: method, selected: payment == method) {
                             payment = method
                         }
                     }
                 }
 
-                EscrowLockNote(text: "Fonds bloqués jusqu'à confirmation de réception — libérés automatiquement sous \(Catalog.escrowAutoReleaseHours)h si tout va bien.")
-                    .padding(.top, 16)
-
+                EscrowLockNote(text: "Payé à la vendeuse après ta confirmation de réception.")
             }
-            .padding(.horizontal, RF.S.gutter)
-            .padding(.vertical, 14)
+            .padding(EdgeInsets(top: RF.S.lg, leading: RF.S.gutter, bottom: RF.S.xl, trailing: RF.S.gutter))
         }
-        // Total + pay button pinned above the tab bar, always visible (like the product action bar).
+        // Total + pay button pinned above the tab bar, always visible.
         .safeAreaInset(edge: .bottom, spacing: 0) {
             VStack(spacing: 0) {
                 HStack(alignment: .firstTextBaseline) {
                     Text("Total")
-                        .font(RF.F.body(12.5, .bold))
+                        .font(RF.T.body)
                         .foregroundStyle(RF.C.textDim)
                     Spacer()
                     Text(Fmt.fcfa(total))
-                        .font(RF.F.mono(20, .semibold))
-                        .monospacedDigit()
+                        .font(RF.T.price(.title3, weight: .bold))
                         .foregroundStyle(RF.C.text)
                         .contentTransition(.numericText(value: Double(total)))
                         .animation(.snappy(duration: 0.2), value: total)
                 }
-                .padding(.vertical, 12)
+                .padding(.vertical, RF.S.md)
                 .accessibilityElement(children: .combine)
 
-                RFButton("Payer avec \(payment.label)", symbol: "lock.fill", isLoading: isPaying) {
+                RFButton("Payer avec \(payment.label)", isLoading: isPaying) {
                     Task { await pay(listing) }
                 }
                 .disabled(delivery == nil)
             }
             .padding(.horizontal, RF.S.gutter)
-            .padding(.bottom, 10)
+            .padding(.bottom, RF.S.sm)
             .background(RF.C.paper)
-            .overlay(alignment: .top) { Divider().overlay(RF.C.line) }
+            .overlay(alignment: .top) { Rectangle().fill(RF.C.line).frame(height: 0.5) }
         }
         .sensoryFeedback(.selection, trigger: delivery)
         .sensoryFeedback(.selection, trigger: payment)
     }
 
+    private func section<Content: View>(_ title: String, @ViewBuilder content: () -> Content) -> some View {
+        VStack(alignment: .leading, spacing: RF.S.sm) {
+            Text(title)
+                .font(RF.T.footnote.weight(.semibold))
+                .foregroundStyle(RF.C.textDim)
+                .padding(.leading, RF.S.lg)
+                .accessibilityAddTraits(.isHeader)
+            content()
+        }
+    }
+
     private func summaryRow(_ listing: Listing) -> some View {
-        HStack(spacing: 10) {
+        HStack(spacing: RF.S.md) {
             ListingPhotoView(photo: listing.photos.first, listingId: listing.id)
-                .frame(width: 44, height: 44)
-                .clipShape(RoundedRectangle(cornerRadius: RF.R.sm, style: .continuous))
-            VStack(alignment: .leading, spacing: 1) {
+                .frame(width: 56, height: 56)
+                .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+            VStack(alignment: .leading, spacing: 2) {
                 Text(listing.title)
-                    .font(RF.F.body(12.5, .bold))
+                    .font(RF.T.subheadline.weight(.semibold))
                     .foregroundStyle(RF.C.text)
                     .lineLimit(2)
                 Text(subtitle(listing))
-                    .font(RF.F.body(10.5))
+                    .font(RF.T.footnote)
                     .foregroundStyle(RF.C.textDim)
+                    .lineLimit(1)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             VStack(alignment: .trailing, spacing: 2) {
                 Text(Fmt.fcfa(itemPrice(listing)))
-                    .font(RF.F.mono(12.5, .medium))
-                    .monospacedDigit()
+                    .font(RF.T.price(.subheadline))
                     .foregroundStyle(RF.C.text)
                 if negotiatedPrice != nil, negotiatedPrice != listing.price {
                     Text(Fmt.fcfa(listing.price))
-                        .font(RF.F.mono(10))
+                        .font(RF.T.price(.caption, weight: .regular))
                         .strikethrough()
                         .foregroundStyle(RF.C.textDim)
                 }
             }
         }
-        .padding(.vertical, 10)
-        .overlay(alignment: .bottom) { Rectangle().fill(RF.C.line).frame(height: 1) }
+        .padding(RF.S.md)
+        .background(RF.C.card, in: RoundedRectangle(cornerRadius: RF.R.md, style: .continuous))
         .accessibilityElement(children: .combine)
     }
 
     private func subtitle(_ listing: Listing) -> String {
-        var s = "\(listing.sizeLabel) · vendu par \(seller?.username ?? "…")"
+        var s = "\(listing.sizeLabel) · \(seller?.username ?? "…")"
         if negotiatedPrice != nil { s += " · prix négocié" }
         return s
-    }
-
-    private func coLabel(_ text: String) -> some View {
-        Text(text.uppercased())
-            .font(RF.F.body(11, .bold))
-            .kerning(0.66)
-            .foregroundStyle(RF.C.textDim)
-            .padding(.top, 18)
-            .padding(.bottom, 10)
-            .accessibilityAddTraits(.isHeader)
     }
 }
 
 // MARK: - Reusable bits
 
-/// Delivery option button (mockup `.method-btn`): icon, label + subtitle, fee or « Gratuit ».
+/// Selectable delivery row: icon, label + one short line, fee, checkmark when selected.
 struct CheckoutDeliveryOption: View {
     let method: DeliveryMethod
     let selected: Bool
     let action: () -> Void
 
     var body: some View {
-        let shape = RoundedRectangle(cornerRadius: RF.R.md, style: .continuous)
         Button(action: action) {
-            HStack(spacing: 12) {
+            HStack(spacing: RF.S.md) {
                 Image(systemName: method.symbol)
-                    .font(.system(size: 17))
-                    .frame(width: 22)
-                    .foregroundStyle(RF.C.text)
+                    .foregroundStyle(RF.C.textDim)
+                    .frame(width: 24)
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(method.label)
-                        .font(RF.F.body(13, .bold))
+                    Text(method.shortLabel)
+                        .font(RF.T.body)
                         .foregroundStyle(RF.C.text)
-                    Text(method.subtitle)
-                        .font(RF.F.body(10.5))
+                    Text(method.shortSubtitle)
+                        .font(RF.T.footnote)
                         .foregroundStyle(RF.C.textDim)
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .multilineTextAlignment(.leading)
                 Text(method.fee > 0 ? Fmt.fcfa(method.fee) : "Gratuit")
-                    .font(RF.F.mono(12, .semibold))
-                    .monospacedDigit()
-                    .foregroundStyle(RF.C.text)
+                    .font(RF.T.price(.subheadline, weight: .regular))
+                    .foregroundStyle(RF.C.textDim)
                     .fixedSize()
+                CheckoutCheckmark(selected: selected)
             }
-            .padding(.vertical, 13)
-            .padding(.horizontal, 16)
-            .background(selected ? RF.C.hibiscus.opacity(0.06) : RF.C.card, in: shape)
-            .overlay(shape.strokeBorder(selected ? RF.C.hibiscus : RF.C.line, lineWidth: 1.5))
-            .contentShape(shape)
+            .padding(.vertical, 11)
+            .padding(.horizontal, RF.S.lg)
+            .contentShape(Rectangle())
         }
-        .buttonStyle(RFPressStyle(scale: 0.98))
+        .buttonStyle(RFPressStyle(scale: 1))
         .accessibilityLabel("\(method.label), \(method.fee > 0 ? Fmt.fcfa(method.fee) : "gratuit")")
         .accessibilityHint(method.subtitle)
         .accessibilityAddTraits(selected ? .isSelected : [])
     }
 }
 
-/// Wave / Orange Money row (mockup `.paymethod`): brand-coloured logo tile, name, radio dot.
+/// Wave / Orange Money row: brand tile, name, checkmark when selected.
 struct CheckoutPaymentRow: View {
     let method: PaymentMethod
     let selected: Bool
     let action: () -> Void
 
     var body: some View {
-        let shape = RoundedRectangle(cornerRadius: RF.R.md, style: .continuous)
         Button(action: action) {
-            HStack(spacing: 12) {
-                PaymentBrandLogo(method: method)
+            HStack(spacing: RF.S.md) {
+                PaymentBrandLogo(method: method, size: 28)
                 Text(method.label)
-                    .font(RF.F.body(13, .bold))
+                    .font(RF.T.body)
                     .foregroundStyle(RF.C.text)
                     .frame(maxWidth: .infinity, alignment: .leading)
-                ZStack {
-                    Circle().strokeBorder(selected ? RF.C.money : RF.C.line, lineWidth: 2)
-                    if selected { Circle().fill(RF.C.money).padding(4) }
-                }
-                .frame(width: 16, height: 16)
+                CheckoutCheckmark(selected: selected)
             }
-            .padding(13)
-            .background(selected ? RF.C.money.opacity(0.07) : Color.clear, in: shape)
-            .overlay(shape.strokeBorder(selected ? RF.C.money : RF.C.line, lineWidth: 1.5))
-            .contentShape(shape)
+            .padding(.vertical, 10)
+            .padding(.horizontal, RF.S.lg)
+            .contentShape(Rectangle())
         }
-        .buttonStyle(RFPressStyle(scale: 0.98))
+        .buttonStyle(RFPressStyle(scale: 1))
         .accessibilityLabel(method.label)
         .accessibilityAddTraits(selected ? .isSelected : [])
     }
 }
 
-/// Brand tile (mockup `.paylogo`): « WAVE » / « OM » on the brand colour.
+/// iOS-style selection checkmark (hibiscus), keeps its width when hidden so rows don't shift.
+private struct CheckoutCheckmark: View {
+    let selected: Bool
+
+    var body: some View {
+        Image(systemName: "checkmark")
+            .font(RF.T.body.weight(.semibold))
+            .foregroundStyle(RF.C.hibiscus)
+            .opacity(selected ? 1 : 0)
+            .frame(width: 22)
+            .accessibilityHidden(true)
+    }
+}
+
+/// Brand tile: « WAVE » / « OM » on the brand colour.
 struct PaymentBrandLogo: View {
     let method: PaymentMethod
     var size: CGFloat = 30
 
     var body: some View {
         Text(method.badge)
-            .font(.custom(RF.F.MonoWeight.semibold.rawValue, fixedSize: size * 0.3))
+            .font(.system(size: size * 0.32, weight: .heavy))
             .foregroundStyle(.white)
             .lineLimit(1)
             .minimumScaleFactor(0.5)
@@ -309,28 +314,16 @@ struct PaymentBrandLogo: View {
     }
 }
 
-/// Green escrow note with a padlock (mockup `.escrow-note`).
+/// One-line escrow note with a padlock (green = money held safely).
 struct EscrowLockNote: View {
     let text: String
 
     var body: some View {
-        HStack(alignment: .top, spacing: 10) {
-            Image(systemName: "lock.fill")
-                .font(.system(size: 15, weight: .semibold))
-                .foregroundStyle(RF.C.moneyDeep)
-                .padding(.top, 1)
-                .accessibilityHidden(true)
-            Text(text)
-                .font(RF.F.body(11.5, .semibold))
-                .lineSpacing(3)
-                .foregroundStyle(RF.C.moneyDeep)
-                .frame(maxWidth: .infinity, alignment: .leading)
-        }
-        .padding(12)
-        .background(RF.C.money.opacity(0.09), in: RoundedRectangle(cornerRadius: RF.R.md, style: .continuous))
-        .overlay(RoundedRectangle(cornerRadius: RF.R.md, style: .continuous)
-            .strokeBorder(RF.C.money.opacity(0.3), lineWidth: 1))
-        .accessibilityElement(children: .combine)
+        Label(text, systemImage: "lock.fill")
+            .font(RF.T.footnote)
+            .foregroundStyle(RF.C.moneyDeep)
+            .padding(.leading, RF.S.lg)
+            .accessibilityElement(children: .combine)
     }
 }
 

@@ -1,7 +1,8 @@
 import SwiftUI
 
-/// "Filtres" sheet of the grid (mockup `filterSheetHTML`). Edits the grid's filters live, like the mockup:
-/// the grid reloads behind the sheet and the main button shows the up-to-date result count.
+/// "Filtres" sheet of the grid: native Form (sections, steppers, toggle, picker) with chips for
+/// conditions and brands. Edits the grid's filters live: the grid reloads behind the sheet and the
+/// main button shows the up-to-date result count.
 struct DiscoverFilterSheet: View {
     @Binding var filters: ListingFilters
     let resultCount: Int
@@ -12,166 +13,85 @@ struct DiscoverFilterSheet: View {
     private let priceStep: FCFA = 500
 
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 18) {
-                priceGroup
-                group("État") {
+        NavigationStack {
+            Form {
+                Section("Prix") {
+                    Stepper(value: $filters.priceMin, in: 0...filters.priceMax, step: priceStep) {
+                        LabeledContent("Minimum") {
+                            Text(Fmt.fcfa(filters.priceMin)).font(RF.T.price(.body, weight: .regular))
+                        }
+                    }
+                    Stepper(value: $filters.priceMax, in: filters.priceMin...ListingFilters.catalogMaxPrice, step: priceStep) {
+                        LabeledContent("Maximum") {
+                            Text(Fmt.fcfa(filters.priceMax)).font(RF.T.price(.body, weight: .regular))
+                        }
+                    }
+                }
+
+                Section("État") {
                     DiscoverWrapLayout {
                         ForEach(ItemCondition.allCases) { c in
-                            DiscoverPill(title: c.label, selected: filters.conditions.contains(c)) {
+                            Chip(c.label, selected: filters.conditions.contains(c)) {
                                 toggle(c, in: \.conditions)
                             }
                         }
                     }
+                    .padding(.vertical, 4)
                 }
-                group("Marque") {
+
+                Section("Marque") {
                     DiscoverWrapLayout {
                         ForEach(Catalog.brands, id: \.self) { b in
-                            DiscoverPill(title: b, selected: filters.brands.contains(b)) {
+                            Chip(b, selected: filters.brands.contains(b)) {
                                 toggle(b, in: \.brands)
                             }
                         }
                     }
+                    .padding(.vertical, 4)
                 }
-                negotiableToggle
-                group("Trier par") {
-                    DiscoverWrapLayout {
+
+                Section {
+                    Toggle("Ouvert aux offres", isOn: $filters.negotiableOnly)
+                    Picker("Trier par", selection: $filters.sort) {
                         ForEach(ListingSort.allCases) { s in
-                            DiscoverPill(title: s.discoverLabel, selected: filters.sort == s) {
-                                filters.sort = s
-                            }
+                            Text(s.discoverLabel).tag(s)
                         }
                     }
                 }
             }
-            .padding(.horizontal, RF.S.gutter)
-            .padding(.top, 4)
-            .padding(.bottom, 16)
+            .font(RF.T.body)
+            .scrollContentBackground(.hidden)
+            .background(RF.C.paper)
+            .navigationTitle("Filtres")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Fermer les filtres", systemImage: "xmark") { dismiss() }
+                        .labelStyle(.iconOnly)
+                }
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button("Réinitialiser") {
+                        withAnimation(.snappy) { filters.resetAdvancedFilters() }
+                    }
+                    .disabled(filters.activeCount == 0)
+                }
+            }
+            .safeAreaInset(edge: .bottom, spacing: 0) { footer }
         }
-        .safeAreaInset(edge: .top, spacing: 0) { titleBar }
-        .safeAreaInset(edge: .bottom, spacing: 0) { footer }
-        .background(RF.C.card)
+        .tint(RF.C.hibiscus)
+        .sensoryFeedback(.selection, trigger: filters.negotiableOnly)
         .presentationDetents([.medium, .large])
         .presentationDragIndicator(.visible)
-        .presentationCornerRadius(RF.R.sheet)
-        .presentationBackground(RF.C.card)
-    }
-
-    // MARK: Pieces
-
-    private var titleBar: some View {
-        ZStack {
-            Text("Filtres")
-                .font(RF.F.display(16))
-                .foregroundStyle(RF.C.text)
-                .accessibilityAddTraits(.isHeader)
-            HStack {
-                Spacer()
-                Button { dismiss() } label: {
-                    Image(systemName: "xmark")
-                        .font(.system(size: 12, weight: .bold))
-                        .foregroundStyle(RF.C.text)
-                        .frame(width: 28, height: 28)
-                        .background(Circle().fill(RF.C.paperDim))
-                        .frame(width: 44, height: 44)
-                        .contentShape(Rectangle())
-                }
-                .buttonStyle(.plain)
-                .accessibilityLabel("Fermer les filtres")
-            }
-        }
-        .padding(.top, 18)
-        .padding(.bottom, 8)
-        .padding(.horizontal, 6)
-        .background(RF.C.card)
-    }
-
-    private var priceGroup: some View {
-        group("Prix (FCFA)") {
-            VStack(spacing: 10) {
-                priceRow("Min", value: $filters.priceMin, range: 0...filters.priceMax)
-                priceRow("Max", value: $filters.priceMax, range: filters.priceMin...ListingFilters.catalogMaxPrice)
-            }
-        }
-    }
-
-    private func priceRow(_ label: String, value: Binding<FCFA>, range: ClosedRange<FCFA>) -> some View {
-        HStack {
-            Text(label.uppercased())
-                .font(RF.F.body(10.5, .bold))
-                .kerning(0.4)
-                .foregroundStyle(RF.C.textDim)
-                .accessibilityHidden(true)
-            Spacer()
-            PriceStepper(value: value, step: priceStep, range: range, compact: true)
-                .accessibilityLabel("Prix \(label.lowercased())imum")
-        }
-    }
-
-    private var negotiableToggle: some View {
-        Button {
-            filters.negotiableOnly.toggle()
-        } label: {
-            HStack(spacing: 10) {
-                RoundedRectangle(cornerRadius: 6, style: .continuous)
-                    .fill(filters.negotiableOnly ? RF.C.money : Color.clear)
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 6, style: .continuous)
-                            .strokeBorder(filters.negotiableOnly ? RF.C.money : RF.C.line, lineWidth: 1.5)
-                    )
-                    .overlay {
-                        if filters.negotiableOnly {
-                            Image(systemName: "checkmark")
-                                .font(.system(size: 10, weight: .heavy))
-                                .foregroundStyle(.white)
-                        }
-                    }
-                    .frame(width: 20, height: 20)
-                Text("Ouvert aux offres uniquement")
-                    .font(RF.F.body(12, .semibold))
-                    .foregroundStyle(RF.C.text)
-                Spacer()
-            }
-            .padding(.vertical, 8)
-            .padding(.horizontal, 2)
-            .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
-        .sensoryFeedback(.selection, trigger: filters.negotiableOnly)
-        .accessibilityAddTraits(filters.negotiableOnly ? .isSelected : [])
-        .accessibilityHint("Affiche seulement les articles dont la vendeuse accepte les offres")
     }
 
     private var footer: some View {
-        HStack(spacing: 12) {
-            Button("Réinitialiser") {
-                withAnimation(.snappy) { filters.resetAdvancedFilters() }
-            }
-            .font(RF.F.body(12, .bold))
-            .underline()
-            .foregroundStyle(filters.activeCount > 0 ? RF.C.text : RF.C.textDim)
-            .disabled(filters.activeCount == 0)
-            .buttonStyle(.plain)
-
-            RFButton(resultTitle, isLoading: isLoading) { dismiss() }
-        }
-        .padding(EdgeInsets(top: 12, leading: RF.S.gutter, bottom: 12, trailing: RF.S.gutter))
-        .background(RF.C.card)
-        .overlay(alignment: .top) { Rectangle().fill(RF.C.line).frame(height: 1) }
+        RFButton(resultTitle, isLoading: isLoading) { dismiss() }
+            .padding(EdgeInsets(top: RF.S.md, leading: RF.S.gutter, bottom: RF.S.md, trailing: RF.S.gutter))
+            .background(RF.C.paper)
     }
 
     private var resultTitle: String {
         resultCount == 0 ? "Aucun résultat" : "Afficher \(resultCount) résultat\(resultCount > 1 ? "s" : "")"
-    }
-
-    private func group<Content: View>(_ title: String, @ViewBuilder content: () -> Content) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text(title)
-                .font(RF.F.body(11.5, .bold))
-                .foregroundStyle(RF.C.text)
-                .accessibilityAddTraits(.isHeader)
-            content()
-        }
     }
 
     private func toggle<T: Hashable>(_ value: T, in keyPath: WritableKeyPath<ListingFilters, Set<T>>) {
@@ -184,7 +104,7 @@ struct DiscoverFilterSheet: View {
 }
 
 extension ListingSort {
-    /// Labels of the "Trier par" pills.
+    /// Labels of the "Trier par" picker.
     var discoverLabel: String {
         switch self {
         case .recent: "Plus récents"

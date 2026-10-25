@@ -1,8 +1,7 @@
 import SwiftUI
-import UIKit
 
-/// Product page (mockup `screenProduct` + `shareSheetHTML`): photo gallery, price, details, seller card,
-/// delivery options and a sticky action bar (Acheter / Faire une offre, or "C'est ton annonce").
+/// Product page: big photo, price + title, attributes, description, seller row, delivery rows and a
+/// sticky action bar (Faire une offre + Acheter; on my own listing: Offres reçues + Statistiques).
 struct ProductView: View {
     let listingId: UUID
 
@@ -35,14 +34,8 @@ struct ProductView: View {
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             if let listing {
-                ToolbarItemGroup(placement: .topBarTrailing) {
+                ToolbarItem(placement: .topBarTrailing) {
                     ProductShareButton(listing: listing)
-                    Button {
-                        copyLink(for: listing)
-                    } label: {
-                        Image(systemName: "link")
-                    }
-                    .accessibilityLabel("Copier le lien de l'annonce")
                 }
             }
         }
@@ -90,29 +83,34 @@ struct ProductView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 0) {
                 gallery(listing)
-                VStack(alignment: .leading, spacing: 0) {
+                VStack(alignment: .leading, spacing: RF.S.xl) {
                     priceBlock(listing)
-                    if listing.status != .active { unavailableBanner(listing).padding(.top, 12) }
-                    ProductTags(listing: listing, negotiated: negotiatedPrice != nil)
-                        .padding(.top, 10)
-                    sellerCard(listing)
-                        .padding(.top, 18)
+                    if listing.status != .active { unavailableNote(listing) }
+                    ProductAttributes(listing: listing)
                     descriptionBlock(listing)
-                        .padding(.top, 20)
-                    if let defect = listing.defectComment, !defect.isEmpty {
-                        defectBlock(defect).padding(.top, 14)
+                    sellerRow(listing)
+                    section("Livraison") {
+                        ProductDeliveryList(methods: listing.deliveryMethods)
                     }
-                    ProductDeliveryList(methods: listing.deliveryMethods)
-                        .padding(.top, 20)
-                    escrowNote.padding(.top, 14)
+                    escrowNote
                 }
-                .padding(RF.S.gutter)
+                .padding(EdgeInsets(top: RF.S.lg, leading: RF.S.gutter, bottom: RF.S.xl, trailing: RF.S.gutter))
             }
         }
         .safeAreaInset(edge: .bottom, spacing: 0) { actionBar(listing) }
     }
 
-    // MARK: Gallery (mockup `.pd-hero`)
+    private func section<Content: View>(_ title: String, @ViewBuilder content: () -> Content) -> some View {
+        VStack(alignment: .leading, spacing: RF.S.sm) {
+            Text(title)
+                .font(RF.T.footnote.weight(.semibold))
+                .foregroundStyle(RF.C.textDim)
+                .accessibilityAddTraits(.isHeader)
+            content()
+        }
+    }
+
+    // MARK: Gallery
 
     private func gallery(_ listing: Listing) -> some View {
         let photos: [ListingPhoto?] = listing.photos.isEmpty ? [nil] : listing.photos.map { Optional($0) }
@@ -124,37 +122,13 @@ struct ProductView: View {
             }
         }
         .tabViewStyle(.page(indexDisplayMode: photos.count > 1 ? .always : .never))
-        .frame(height: 340)
+        .frame(height: 440)
         .background(RF.C.thumb(for: listing.id))
         .overlay(alignment: .bottomLeading) {
-            Text(listing.condition.label)
-                .font(RF.F.body(10.5, .bold))
-                .foregroundStyle(.white)
-                .padding(.vertical, 5)
-                .padding(.horizontal, 11)
-                .background(Capsule().fill(RF.C.money))
-                .padding(.leading, 16)
-                .padding(.bottom, 12)
-                .accessibilityLabel("État : \(listing.condition.label)")
-        }
-        .overlay(alignment: .bottomTrailing) {
-            HStack(spacing: 5) {
-                Image(systemName: "eye.fill").font(.system(size: 10))
-                Text("\(Fmt.number(listing.views)) vues").font(RF.F.body(9.5, .bold))
-            }
-            .foregroundStyle(.white)
-            .padding(.vertical, 5)
-            .padding(.horizontal, 10)
-            .background(Capsule().fill(RF.C.ink0.opacity(0.65)))
-            .padding(.trailing, 16)
-            .padding(.bottom, 12)
-            .accessibilityElement(children: .combine)
-        }
-        .overlay(alignment: .topLeading) {
-            ListingScarcityTag(listing: listing).padding(12)
+            ListingScarcityTag(listing: listing).padding(RF.S.md)
         }
         .overlay(alignment: .topTrailing) {
-            HeartButton(listingId: listing.id, size: 38).padding(12)
+            HeartButton(listingId: listing.id, size: 36).padding(RF.S.md)
         }
         .accessibilityElement(children: .contain)
         .accessibilityLabel("Photos de l'article, \(listing.photos.count) photo\(listing.photos.count > 1 ? "s" : "")")
@@ -165,97 +139,87 @@ struct ProductView: View {
     private func priceBlock(_ listing: Listing) -> some View {
         let shown = negotiatedPrice ?? listing.price
         let strike: FCFA? = negotiatedPrice != nil ? listing.price : listing.oldPrice
-        return VStack(alignment: .leading, spacing: 4) {
-            HStack(alignment: .firstTextBaseline, spacing: 8) {
+        return VStack(alignment: .leading, spacing: RF.S.xs) {
+            HStack(alignment: .firstTextBaseline, spacing: RF.S.sm) {
                 Text(Fmt.fcfa(shown))
-                    .font(RF.F.mono(24, .semibold))
+                    .font(RF.T.price(.title2, weight: .bold))
                     .foregroundStyle(RF.C.text)
                 if let strike, strike > shown {
                     Text(Fmt.fcfa(strike))
-                        .font(RF.F.body(13))
+                        .font(RF.T.price(.subheadline, weight: .regular))
                         .strikethrough()
                         .foregroundStyle(RF.C.textDim)
                         .accessibilityLabel("au lieu de \(Fmt.fcfa(strike))")
                 }
                 if negotiatedPrice != nil {
-                    ProductTag(text: "Prix négocié", symbol: "checkmark", style: .negotiable)
-                } else if let drop = listing.priceDrop {
-                    Text("−\(Fmt.fcfa(drop))")
-                        .font(RF.F.body(10, .extraBold))
-                        .foregroundStyle(.white)
-                        .padding(.vertical, 3)
-                        .padding(.horizontal, 8)
-                        .background(Capsule().fill(RF.C.money))
-                        .accessibilityLabel("Prix baissé de \(Fmt.fcfa(drop))")
+                    Text("Prix négocié")
+                        .font(RF.T.footnote.weight(.semibold))
+                        .foregroundStyle(RF.C.moneyDeep)
                 }
             }
             .accessibilityElement(children: .combine)
             Text(listing.title)
-                .font(RF.F.body(15, .bold))
+                .font(RF.T.title3)
                 .foregroundStyle(RF.C.text)
                 .fixedSize(horizontal: false, vertical: true)
                 .accessibilityAddTraits(.isHeader)
-            HStack(spacing: 4) {
-                Text("\(listing.sizeLabel) · \(listing.condition.label) · ")
-                Image(systemName: "mappin").font(.system(size: 10))
-                Text(listing.locationLabel)
-            }
-            .font(RF.F.body(11.5, .semibold))
-            .foregroundStyle(RF.C.textDim)
-            .lineLimit(2)
-            .accessibilityElement(children: .combine)
+            Text(metaLine(listing))
+                .font(RF.T.footnote)
+                .foregroundStyle(RF.C.textDim)
+                .lineLimit(2)
         }
     }
 
-    private func unavailableBanner(_ listing: Listing) -> some View {
+    private func metaLine(_ listing: Listing) -> String {
+        var parts = [listing.locationLabel, Fmt.relative(listing.createdAt)]
+        if negotiatedPrice == nil, !isMine { parts.append(listing.negotiable ? "Ouvert aux offres" : "Prix fixe") }
+        return parts.joined(separator: " · ")
+    }
+
+    private func unavailableNote(_ listing: Listing) -> some View {
         let text: String = switch listing.status {
-        case .reserved: "Article réservé : une commande est en cours."
-        case .sold: "Cet article a été vendu."
-        default: "Cet article n'est plus disponible."
+        case .reserved: "Réservé : une commande est en cours."
+        case .sold: "Vendu."
+        default: "Plus disponible."
         }
-        return Label(text, systemImage: "clock.badge.exclamationmark")
-            .font(RF.F.body(12, .bold))
+        return Label(text, systemImage: "clock")
+            .font(RF.T.subheadline)
             .foregroundStyle(RF.C.text)
-            .padding(12)
+            .padding(RF.S.md)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(RF.C.marigold.opacity(0.2), in: RoundedRectangle(cornerRadius: RF.R.md, style: .continuous))
+            .background(RF.C.paperDim, in: RoundedRectangle(cornerRadius: RF.R.md, style: .continuous))
     }
 
-    // MARK: Seller (mockup `.pd-seller`)
+    // MARK: Seller
 
-    private func sellerCard(_ listing: Listing) -> some View {
-        HStack(spacing: 10) {
+    private func sellerRow(_ listing: Listing) -> some View {
+        HStack(spacing: RF.S.md) {
             Button {
                 router.push(.sellerProfile(listing.sellerId))
             } label: {
-                HStack(spacing: 10) {
-                    Avatar(profile: seller, size: 38)
+                HStack(spacing: RF.S.md) {
+                    Avatar(profile: seller, size: 40)
                     VStack(alignment: .leading, spacing: 2) {
-                        HStack(spacing: 5) {
+                        HStack(spacing: RF.S.xs) {
                             Text(seller?.username ?? "Vendeuse")
-                                .font(RF.F.body(12.5, .bold))
+                                .font(RF.T.headline)
                                 .foregroundStyle(RF.C.text)
                                 .lineLimit(1)
                             if seller?.verified == true { VerifiedBadge() }
                         }
                         if let seller {
-                            HStack(spacing: 4) {
-                                Image(systemName: "star.fill")
-                                    .font(.system(size: 10))
-                                    .foregroundStyle(RF.C.marigold)
-                                Text(sellerSubtitle(seller))
-                                    .lineLimit(1)
-                                    .minimumScaleFactor(0.85)
-                            }
-                            .font(RF.F.body(10.5))
-                            .foregroundStyle(RF.C.textDim)
+                            Text(sellerSubtitle(seller))
+                                .font(RF.T.footnote)
+                                .foregroundStyle(RF.C.textDim)
+                                .monospacedDigit()
+                                .lineLimit(1)
                         }
                     }
                     Spacer(minLength: 0)
                 }
                 .contentShape(Rectangle())
             }
-            .buttonStyle(RFPressStyle(scale: 0.98))
+            .buttonStyle(RFPressStyle())
             .accessibilityElement(children: .combine)
             .accessibilityHint("Voir le profil de la vendeuse")
 
@@ -263,35 +227,27 @@ struct ProductView: View {
                 Button {
                     openChat(listing)
                 } label: {
-                    HStack(spacing: 5) {
-                        if isOpeningChat {
-                            ProgressView().controlSize(.small).tint(RF.C.text)
-                        } else {
-                            Image(systemName: "bubble.left").font(.system(size: 12, weight: .semibold))
-                        }
-                        Text("Écrire").font(RF.F.body(12, .extraBold))
+                    if isOpeningChat {
+                        ProgressView().controlSize(.small)
+                    } else {
+                        Text("Écrire")
                     }
-                    .foregroundStyle(RF.C.text)
-                    .padding(.vertical, 9)
-                    .padding(.horizontal, 12)
-                    .background(Capsule().fill(RF.C.card))
-                    .overlay(Capsule().strokeBorder(RF.C.line, lineWidth: 1.5))
-                    .contentShape(Capsule())
                 }
-                .buttonStyle(RFPressStyle(scale: 0.94))
+                .font(RF.T.subheadline.weight(.semibold))
+                .buttonStyle(.bordered)
+                .buttonBorderShape(.capsule)
+                .tint(RF.C.text)
                 .disabled(isOpeningChat)
                 .accessibilityLabel("Écrire à \(seller?.username ?? "la vendeuse")")
             }
         }
-        .padding(12)
-        .background(RF.C.paperDim, in: RoundedRectangle(cornerRadius: RF.R.lg, style: .continuous))
+        .padding(RF.S.md)
+        .background(RF.C.card, in: RoundedRectangle(cornerRadius: RF.R.md, style: .continuous))
     }
 
     private func sellerSubtitle(_ s: UserProfile) -> String {
         let rating = s.rating.formatted(.number.precision(.fractionLength(1)).locale(Locale(identifier: "fr_FR")))
-        let seniority = Fmt.seniority(since: s.memberSince)
-        let since = seniority == "Nouveau" ? "Nouvelle sur ReFripe" : "Membre depuis \(seniority)"
-        return "\(rating) · \(s.salesCount) vente\(s.salesCount > 1 ? "s" : "") · \(since)"
+        return "★ \(rating) · \(s.salesCount) vente\(s.salesCount > 1 ? "s" : "")"
     }
 
     private func openChat(_ listing: Listing) {
@@ -310,127 +266,90 @@ struct ProductView: View {
     // MARK: Description / defects
 
     private func descriptionBlock(_ listing: Listing) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
-            SectionLabel("Description")
-            Text(listing.description.isEmpty ? "La vendeuse n'a pas ajouté de description." : listing.description)
-                .font(RF.F.body(12.5))
-                .foregroundStyle(RF.C.textDim)
-                .lineSpacing(4)
-                .fixedSize(horizontal: false, vertical: true)
-        }
-    }
-
-    private func defectBlock(_ defect: String) -> some View {
-        HStack(alignment: .top, spacing: 10) {
-            Image(systemName: "exclamationmark.triangle.fill")
-                .font(.system(size: 14))
-                .foregroundStyle(RF.C.hibiscus)
-                .accessibilityHidden(true)
-            VStack(alignment: .leading, spacing: 3) {
-                Text("Défaut signalé par la vendeuse")
-                    .font(RF.F.body(12, .bold))
-                    .foregroundStyle(RF.C.text)
-                Text(defect)
-                    .font(RF.F.body(12))
-                    .foregroundStyle(RF.C.textDim)
+        section("Description") {
+            VStack(alignment: .leading, spacing: RF.S.md) {
+                Text(listing.description.isEmpty ? "Pas de description." : listing.description)
+                    .font(RF.T.body)
+                    .foregroundStyle(listing.description.isEmpty ? RF.C.textDim : RF.C.text)
                     .fixedSize(horizontal: false, vertical: true)
+                if let defect = listing.defectComment, !defect.isEmpty {
+                    Label {
+                        Text("Défaut signalé : \(defect)")
+                            .fixedSize(horizontal: false, vertical: true)
+                    } icon: {
+                        Image(systemName: "exclamationmark.triangle")
+                    }
+                    .font(RF.T.subheadline)
+                    .foregroundStyle(RF.C.text)
+                }
             }
-            Spacer(minLength: 0)
         }
-        .padding(12)
-        .background(RF.C.hibiscus.opacity(0.08), in: RoundedRectangle(cornerRadius: RF.R.md, style: .continuous))
-        .accessibilityElement(children: .combine)
     }
 
     private var escrowNote: some View {
-        HStack(alignment: .top, spacing: 10) {
-            Image(systemName: "lock.shield.fill")
-                .font(.system(size: 15))
-                .foregroundStyle(RF.C.money)
-                .accessibilityHidden(true)
-            Text("Paiement protégé : ton argent reste en séquestre jusqu'à ce que tu confirmes la réception (libération automatique \(Catalog.escrowAutoReleaseHours) h après la livraison).")
-                .font(RF.F.body(11))
-                .foregroundStyle(RF.C.textDim)
-                .lineSpacing(2)
-                .fixedSize(horizontal: false, vertical: true)
-        }
-        .padding(12)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(RF.C.money.opacity(0.08), in: RoundedRectangle(cornerRadius: RF.R.md, style: .continuous))
-        .accessibilityElement(children: .combine)
+        Label("Paiement protégé jusqu'à la réception", systemImage: "lock.shield")
+            .font(RF.T.footnote)
+            .foregroundStyle(RF.C.moneyDeep)
     }
 
-    // MARK: Sticky action bar (mockup `.pd-actions`)
+    // MARK: Sticky action bar
 
     @ViewBuilder
     private func actionBar(_ listing: Listing) -> some View {
-        VStack(spacing: 8) {
+        VStack(spacing: RF.S.sm) {
             if isMine {
-                HStack(spacing: 6) {
-                    Image(systemName: "person.crop.circle.badge.checkmark")
-                    Text("C'est ton annonce")
-                }
-                .font(RF.F.body(12, .bold))
-                .foregroundStyle(RF.C.textDim)
-                .accessibilityElement(children: .combine)
-                if listing.negotiable {
-                    RFButton(receivedOffersTitle, symbol: "arrow.left.arrow.right",
-                             style: pendingReceivedOffers > 0 ? .primary : .ghost) {
-                        router.push(.receivedOffers(listing.id))
+                HStack(spacing: RF.S.md) {
+                    if listing.negotiable {
+                        RFButton(receivedOffersTitle, style: pendingReceivedOffers > 0 ? .primary : .secondary) {
+                            router.push(.receivedOffers(listing.id))
+                        }
+                    }
+                    RFButton("Statistiques", style: listing.negotiable ? .ghost : .secondary) {
+                        router.push(.dashboard)
                     }
                 }
-                RFButton("Voir mon tableau de bord", symbol: "chart.bar.fill", style: .ink) {
-                    router.push(.dashboard)
-                }
             } else if listing.status != .active {
-                RFButton("Article indisponible", style: .secondary) {}
+                RFButton("Indisponible", style: .secondary) {}
                     .disabled(true)
             } else {
                 buyerActions(listing)
             }
         }
-        .padding(EdgeInsets(top: 12, leading: RF.S.gutter, bottom: 10, trailing: RF.S.gutter))
+        .padding(EdgeInsets(top: RF.S.md, leading: RF.S.gutter, bottom: RF.S.sm, trailing: RF.S.gutter))
         .background(RF.C.paper)
-        .overlay(alignment: .top) { Rectangle().fill(RF.C.line).frame(height: 1) }
+        .overlay(alignment: .top) { Rectangle().fill(RF.C.line).frame(height: 0.5) }
     }
 
     private var receivedOffersTitle: String {
         let n = pendingReceivedOffers
-        return n == 0 ? "Offres reçues" : "Offres reçues (\(n) en attente)"
+        return n == 0 ? "Offres reçues" : "Offres reçues (\(n))"
     }
 
     @ViewBuilder
     private func buyerActions(_ listing: Listing) -> some View {
         let price = negotiatedPrice ?? listing.price
-        HStack(spacing: 10) {
+        HStack(spacing: RF.S.md) {
             if listing.negotiable && negotiatedPrice == nil {
                 if let thread, thread.status == .pending {
-                    RFButton("Négociation", symbol: "bubble.left.and.bubble.right", style: .ghost) {
+                    RFButton("Négociation", style: .secondary) {
                         router.push(.offerThread(listing.id))
                     }
                     .accessibilityLabel("Voir la négociation en cours")
                 } else if thread == nil {
-                    RFButton("Faire une offre", symbol: "arrow.left.arrow.right", style: .ghost) {
+                    RFButton("Faire une offre", style: .secondary) {
                         router.push(.offer(listing.id))
                     }
                 }
             }
-            RFButton("Acheter · \(Fmt.fcfa(price))") {
+            RFButton("Acheter") {
                 if let negotiated = negotiatedPrice {
                     store.negotiatedPrices[listing.id] = negotiated
                 }
                 router.push(.checkout(listing.id))
             }
             .accessibilityLabel("Acheter pour \(Fmt.fcfa(price))")
+            .accessibilityIdentifier("product.buy")
         }
-    }
-
-    // MARK: Share
-
-    private func copyLink(for listing: Listing) {
-        UIPasteboard.general.url = ProductShareButton.url(for: listing)
-        Haptics.success()
-        store.show("Lien copié")
     }
 }
 

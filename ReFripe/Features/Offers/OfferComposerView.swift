@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// Compose an offer or a counter-offer (mockup `openOfferComposer` / `screenOffer`).
+/// Compose an offer or a counter-offer.
 /// The amount is bounded to [floor … price − step]; the seller's private floor is never displayed.
 /// Sending replaces this screen with the negotiation thread.
 struct OfferComposerView: View {
@@ -127,8 +127,7 @@ struct OfferComposerView: View {
     private func content(_ l: Listing) -> some View {
         ScrollView {
             VStack(spacing: 0) {
-                OfferListingHeader(listing: l, style: .plain)
-                    .padding(.bottom, 8)
+                OfferListingHeader(listing: l)
 
                 if let blocker = blocker(l) {
                     blockedView(blocker, listing: l)
@@ -136,93 +135,96 @@ struct OfferComposerView: View {
                     composer(l)
                 }
             }
-            .padding(EdgeInsets(top: 14, leading: RF.S.gutter, bottom: 24, trailing: RF.S.gutter))
+            .padding(EdgeInsets(top: RF.S.lg, leading: RF.S.gutter, bottom: RF.S.xl, trailing: RF.S.gutter))
         }
     }
 
     private func composer(_ l: Listing) -> some View {
         let sellerName = seller?.username ?? "La vendeuse"
-        let isLast = offerNumber >= OfferRules.maxBuyerOffers
         return VStack(spacing: 0) {
             OfferCounterPill(used: buyerOfferCount, upcoming: offerNumber)
-                .padding(.top, 10)
+                .padding(.top, RF.S.xl)
 
             if let counter = thread?.lastSellerCounter, thread?.rounds.last?.by == .seller {
-                Text("\(sellerName) te propose \(Fmt.fcfa(counter.amount))")
-                    .font(RF.F.body(12, .semibold))
+                Text("\(sellerName) propose \(Text(Fmt.fcfa(counter.amount)).font(RF.T.price(.subheadline)))")
+                    .font(RF.T.subheadline)
                     .foregroundStyle(RF.C.textDim)
-                    .padding(.top, 14)
+                    .padding(.top, RF.S.sm)
             }
 
             PriceStepper(value: $amount, step: OfferRules.step(for: l.price), range: bounds(l))
-                .padding(.top, 24)
-                .padding(.bottom, 10)
+                .padding(.top, RF.S.xl)
 
-            Text(hint(sellerName: sellerName, isLast: isLast))
-                .font(RF.F.body(11.5))
-                .foregroundStyle(RF.C.textDim)
-                .multilineTextAlignment(.center)
-                .lineSpacing(3)
-                .padding(.horizontal, 6)
-                .padding(.bottom, 22)
-                .fixedSize(horizontal: false, vertical: true)
-
-            RFButton("Envoyer l'offre · \(Fmt.fcfa(amount))", symbol: "paperplane.fill", isLoading: isSending) {
-                send(l)
+            if let hint = hint(sellerName: sellerName) {
+                Text(hint)
+                    .font(RF.T.footnote)
+                    .foregroundStyle(RF.C.textDim)
+                    .multilineTextAlignment(.center)
+                    .padding(.top, RF.S.md)
             }
 
+            RFButton("Envoyer l'offre", isLoading: isSending) {
+                send(l)
+            }
+            .accessibilityLabel("Envoyer l'offre de \(Fmt.fcfa(amount))")
+            .padding(.top, RF.S.xl)
+
             buyAtListedPrice(l)
-                .padding(.top, 10)
+                .padding(.top, RF.S.sm)
         }
     }
 
-    private func hint(sellerName: String, isLast: Bool) -> String {
-        if isCounter {
-            return isLast
-                ? "C'est ta 3e et dernière proposition sur cette annonce : ensuite, il faudra accepter ou laisser tomber. L'article reste achetable au prix affiché en attendant."
-                : "C'est ta \(offerNumber)e proposition sur \(OfferRules.maxBuyerOffers) possibles. L'article reste achetable au prix affiché en attendant."
-        }
-        return "\(sellerName) peut accepter, refuser ou te faire une contre-proposition. Tu peux faire jusqu'à \(OfferRules.maxBuyerOffers) offres, et l'article reste achetable au prix affiché en attendant."
+    /// One short line max under the amount.
+    private func hint(sellerName: String) -> String? {
+        if offerNumber >= OfferRules.maxBuyerOffers { return "C'est ta dernière proposition." }
+        if isCounter { return nil }
+        return "\(sellerName) peut accepter, refuser ou contre-proposer."
     }
 
     private func buyAtListedPrice(_ l: Listing) -> some View {
-        RFButton("Acheter au prix affiché · \(Fmt.fcfa(l.price))", style: .ghost) {
+        RFButton("Acheter au prix affiché", style: .ghost) {
             store.negotiatedPrices[l.id] = nil
             router.push(.checkout(l.id))
         }
+        .accessibilityLabel("Acheter au prix affiché, \(Fmt.fcfa(l.price))")
     }
 
     @ViewBuilder
     private func blockedView(_ blocker: Blocker, listing l: Listing) -> some View {
-        switch blocker {
-        case .ownListing:
-            EmptyStateView(symbol: "person.crop.circle", title: "C'est ton annonce",
-                           message: "Tu ne peux pas faire d'offre sur ton propre article.",
-                           actionTitle: "Voir mon tableau de bord") { router.push(.dashboard) }
-        case .notNegotiable:
-            EmptyStateView(symbol: "lock", title: "Prix fixe",
-                           message: "La vendeuse n'accepte pas les offres sur cet article.")
-            buyAtListedPrice(l)
-        case .unavailable:
-            EmptyStateView(symbol: "clock", title: "Article indisponible",
-                           message: "Cet article est réservé ou déjà vendu.")
-        case .awaitingSeller:
-            EmptyStateView(symbol: "hourglass", title: "Offre en attente",
-                           message: "Attends la réponse de la vendeuse avant de refaire une proposition.",
-                           actionTitle: "Voir la négociation") { replaceWithThread(l) }
-        case .accepted:
-            EmptyStateView(symbol: "checkmark.seal", title: "Offre acceptée",
-                           message: "Ton offre a déjà été acceptée : tu peux acheter au prix négocié.",
-                           actionTitle: "Voir la négociation") { replaceWithThread(l) }
-        case .limit:
-            EmptyStateView(symbol: "nosign", title: "Limite atteinte",
-                           message: "Tu as déjà fait \(OfferRules.maxBuyerOffers) offres sur cet article. Il reste toujours achetable au prix affiché.")
-            buyAtListedPrice(l)
-            if thread != nil {
+        VStack(spacing: RF.S.sm) {
+            switch blocker {
+            case .ownListing:
+                blockedMessage("C'est ton annonce", symbol: "person.crop.circle")
+                RFButton("Statistiques", style: .secondary) { router.push(.dashboard) }
+            case .notNegotiable:
+                blockedMessage("Prix fixe", symbol: "lock", detail: "Pas d'offre sur cet article.")
+                buyAtListedPrice(l)
+            case .unavailable:
+                blockedMessage("Article indisponible", symbol: "clock", detail: "Réservé ou déjà vendu.")
+            case .awaitingSeller:
+                blockedMessage("Offre en attente", symbol: "hourglass", detail: "Attends la réponse de la vendeuse.")
                 RFButton("Voir la négociation", style: .secondary) { replaceWithThread(l) }
-                    .padding(.top, 10)
+            case .accepted:
+                blockedMessage("Offre acceptée", symbol: "checkmark.seal", detail: "Tu peux acheter au prix négocié.")
+                RFButton("Voir la négociation") { replaceWithThread(l) }
+            case .limit:
+                blockedMessage("Limite atteinte", symbol: "nosign",
+                               detail: "\(OfferRules.maxBuyerOffers) offres déjà faites sur cet article.")
+                buyAtListedPrice(l)
+                if thread != nil {
+                    RFButton("Voir la négociation", style: .secondary) { replaceWithThread(l) }
+                }
             }
         }
+    }
+
+    private func blockedMessage(_ title: String, symbol: String, detail: String? = nil) -> some View {
+        ContentUnavailableView {
+            Label(title, systemImage: symbol)
+        } description: {
+            if let detail { Text(detail) }
+        }
+        .padding(.vertical, RF.S.lg)
     }
 
     private func replaceWithThread(_ l: Listing) {
@@ -233,68 +235,68 @@ struct OfferComposerView: View {
 
 // MARK: - Shared offer pieces
 
-/// Listing context row (mockup `.co-row` in the composer, `.chat-context` in the thread).
+/// Listing context row: thumbnail, title, listed price. On a white card.
 struct OfferListingHeader: View {
     enum Style { case plain, context }
     let listing: Listing
     var style: Style = .plain
 
     var body: some View {
-        let thumb: CGFloat = style == .plain ? 44 : 34
-        HStack(spacing: 10) {
+        HStack(spacing: RF.S.md) {
             ListingPhotoView(photo: listing.photos.first, listingId: listing.id)
-                .frame(width: thumb, height: thumb)
-                .clipShape(RoundedRectangle(cornerRadius: style == .plain ? RF.R.sm : 8, style: .continuous))
-            VStack(alignment: .leading, spacing: 1) {
+                .frame(width: 48, height: 48)
+                .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+            VStack(alignment: .leading, spacing: 2) {
                 Text(listing.title)
-                    .font(RF.F.body(style == .plain ? 12.5 : 11, .bold))
+                    .font(RF.T.subheadline.weight(.semibold))
                     .foregroundStyle(RF.C.text)
                     .lineLimit(1)
-                Text("Prix affiché : \(Fmt.fcfa(listing.price))")
-                    .font(style == .plain ? RF.F.body(10.5) : RF.F.mono(10.5))
+                Text(Fmt.fcfa(listing.price))
+                    .font(RF.T.price(.footnote, weight: .regular))
                     .foregroundStyle(RF.C.textDim)
+                    .accessibilityLabel("Prix affiché : \(Fmt.fcfa(listing.price))")
             }
             Spacer(minLength: 0)
-        }
-        .padding(.vertical, style == .plain ? 10 : 9)
-        .padding(.horizontal, style == .plain ? 0 : 12)
-        .background {
             if style == .context {
-                RoundedRectangle(cornerRadius: RF.R.md, style: .continuous).fill(RF.C.paperDim)
+                Image(systemName: "chevron.right")
+                    .font(RF.T.footnote.weight(.semibold))
+                    .foregroundStyle(RF.C.textDim)
+                    .accessibilityHidden(true)
             }
         }
+        .padding(RF.S.md)
+        .background(RF.C.card, in: RoundedRectangle(cornerRadius: RF.R.md, style: .continuous))
         .accessibilityElement(children: .combine)
     }
 }
 
-/// "Offre n/3" with three dots (filled = already used).
+/// "Offre n sur 3" with three small dots (filled = already used).
 struct OfferCounterPill: View {
     let used: Int
     let upcoming: Int?
 
     var body: some View {
-        HStack(spacing: 8) {
+        HStack(spacing: RF.S.sm) {
             HStack(spacing: 4) {
                 ForEach(0..<OfferRules.maxBuyerOffers, id: \.self) { i in
                     Circle()
-                        .fill(i < used ? RF.C.hibiscus : (i == used && upcoming != nil ? RF.C.marigold : RF.C.line))
-                        .frame(width: 7, height: 7)
+                        .fill(i < used || (i == used && upcoming != nil) ? RF.C.hibiscus : RF.C.line)
+                        .opacity(i == used && upcoming != nil ? 0.45 : 1)
+                        .frame(width: 6, height: 6)
                 }
             }
             Text(label)
-                .font(RF.F.mono(11, .semibold))
-                .foregroundStyle(RF.C.text)
+                .font(RF.T.footnote)
+                .monospacedDigit()
+                .foregroundStyle(RF.C.textDim)
         }
-        .padding(.vertical, 6)
-        .padding(.horizontal, 12)
-        .background(Capsule().fill(RF.C.paperDim))
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel(label.replacingOccurrences(of: "/", with: " sur "))
+        .accessibilityLabel(label)
     }
 
     private var label: String {
-        if let upcoming { return "Offre \(min(upcoming, OfferRules.maxBuyerOffers))/\(OfferRules.maxBuyerOffers)" }
-        return "\(used)/\(OfferRules.maxBuyerOffers) offres"
+        if let upcoming { return "Offre \(min(upcoming, OfferRules.maxBuyerOffers)) sur \(OfferRules.maxBuyerOffers)" }
+        return "\(used) offre\(used > 1 ? "s" : "") sur \(OfferRules.maxBuyerOffers)"
     }
 }
 

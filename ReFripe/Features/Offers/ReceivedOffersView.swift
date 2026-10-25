@@ -41,7 +41,7 @@ struct ReceivedOffersView: View {
             Button("Refuser l'offre", role: .destructive) { respond(thread, action: .refuse) }
             Button("Annuler", role: .cancel) {}
         } message: { thread in
-            Text("\(buyerName(thread.buyerId)) en sera informée et la négociation sera close. L'article reste en vente au prix affiché.")
+            Text("\(buyerName(thread.buyerId)) en sera informée.")
         }
         .task {
             await load()
@@ -132,7 +132,7 @@ struct ReceivedOffersView: View {
                 switch action {
                 case .accept:
                     Haptics.success()
-                    store.show("Offre acceptée : \(buyerName(t.buyerId)) peut payer \(Fmt.fcfa(updated.acceptedAmount ?? 0))")
+                    store.show("Offre acceptée")
                 case .refuse:
                     Haptics.warning()
                     store.show("Offre refusée")
@@ -156,44 +156,44 @@ struct ReceivedOffersView: View {
 
     private func content(_ l: Listing) -> some View {
         ScrollView {
-            VStack(spacing: 14) {
+            VStack(alignment: .leading, spacing: RF.S.lg) {
                 header(l)
                 if threads.isEmpty {
-                    EmptyStateView(symbol: "arrow.left.arrow.right",
-                                   title: "Pas encore d'offre",
-                                   message: l.negotiable
-                                       ? "Les offres des acheteuses sur cet article apparaîtront ici. Partage l'annonce pour attirer du monde !"
-                                       : "Cet article est à prix fixe : les acheteuses ne peuvent pas te faire d'offre.")
+                    ContentUnavailableView {
+                        Label("Pas encore d'offre", systemImage: "arrow.left.arrow.right")
+                    } description: {
+                        Text(l.negotiable ? "Les offres reçues apparaîtront ici." : "Article à prix fixe.")
+                    }
+                    .padding(.top, RF.S.xl)
                 } else {
                     ForEach(threads) { t in
                         threadCard(t, listing: l)
                     }
                 }
             }
-            .padding(EdgeInsets(top: 10, leading: RF.S.gutter, bottom: 24, trailing: RF.S.gutter))
+            .padding(EdgeInsets(top: RF.S.lg, leading: RF.S.gutter, bottom: RF.S.xl, trailing: RF.S.gutter))
         }
         .refreshable { await load() }
     }
 
     private func header(_ l: Listing) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: RF.S.sm) {
             Button {
                 router.push(.product(l.id))
             } label: {
                 OfferListingHeader(listing: l, style: .context)
             }
-            .buttonStyle(RFPressStyle(scale: 0.98))
+            .buttonStyle(RFPressStyle())
             .accessibilityHint("Ouvrir l'annonce")
 
             if let floor = l.minOffer {
-                HStack(spacing: 6) {
-                    Image(systemName: "lock.fill").font(.system(size: 10, weight: .bold))
-                    Text("Ton plancher : ") + Text(Fmt.fcfa(floor)).font(RF.F.mono(11, .semibold))
-                    Text("· visible par toi seule").foregroundStyle(RF.C.textDim)
+                Label {
+                    Text("Ton plancher : \(Text(Fmt.fcfa(floor)).font(RF.T.price(.footnote))) (privé)")
+                } icon: {
+                    Image(systemName: "lock")
                 }
-                .font(RF.F.body(11, .semibold))
-                .foregroundStyle(RF.C.moneyDeep)
-                .padding(.horizontal, 4)
+                .font(RF.T.footnote)
+                .foregroundStyle(RF.C.textDim)
                 .accessibilityElement(children: .combine)
             }
         }
@@ -202,86 +202,84 @@ struct ReceivedOffersView: View {
     private func threadCard(_ t: OfferThread, listing l: Listing) -> some View {
         let buyer = buyers[t.buyerId]
         let name = buyerName(t.buyerId)
-        return VStack(alignment: .leading, spacing: 12) {
-            HStack(spacing: 10) {
+        return VStack(alignment: .leading, spacing: 0) {
+            HStack(spacing: RF.S.md) {
                 Button {
                     router.push(.sellerProfile(t.buyerId))
                 } label: {
-                    HStack(spacing: 10) {
-                        Avatar(profile: buyer, size: 34)
+                    HStack(spacing: RF.S.md) {
+                        Avatar(profile: buyer, size: 36)
                         VStack(alignment: .leading, spacing: 2) {
-                            HStack(spacing: 4) {
-                                Text(name).font(RF.F.body(12.5, .bold)).foregroundStyle(RF.C.text).lineLimit(1)
-                                if buyer?.verified == true { VerifiedBadge(size: 11) }
+                            HStack(spacing: RF.S.xs) {
+                                Text(name).font(RF.T.headline).foregroundStyle(RF.C.text).lineLimit(1)
+                                if buyer?.verified == true { VerifiedBadge(size: 12) }
                             }
                             statusLabel(t)
                         }
                     }
                     .contentShape(Rectangle())
                 }
-                .buttonStyle(RFPressStyle(scale: 0.98))
+                .buttonStyle(RFPressStyle())
                 .accessibilityElement(children: .combine)
                 .accessibilityHint("Voir le profil")
-                Spacer(minLength: 4)
+                Spacer(minLength: RF.S.xs)
                 Button {
                     Task { await ChatLauncher.open(with: t.buyerId, listingId: l.id, store: store, router: router) }
                 } label: {
                     Image(systemName: "bubble.left")
-                        .font(.system(size: 13, weight: .semibold))
+                        .font(RF.T.body)
                         .foregroundStyle(RF.C.text)
-                        .frame(width: 34, height: 34)
-                        .background(Circle().fill(RF.C.paperDim))
                         .frame(width: 44, height: 44)
                         .contentShape(Rectangle())
                 }
                 .buttonStyle(RFPressStyle(scale: 0.9))
                 .accessibilityLabel("Écrire à \(name)")
             }
+            .padding(EdgeInsets(top: RF.S.md, leading: RF.S.lg, bottom: RF.S.sm, trailing: RF.S.sm))
 
-            OfferCounterPill(used: t.buyerOfferCount, upcoming: nil)
+            Rectangle().fill(RF.C.line).frame(height: 0.5).padding(.leading, RF.S.lg)
 
-            VStack(spacing: 8) {
-                ForEach(t.rounds) { round in
-                    OfferBubble(round: round, otherName: name, me: .seller)
-                }
-                if awaitingBuyer(t) {
-                    OfferWaitingIndicator(name: name)
+            OfferRoundsList(rounds: t.rounds, otherName: name, me: .seller,
+                            waitingName: awaitingBuyer(t) ? name : nil)
+
+            Group {
+                if awaitingMe(t) {
+                    actions(t, listing: l, buyerName: name)
+                } else {
+                    outcome(t)
                 }
             }
-
-            if awaitingMe(t) {
-                actions(t, listing: l, buyerName: name)
-            } else {
-                outcome(t)
-            }
+            .padding(EdgeInsets(top: RF.S.xs, leading: RF.S.lg, bottom: RF.S.lg, trailing: RF.S.lg))
         }
-        .padding(14)
-        .rfCard()
+        .background(RF.C.card, in: RoundedRectangle(cornerRadius: RF.R.md, style: .continuous))
     }
 
     private func statusLabel(_ t: OfferThread) -> some View {
         let (text, color): (String, Color) = {
             switch t.status {
-            case .accepted: return ("Acceptée à \(Fmt.fcfa(t.acceptedAmount ?? 0))", RF.C.moneyDeep)
-            case .refused: return ("Refusée", RF.C.hibiscus)
+            case .accepted: return ("Acceptée", RF.C.moneyDeep)
+            case .refused: return ("Refusée", RF.C.textDim)
             case .expired: return ("Expirée", RF.C.textDim)
-            case .pending: return awaitingMe(t) ? ("À toi de répondre", RF.C.hibiscus) : ("En attente de l'acheteuse", RF.C.textDim)
+            case .pending: return awaitingMe(t) ? ("À toi de répondre", RF.C.hibiscus) : ("En attente", RF.C.textDim)
             }
         }()
-        return Text(text).font(RF.F.body(10.5, .bold)).foregroundStyle(color)
+        let count = "\(t.buyerOfferCount)/\(OfferRules.maxBuyerOffers) offres"
+        return Text("\(text) · \(count)")
+            .font(RF.T.footnote)
+            .monospacedDigit()
+            .foregroundStyle(color)
     }
 
     @ViewBuilder
     private func outcome(_ t: OfferThread) -> some View {
         switch t.status {
         case .accepted:
-            Label("Prix verrouillé : l'acheteuse peut payer \(Fmt.fcfa(t.acceptedAmount ?? 0)) via le séquestre.",
-                  systemImage: "checkmark.seal.fill")
-                .font(RF.F.body(11, .semibold))
+            Text("Paiement de \(Text(Fmt.fcfa(t.acceptedAmount ?? 0)).font(RF.T.price(.footnote))) attendu.")
+                .font(RF.T.footnote)
                 .foregroundStyle(RF.C.moneyDeep)
         case .refused, .expired:
-            Text("Négociation close. L'article reste en vente au prix affiché.")
-                .font(RF.F.body(11))
+            Text("Négociation close.")
+                .font(RF.T.footnote)
                 .foregroundStyle(RF.C.textDim)
         case .pending:
             EmptyView()
@@ -293,10 +291,10 @@ struct ReceivedOffersView: View {
         let lastAmount = t.lastBuyerOffer?.amount ?? 0
         let busy = busyThreads.contains(t.id)
         let range = t.buyerOfferCount < OfferRules.maxBuyerOffers ? counterRange(t, listing: l) : nil
-        VStack(spacing: 10) {
+        VStack(spacing: RF.S.sm) {
             if let floor = l.minOffer, lastAmount < floor {
-                Label("Sous ton plancher de \(Fmt.fcfa(floor))", systemImage: "exclamationmark.triangle.fill")
-                    .font(RF.F.body(11, .bold))
+                Label("Sous ton plancher de \(Fmt.fcfa(floor))", systemImage: "exclamationmark.triangle")
+                    .font(RF.T.footnote)
                     .foregroundStyle(RF.C.hibiscus)
                     .frame(maxWidth: .infinity, alignment: .leading)
             }
@@ -304,12 +302,13 @@ struct ReceivedOffersView: View {
             if counterEditing == t.id, let range {
                 counterEditor(t, range: range, step: OfferRules.step(for: l.price), busy: busy)
             } else {
-                RFButton("Accepter \(Fmt.fcfa(lastAmount))", symbol: "checkmark", isLoading: busy) {
+                RFButton("Accepter", isLoading: busy) {
                     respond(t, action: .accept)
                 }
-                HStack(spacing: 10) {
+                .accessibilityLabel("Accepter \(Fmt.fcfa(lastAmount))")
+                HStack(spacing: RF.S.sm) {
                     if let range {
-                        RFButton("Contre-proposer", style: .ghost) {
+                        RFButton("Contre-proposer", style: .secondary) {
                             if counterDrafts[t.id] == nil {
                                 let mid = OfferRules.round(Double(lastAmount + l.price) / 2, step: OfferRules.step(for: l.price))
                                 counterDrafts[t.id] = min(max(mid, range.lowerBound), range.upperBound)
@@ -322,14 +321,15 @@ struct ReceivedOffersView: View {
                 .disabled(busy)
                 if range == nil {
                     Text(t.buyerOfferCount >= OfferRules.maxBuyerOffers
-                         ? "3e et dernière offre de \(buyerName) : il ne reste qu'à accepter ou refuser."
-                         : "Plus de marge pour une contre-offre sous le prix affiché.")
-                        .font(RF.F.body(11))
+                         ? "Dernière offre de \(buyerName)."
+                         : "Plus de marge pour une contre-offre.")
+                        .font(RF.T.footnote)
                         .foregroundStyle(RF.C.textDim)
                         .multilineTextAlignment(.center)
                 }
             }
         }
+        .padding(.top, RF.S.sm)
     }
 
     private func counterEditor(_ t: OfferThread, range: ClosedRange<FCFA>, step: FCFA, busy: Bool) -> some View {
@@ -338,26 +338,26 @@ struct ReceivedOffersView: View {
             set: { counterDrafts[t.id] = $0 }
         )
         let value = min(max(binding.wrappedValue, range.lowerBound), range.upperBound)
-        return VStack(spacing: 12) {
+        return VStack(spacing: RF.S.md) {
             Text("Ta contre-offre")
-                .font(RF.F.body(11.5, .bold))
+                .font(RF.T.footnote.weight(.semibold))
                 .foregroundStyle(RF.C.textDim)
             PriceStepper(value: binding, step: step, range: range)
             Text("Entre \(Fmt.fcfa(range.lowerBound)) et \(Fmt.fcfa(range.upperBound))")
-                .font(RF.F.body(10.5))
+                .font(RF.T.footnote)
+                .monospacedDigit()
                 .foregroundStyle(RF.C.textDim)
-            HStack(spacing: 10) {
-                RFButton("Annuler", style: .secondary) {
+            HStack(spacing: RF.S.sm) {
+                RFButton("Annuler", style: .ghost) {
                     withAnimation(.snappy) { counterEditing = nil }
                 }
-                RFButton("Envoyer \(Fmt.fcfa(value))", symbol: "paperplane.fill", isLoading: busy) {
+                RFButton("Envoyer", isLoading: busy) {
                     respond(t, action: .counter, amount: value)
                 }
+                .accessibilityLabel("Envoyer \(Fmt.fcfa(value))")
             }
         }
-        .padding(12)
-        .background(RF.C.paperDim, in: RoundedRectangle(cornerRadius: RF.R.md, style: .continuous))
-        .transition(.opacity.combined(with: .scale(scale: 0.97)))
+        .transition(.opacity)
     }
 }
 

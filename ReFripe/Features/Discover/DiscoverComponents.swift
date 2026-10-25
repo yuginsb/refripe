@@ -1,6 +1,6 @@
 import SwiftUI
 
-// Small building blocks shared by Discover, Product and Offers (agent A).
+// Small building blocks shared by Discover and Product.
 
 // MARK: - Wrapping layout (tags, filter pills)
 
@@ -52,7 +52,7 @@ struct DiscoverWrapLayout: Layout {
     }
 }
 
-// MARK: - Scarcity tag (mockup `scarcityTag` / `.scarcity`)
+// MARK: - Scarcity tag (one signal max per card)
 
 struct ListingScarcityTag: View {
     let listing: Listing
@@ -61,70 +61,53 @@ struct ListingScarcityTag: View {
 
     var body: some View {
         if listing.isLastPiece {
-            label(symbol: "flame.fill", text: "Dernière pièce")
+            label("Dernière pièce")
         } else if listing.views > 150 {
-            label(symbol: "eye.fill", text: "\(Fmt.number(listing.views)) vues aujourd'hui")
+            label("\(Fmt.number(listing.views)) vues aujourd'hui")
         }
     }
 
-    private func label(symbol: String, text: String) -> some View {
-        HStack(spacing: 5) {
-            Image(systemName: symbol).font(.system(size: 10, weight: .semibold))
-            Text(text).font(RF.F.body(9.5, .bold))
-        }
-        .foregroundStyle(.white)
-        .padding(.vertical, 4)
-        .padding(.horizontal, 9)
-        .background(Capsule().fill(RF.C.ink0.opacity(0.72)))
-        .accessibilityElement(children: .combine)
+    private func label(_ text: String) -> some View {
+        Text(text)
+            .font(RF.T.caption.weight(.semibold))
+            .foregroundStyle(.white)
+            .padding(.vertical, 4)
+            .padding(.horizontal, 8)
+            .background(Capsule().fill(RF.C.ink0.opacity(0.6)))
     }
 }
 
-// MARK: - Drop countdown (mockup `.dropbanner`)
+// MARK: - Drop countdown (one discreet line)
 
 /// "Nouveaux arrivages dans HH:MM:SS", ticking every second against `repo.nextDropDate()`.
-struct DropCountdownBanner: View {
+struct DropCountdownLine: View {
     let date: Date?
 
     var body: some View {
         TimelineView(.periodic(from: .now, by: 1)) { context in
             content(now: context.date)
         }
-        .padding(.vertical, 10)
-        .padding(.horizontal, 12)
+        .font(RF.T.footnote)
+        .foregroundStyle(RF.C.textDim)
+        .lineLimit(1)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(
-            LinearGradient(colors: [RF.C.hibiscus.opacity(0.12), RF.C.marigold.opacity(0.14)],
-                           startPoint: .leading, endPoint: .trailing),
-            in: RoundedRectangle(cornerRadius: RF.R.md, style: .continuous)
-        )
+        .accessibilityElement(children: .combine)
     }
 
     @ViewBuilder
     private func content(now: Date) -> some View {
         let remaining = date.map { max(0, Int($0.timeIntervalSince(now).rounded(.up))) }
-        HStack(spacing: 6) {
-            Image(systemName: "clock")
-                .font(.system(size: 12, weight: .semibold))
-                .foregroundStyle(RF.C.hibiscus)
-                .accessibilityHidden(true)
-            Group {
-                if let remaining, remaining > 0 {
-                    Text("Nouveaux arrivages dans ")
-                        + Text(Self.format(remaining)).font(RF.F.mono(11.5, .semibold)).foregroundStyle(RF.C.hibiscus)
-                } else if remaining != nil {
-                    Text("Nouveaux arrivages en ligne, fonce !")
-                } else {
-                    Text("Nouveaux arrivages bientôt")
-                }
+        HStack(spacing: 4) {
+            Image(systemName: "clock").imageScale(.small).accessibilityHidden(true)
+            if let remaining, remaining > 0 {
+                Text("Nouveaux arrivages dans")
+                Text(Self.format(remaining)).monospacedDigit()
+            } else if remaining != nil {
+                Text("Nouveaux arrivages en ligne")
+            } else {
+                Text("Nouveaux arrivages bientôt")
             }
-            .font(RF.F.body(11, .semibold))
-            .foregroundStyle(RF.C.text)
-            .monospacedDigit()
-            .lineLimit(1)
-            .minimumScaleFactor(0.8)
         }
-        .accessibilityElement(children: .combine)
     }
 
     static func format(_ seconds: Int) -> String {
@@ -133,36 +116,12 @@ struct DropCountdownBanner: View {
     }
 }
 
-// MARK: - Selectable pill (mockup `.brand-chip`, marigold when active)
-
-struct DiscoverPill: View {
-    let title: String
-    let selected: Bool
-    let action: () -> Void
-
-    var body: some View {
-        Button(action: action) {
-            Text(title)
-                .font(RF.F.body(12, .bold))
-                .foregroundStyle(selected ? RF.C.ink0 : RF.C.text)
-                .padding(.vertical, 9)
-                .padding(.horizontal, 14)
-                .background(Capsule().fill(selected ? RF.C.marigold : RF.C.card))
-                .overlay(Capsule().strokeBorder(selected ? RF.C.marigold : RF.C.line, lineWidth: 1.5))
-                .contentShape(Capsule())
-        }
-        .buttonStyle(RFPressStyle(scale: 0.95))
-        .sensoryFeedback(.selection, trigger: selected)
-        .accessibilityAddTraits(selected ? .isSelected : [])
-    }
-}
-
 #Preview {
     VStack(spacing: 16) {
-        DropCountdownBanner(date: .now.addingTimeInterval(2 * 3600 + 14 * 60))
+        DropCountdownLine(date: .now.addingTimeInterval(2 * 3600 + 14 * 60))
         DiscoverWrapLayout {
             ForEach(Catalog.brands, id: \.self) { b in
-                DiscoverPill(title: b, selected: b == "Nike") {}
+                Chip(b, selected: b == "Nike") {}
             }
         }
     }

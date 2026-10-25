@@ -1,9 +1,8 @@
 import SwiftUI
 
-/// "Swipe" mode of Découvrir (mockup `swipeSection` + gestures): a stack of up to 3 cards,
+/// "Swipe" mode of Découvrir: a stack of up to 3 cards,
 /// drag right = like (joins the wishlist), drag left = pass, with ✕ / ♥ buttons below.
 struct DiscoverSwipeSection: View {
-    let dropDate: Date?
     let onShowGrid: () -> Void
 
     @Environment(AppStore.self) private var store
@@ -34,23 +33,24 @@ struct DiscoverSwipeSection: View {
                 Spacer(minLength: 0)
             } else if deck.isEmpty {
                 ScrollView {
-                    DropCountdownBanner(date: dropDate)
-                        .padding(EdgeInsets(top: 12, leading: RF.S.gutter, bottom: 4, trailing: RF.S.gutter))
-                    EmptyStateView(symbol: "sparkles",
-                                   title: "Tu as tout vu pour aujourd'hui",
-                                   message: "Reviens dans quelques heures pour de nouvelles pièces, ou parcours tout le catalogue en grille dès maintenant.",
-                                   actionTitle: "Voir la grille",
-                                   action: onShowGrid)
+                    ContentUnavailableView {
+                        Label("Tu as tout vu", systemImage: "checkmark.circle")
+                    } description: {
+                        Text("Reviens plus tard ou parcours la grille.")
+                    } actions: {
+                        Button("Voir la grille", action: onShowGrid)
+                            .buttonStyle(.borderedProminent)
+                            .tint(RF.C.hibiscus)
+                    }
+                    .padding(.top, 40)
                 }
                 .refreshable { await load() }
             } else {
-                DropCountdownBanner(date: dropDate)
-                    .padding(EdgeInsets(top: 12, leading: RF.S.gutter, bottom: 4, trailing: RF.S.gutter))
                 stack
-                    .padding(EdgeInsets(top: 14, leading: RF.S.gutter, bottom: 0, trailing: RF.S.gutter))
+                    .padding(EdgeInsets(top: RF.S.sm, leading: RF.S.gutter, bottom: 0, trailing: RF.S.gutter))
                 actions
-                    .padding(.top, 16)
-                    .padding(.bottom, 14)
+                    .padding(.top, RF.S.lg)
+                    .padding(.bottom, RF.S.lg)
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
@@ -112,7 +112,7 @@ struct DiscoverSwipeSection: View {
             }
         }
         .frame(maxWidth: .infinity)
-        .frame(minHeight: 300, idealHeight: 398, maxHeight: 440)
+        .frame(minHeight: 300, idealHeight: 420, maxHeight: 470)
     }
 
     @ViewBuilder
@@ -174,29 +174,27 @@ struct DiscoverSwipeSection: View {
     // MARK: Actions (mockup `.swipe-actions`)
 
     private var actions: some View {
-        HStack(spacing: 26) {
+        HStack(spacing: 32) {
             Button { fly(liked: false) } label: {
                 Image(systemName: "xmark")
-                    .font(.system(size: 21, weight: .bold))
-                    .foregroundStyle(RF.C.hibiscus)
-                    .frame(width: 54, height: 54)
+                    .font(.title2.weight(.semibold))
+                    .foregroundStyle(RF.C.text)
+                    .frame(width: 56, height: 56)
                     .background(Circle().fill(RF.C.card))
-                    .overlay(Circle().strokeBorder(RF.C.line, lineWidth: 2))
-                    .shadow(color: RF.C.text.opacity(0.25), radius: 9, y: 6)
+                    .overlay(Circle().strokeBorder(RF.C.line, lineWidth: 1))
             }
             .accessibilityLabel("Passer")
 
             Button { fly(liked: true) } label: {
                 Image(systemName: "heart.fill")
-                    .font(.system(size: 21, weight: .bold))
+                    .font(.title2.weight(.semibold))
                     .foregroundStyle(.white)
-                    .frame(width: 54, height: 54)
+                    .frame(width: 56, height: 56)
                     .background(Circle().fill(RF.C.hibiscus))
-                    .shadow(color: RF.C.text.opacity(0.3), radius: 9, y: 6)
             }
             .accessibilityLabel("J'aime, ajouter aux envies")
         }
-        .buttonStyle(RFPressStyle(scale: 0.88))
+        .buttonStyle(RFPressStyle(scale: 0.9))
         .disabled(isFlying || deck.isEmpty)
     }
 
@@ -244,7 +242,7 @@ struct DiscoverSwipeSection: View {
     }
 }
 
-// MARK: - Card (mockup `.swipe-card`)
+// MARK: - Card
 
 private struct SwipeCardView: View {
     let listing: Listing
@@ -257,39 +255,38 @@ private struct SwipeCardView: View {
             ListingPhotoView(photo: listing.photos.first, listingId: listing.id)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .overlay(alignment: .bottomLeading) {
-                    ListingScarcityTag(listing: listing).padding(10)
+                    ListingScarcityTag(listing: listing).padding(RF.S.md)
                 }
-            VStack(alignment: .leading, spacing: 3) {
+            VStack(alignment: .leading, spacing: 2) {
                 Text(Fmt.fcfa(listing.price))
-                    .font(RF.F.mono(19, .semibold))
+                    .font(RF.T.price(.title3))
                     .foregroundStyle(RF.C.text)
                 Text(listing.title)
-                    .font(RF.F.body(13, .bold))
+                    .font(RF.T.body)
                     .foregroundStyle(RF.C.text)
                     .lineLimit(1)
-                Text("\(listing.sizeLabel) · \(listing.locationLabel)")
-                    .font(RF.F.body(11))
+                Text("\(listing.sizeLabel) · \(listing.district)")
+                    .font(RF.T.footnote)
                     .foregroundStyle(RF.C.textDim)
                     .lineLimit(1)
             }
-            .padding(EdgeInsets(top: 14, leading: 16, bottom: 16, trailing: 16))
+            .padding(EdgeInsets(top: RF.S.md, leading: RF.S.lg, bottom: RF.S.lg, trailing: RF.S.lg))
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(RF.C.card)
         }
         .background(RF.C.card)
         .clipShape(shape)
-        .overlay(shape.strokeBorder(RF.C.line, lineWidth: 1))
         .overlay(alignment: .topLeading) {
-            SwipeStamp(text: "J'AIME", color: RF.C.money, angle: -14)
+            SwipeStamp(text: "J'aime", color: RF.C.hibiscus, angle: -12)
                 .opacity(likeOpacity)
-                .padding(EdgeInsets(top: 18, leading: 16, bottom: 0, trailing: 0))
+                .padding(EdgeInsets(top: 20, leading: RF.S.lg, bottom: 0, trailing: 0))
         }
         .overlay(alignment: .topTrailing) {
-            SwipeStamp(text: "PASSE", color: RF.C.hibiscus, angle: 14)
+            SwipeStamp(text: "Passer", color: RF.C.text, angle: 12)
                 .opacity(passOpacity)
-                .padding(EdgeInsets(top: 18, leading: 0, bottom: 0, trailing: 16))
+                .padding(EdgeInsets(top: 20, leading: 0, bottom: 0, trailing: RF.S.lg))
         }
-        .shadow(color: RF.C.text.opacity(0.22), radius: 15, y: 12)
+        .shadow(color: RF.C.text.opacity(0.12), radius: 12, y: 6)
         .contentShape(shape)
     }
 }
@@ -301,30 +298,28 @@ private struct SwipeStamp: View {
 
     var body: some View {
         Text(text)
-            .font(RF.F.display(14, .extraBold))
-            .kerning(0.5)
+            .font(RF.T.title3)
             .foregroundStyle(color)
             .padding(.vertical, 6)
             .padding(.horizontal, 14)
-            .overlay(RoundedRectangle(cornerRadius: 8, style: .continuous).strokeBorder(color, lineWidth: 3))
-            .background(RoundedRectangle(cornerRadius: 8, style: .continuous).fill(Color.white.opacity(0.75)))
+            .background(RoundedRectangle(cornerRadius: 8, style: .continuous).fill(Color.white.opacity(0.9)))
+            .overlay(RoundedRectangle(cornerRadius: 8, style: .continuous).strokeBorder(color, lineWidth: 2))
             .rotationEffect(.degrees(angle))
             .allowsHitTesting(false)
             .accessibilityHidden(true)
     }
 }
 
-// MARK: - Heart burst (mockup `.heart-burst`)
+// MARK: - Heart burst
 
 private struct SwipeHeartBurst: View {
     @State private var phase = 0
 
     var body: some View {
         Image(systemName: "heart.fill")
-            .font(.system(size: 58))
+            .font(.system(size: 56))
             .foregroundStyle(RF.C.hibiscus)
-            .shadow(color: RF.C.hibiscus.opacity(0.35), radius: 10)
-            .scaleEffect(phase == 0 ? 0.3 : (phase == 1 ? 1.25 : 1))
+            .scaleEffect(phase == 0 ? 0.3 : (phase == 1 ? 1.2 : 1))
             .offset(y: phase == 0 ? 0 : (phase == 1 ? -24 : -90))
             .opacity(phase == 1 ? 1 : 0)
             .allowsHitTesting(false)
@@ -337,7 +332,7 @@ private struct SwipeHeartBurst: View {
     }
 }
 
-// MARK: - First-use coach (mockup `swipeCoachHTML`)
+// MARK: - First-use coach
 
 private struct SwipeCoachOverlay: View {
     let onDismiss: () -> Void
@@ -348,34 +343,27 @@ private struct SwipeCoachOverlay: View {
     var body: some View {
         ZStack {
             RoundedRectangle(cornerRadius: RF.R.xl, style: .continuous)
-                .fill(RF.C.ink0.opacity(0.58))
-            VStack(spacing: 0) {
-                Image(systemName: "hand.draw")
-                    .font(.system(size: 22, weight: .semibold))
-                    .foregroundStyle(RF.C.hibiscus)
-                    .rotationEffect(.degrees(wave ? 7 : -7))
-                    .offset(x: wave ? 5 : -5)
-                    .frame(width: 48, height: 48)
-                    .background(Circle().fill(RF.C.paperDim))
-                    .padding(.bottom, 12)
-                    .accessibilityHidden(true)
-                Text("Glisse la carte")
-                    .font(RF.F.display(14.5))
-                    .foregroundStyle(RF.C.text)
-                    .padding(.bottom, 14)
-                row(symbol: "arrow.left", tint: RF.C.textDim, text: "Vers la gauche, tu passes l'article")
-                row(symbol: "arrow.right", tint: RF.C.hibiscus, text: "Vers la droite, il rejoint tes envies")
-                Text("Les deux boutons en dessous font la même chose.")
-                    .font(RF.F.body(10.5))
-                    .foregroundStyle(RF.C.textDim)
-                    .multilineTextAlignment(.center)
-                    .padding(.top, 4)
-                    .padding(.bottom, 14)
+                .fill(RF.C.scrim)
+            VStack(alignment: .leading, spacing: RF.S.md) {
+                HStack(spacing: RF.S.sm) {
+                    Image(systemName: "hand.draw")
+                        .font(.title3)
+                        .foregroundStyle(RF.C.text)
+                        .rotationEffect(.degrees(wave ? 7 : -7))
+                        .accessibilityHidden(true)
+                    Text("Glisse la carte")
+                        .font(RF.T.headline)
+                        .foregroundStyle(RF.C.text)
+                        .accessibilityAddTraits(.isHeader)
+                }
+                row(symbol: "arrow.left", text: "À gauche : tu passes")
+                row(symbol: "arrow.right", text: "À droite : dans tes envies")
                 RFButton("J'ai compris", action: onDismiss)
+                    .padding(.top, RF.S.xs)
             }
-            .padding(EdgeInsets(top: 20, leading: 18, bottom: 18, trailing: 18))
-            .background(RF.C.card, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
-            .padding(16)
+            .padding(RF.S.lg)
+            .background(RF.C.card, in: RoundedRectangle(cornerRadius: RF.R.lg, style: .continuous))
+            .padding(RF.S.lg)
         }
         .onAppear {
             guard !reduceMotion else { return }
@@ -385,26 +373,19 @@ private struct SwipeCoachOverlay: View {
         .accessibilityAddTraits(.isModal)
     }
 
-    private func row(symbol: String, tint: Color, text: String) -> some View {
-        HStack(spacing: 10) {
-            Image(systemName: symbol)
-                .font(.system(size: 12, weight: .bold))
-                .foregroundStyle(.white)
-                .frame(width: 26, height: 26)
-                .background(Circle().fill(tint))
-                .accessibilityHidden(true)
-            Text(text)
-                .font(RF.F.body(11.5))
-                .foregroundStyle(RF.C.text)
-                .frame(maxWidth: .infinity, alignment: .leading)
+    private func row(symbol: String, text: String) -> some View {
+        Label {
+            Text(text).foregroundStyle(RF.C.text)
+        } icon: {
+            Image(systemName: symbol).foregroundStyle(RF.C.textDim)
         }
-        .padding(.bottom, 9)
+        .font(RF.T.subheadline)
     }
 }
 
 #Preview {
     NavigationStack {
-        DiscoverSwipeSection(dropDate: .now.addingTimeInterval(3_600)) {}
+        DiscoverSwipeSection {}
             .rfScreenBackground()
             .withAppRoutes()
     }

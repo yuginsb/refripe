@@ -1,7 +1,7 @@
 import SwiftUI
 import UIKit
 
-/// Negotiation thread for one listing, buyer side (mockup `screenOfferThread`).
+/// Negotiation thread for one listing, buyer side.
 /// No realtime feed: while the last round is the buyer's and the thread is pending, the screen re-polls
 /// the repository every 1.5 s (the demo seller answers after ~1.5 s).
 struct OfferThreadView: View {
@@ -160,49 +160,41 @@ struct OfferThreadView: View {
 
     private func content(_ l: Listing) -> some View {
         ScrollView {
-            VStack(spacing: 0) {
+            VStack(alignment: .leading, spacing: RF.S.lg) {
                 Button {
                     router.push(.product(l.id))
                 } label: {
                     OfferListingHeader(listing: l, style: .context)
                 }
-                .buttonStyle(RFPressStyle(scale: 0.98))
+                .buttonStyle(RFPressStyle())
                 .accessibilityHint("Ouvrir l'annonce")
-                .padding(.horizontal, RF.S.gutter)
-                .padding(.top, 10)
 
                 if let thread {
                     OfferCounterPill(used: thread.buyerOfferCount, upcoming: nil)
-                        .padding(.top, 14)
-                    timeline(thread)
+                    OfferRoundsList(rounds: thread.rounds, otherName: sellerName,
+                                    waitingName: waitingForSeller ? sellerName : nil)
+                        .background(RF.C.card, in: RoundedRectangle(cornerRadius: RF.R.md, style: .continuous))
                     outcome(thread, listing: l)
                 } else {
-                    EmptyStateView(symbol: "arrow.left.arrow.right",
-                                   title: "Pas encore de négociation",
-                                   message: "Propose ton prix à \(sellerName) : jusqu'à \(OfferRules.maxBuyerOffers) offres, sans jamais sortir du séquestre.",
-                                   actionTitle: l.negotiable ? "Faire une offre" : nil) {
-                        router.pop()
-                        router.push(.offer(l.id))
+                    ContentUnavailableView {
+                        Label("Pas encore d'offre", systemImage: "arrow.left.arrow.right")
+                    } description: {
+                        Text("Propose ton prix à \(sellerName).")
+                    } actions: {
+                        if l.negotiable {
+                            Button("Faire une offre") {
+                                router.pop()
+                                router.push(.offer(l.id))
+                            }
+                            .buttonStyle(.borderedProminent)
+                            .tint(RF.C.hibiscus)
+                        }
                     }
                 }
             }
-            .padding(.bottom, 24)
+            .padding(EdgeInsets(top: RF.S.lg, leading: RF.S.gutter, bottom: RF.S.xl, trailing: RF.S.gutter))
         }
         .defaultScrollAnchor(.bottom)
-    }
-
-    private func timeline(_ t: OfferThread) -> some View {
-        VStack(spacing: 10) {
-            ForEach(t.rounds) { round in
-                OfferBubble(round: round, otherName: sellerName)
-                    .transition(.asymmetric(insertion: .move(edge: .bottom).combined(with: .opacity), removal: .opacity))
-            }
-            if waitingForSeller {
-                OfferWaitingIndicator(name: sellerName)
-                    .transition(.opacity)
-            }
-        }
-        .padding(EdgeInsets(top: 14, leading: RF.S.gutter, bottom: 14, trailing: RF.S.gutter))
     }
 
     @ViewBuilder
@@ -211,123 +203,138 @@ struct OfferThreadView: View {
         case .accepted:
             let amount = t.acceptedAmount ?? t.rounds.last?.amount ?? l.price
             OfferResultCard(accepted: true,
-                            title: "Offre acceptée à \(Fmt.fcfa(amount))",
-                            subtitle: "Le prix est verrouillé pour ta commande. Paiement sécurisé par séquestre.") {
+                            title: "Offre acceptée",
+                            subtitle: "Prix verrouillé à \(Fmt.fcfa(amount)).") {
                 if l.status == .active {
-                    RFButton("Acheter à \(Fmt.fcfa(amount))", symbol: "lock.fill") { buy(at: amount) }
+                    RFButton("Acheter") { buy(at: amount) }
+                        .accessibilityLabel("Acheter pour \(Fmt.fcfa(amount))")
                 } else {
-                    Text("Cet article n'est plus disponible.")
-                        .font(RF.F.body(11.5, .semibold))
+                    Text("Article plus disponible.")
+                        .font(RF.T.footnote)
                         .foregroundStyle(RF.C.textDim)
                 }
             }
         case .refused, .expired:
             OfferResultCard(accepted: false,
                             title: t.status == .refused ? "Offre refusée" : "Négociation expirée",
-                            subtitle: "\(sellerName) n'a pas donné suite à cette proposition. L'article reste achetable au prix affiché.") {
-                VStack(spacing: 10) {
+                            subtitle: l.status == .active ? "Tu peux toujours acheter au prix affiché." : nil) {
+                VStack(spacing: RF.S.sm) {
                     if l.status == .active {
-                        RFButton("Acheter au prix affiché · \(Fmt.fcfa(l.price))") { buy(at: nil) }
+                        RFButton("Acheter au prix affiché") { buy(at: nil) }
+                            .accessibilityLabel("Acheter au prix affiché, \(Fmt.fcfa(l.price))")
                     }
                     RFButton("Retour à l'annonce", style: .ghost) { router.pop() }
                 }
             }
         case .pending:
             if let counter = pendingCounter {
-                VStack(spacing: 10) {
-                    RFButton("Accepter \(Fmt.fcfa(counter.amount))", symbol: "checkmark", isLoading: isAccepting) {
-                        acceptCounter(counter)
-                    }
-                    if canCounter {
-                        RFButton("Contre-proposer", symbol: "arrow.left.arrow.right", style: .ghost) {
-                            router.push(.offer(l.id))
+                VStack(spacing: RF.S.sm) {
+                    HStack(spacing: RF.S.md) {
+                        if canCounter {
+                            RFButton("Contre-proposer", style: .secondary) {
+                                router.push(.offer(l.id))
+                            }
                         }
-                    } else {
-                        Text("Limite de \(OfferRules.maxBuyerOffers) propositions atteinte : il ne reste plus qu'à accepter.")
-                            .font(RF.F.body(11.5))
+                        RFButton("Accepter", isLoading: isAccepting) {
+                            acceptCounter(counter)
+                        }
+                        .accessibilityLabel("Accepter \(Fmt.fcfa(counter.amount))")
+                    }
+                    if !canCounter {
+                        Text("Limite de \(OfferRules.maxBuyerOffers) propositions atteinte.")
+                            .font(RF.T.footnote)
                             .foregroundStyle(RF.C.textDim)
-                            .multilineTextAlignment(.center)
                     }
                     if l.status == .active {
-                        Button {
-                            buy(at: nil)
-                        } label: {
-                            Text("Ou acheter au prix affiché · \(Fmt.fcfa(l.price))")
-                                .font(RF.F.body(12, .bold))
-                                .underline()
-                                .foregroundStyle(RF.C.textDim)
-                                .frame(minHeight: 44)
-                        }
-                        .buttonStyle(.plain)
+                        Button("Acheter au prix affiché") { buy(at: nil) }
+                            .font(RF.T.subheadline)
+                            .foregroundStyle(RF.C.textDim)
+                            .frame(minHeight: 44)
+                            .accessibilityLabel("Acheter au prix affiché, \(Fmt.fcfa(l.price))")
                     }
                 }
-                .padding(.horizontal, RF.S.gutter)
-                .padding(.top, 4)
-            } else if waitingForSeller {
-                Text("L'article reste achetable au prix affiché par n'importe qui pendant la négociation.")
-                    .font(RF.F.body(11))
-                    .foregroundStyle(RF.C.textDim)
-                    .multilineTextAlignment(.center)
-                    .padding(.horizontal, 28)
+                .frame(maxWidth: .infinity)
             }
         }
     }
 }
 
-// MARK: - Pieces (mockup `.offer-bubble`, `.offer-waiting`, `.offer-result`)
+// MARK: - Pieces
 
+/// Rounds of a negotiation as plain rows separated by hairlines (no background: the caller provides it).
+struct OfferRoundsList: View {
+    let rounds: [OfferRound]
+    let otherName: String
+    var me: OfferParty = .buyer
+    /// Name of the party we are waiting for, if any.
+    var waitingName: String?
+
+    var body: some View {
+        VStack(spacing: 0) {
+            ForEach(Array(rounds.enumerated()), id: \.element.id) { pair in
+                if pair.offset > 0 { separator }
+                OfferBubble(round: pair.element, otherName: otherName, me: me)
+                    .transition(.opacity)
+            }
+            if let waitingName {
+                if !rounds.isEmpty { separator }
+                OfferWaitingIndicator(name: waitingName)
+                    .transition(.opacity)
+            }
+        }
+    }
+
+    private var separator: some View {
+        Rectangle().fill(RF.C.line).frame(height: 0.5).padding(.leading, RF.S.lg)
+    }
+}
+
+/// One negotiation round as a row: who + when, amount on the right.
 struct OfferBubble: View {
     let round: OfferRound
     /// Name of the other party (seller when I am the buyer, buyer when I am the seller).
     let otherName: String
-    /// My side of the negotiation: my rounds are drawn on the right in hibiscus.
+    /// My side of the negotiation.
     var me: OfferParty = .buyer
 
     private var isMine: Bool { round.by == me }
 
     private var who: String {
-        let name = isMine ? "Toi" : otherName
         switch round.action {
-        case .offer: return name
-        case .counter: return "\(name) · contre-offre"
-        case .accept: return isMine ? "\(name) · as accepté" : "\(name) · a accepté"
-        case .refuse: return isMine ? "\(name) · as refusé" : "\(name) · a refusé"
+        case .offer: return isMine ? "Ton offre" : "Offre de \(otherName)"
+        case .counter: return isMine ? "Ta contre-offre" : "Contre-offre de \(otherName)"
+        case .accept: return isMine ? "Tu as accepté" : "\(otherName) a accepté"
+        case .refuse: return isMine ? "Tu as refusé" : "\(otherName) a refusé"
+        }
+    }
+
+    private var amountColor: Color {
+        switch round.action {
+        case .accept: RF.C.moneyDeep
+        case .refuse: RF.C.textDim
+        default: RF.C.text
         }
     }
 
     var body: some View {
-        HStack {
-            if isMine { Spacer(minLength: 60) }
+        HStack(spacing: RF.S.md) {
             VStack(alignment: .leading, spacing: 2) {
-                Text(who.uppercased())
-                    .font(RF.F.body(9.5, .bold))
-                    .kerning(0.4)
-                    .opacity(0.75)
-                HStack(spacing: 5) {
-                    if round.action == .accept {
-                        Image(systemName: "checkmark").font(.system(size: 12, weight: .bold))
-                    } else if round.action == .refuse {
-                        Image(systemName: "xmark").font(.system(size: 12, weight: .bold))
-                    }
-                    Text(Fmt.fcfa(round.amount))
-                        .font(RF.F.mono(15, .semibold))
-                        .strikethrough(round.action == .refuse)
-                }
+                Text(who)
+                    .font(RF.T.subheadline.weight(isMine ? .regular : .semibold))
+                    .foregroundStyle(RF.C.text)
+                    .lineLimit(1)
                 Text(Fmt.relative(round.at))
-                    .font(RF.F.body(9))
-                    .opacity(0.6)
+                    .font(RF.T.footnote)
+                    .foregroundStyle(RF.C.textDim)
             }
-            .foregroundStyle(isMine ? Color.white : RF.C.text)
-            .padding(.vertical, 10)
-            .padding(.horizontal, 13)
-            .background(isMine ? RF.C.hibiscus : RF.C.paperDim, in: UnevenRoundedRectangle(
-                topLeadingRadius: 14,
-                bottomLeadingRadius: isMine ? 14 : 4,
-                bottomTrailingRadius: isMine ? 4 : 14,
-                topTrailingRadius: 14,
-                style: .continuous))
-            if !isMine { Spacer(minLength: 60) }
+            Spacer(minLength: RF.S.sm)
+            Text(Fmt.fcfa(round.amount))
+                .font(RF.T.price(.body))
+                .strikethrough(round.action == .refuse)
+                .foregroundStyle(amountColor)
         }
+        .padding(.vertical, 11)
+        .padding(.horizontal, RF.S.lg)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("\(who), \(Fmt.fcfa(round.amount)), \(Fmt.relative(round.at))")
     }
@@ -337,23 +344,16 @@ struct OfferWaitingIndicator: View {
     let name: String
 
     var body: some View {
-        HStack(spacing: 8) {
-            Circle()
-                .fill(RF.C.marigold)
-                .frame(width: 8, height: 8)
-                .phaseAnimator([false, true]) { dot, on in
-                    dot.opacity(on ? 1 : 0.3).scaleEffect(on ? 1.1 : 0.85)
-                } animation: { _ in
-                    .easeInOut(duration: 0.55)
-                }
+        HStack(spacing: RF.S.sm) {
+            ProgressView().controlSize(.small)
             Text("\(name) répond…")
-                .font(RF.F.body(11.5))
+                .font(RF.T.subheadline)
                 .foregroundStyle(RF.C.textDim)
             Spacer()
         }
-        .padding(.vertical, 6)
-        .padding(.horizontal, 2)
-        .accessibilityElement(children: .combine)
+        .padding(.vertical, 11)
+        .padding(.horizontal, RF.S.lg)
+        .accessibilityElement(children: .ignore)
         .accessibilityLabel("En attente de la réponse de \(name)")
     }
 }
@@ -361,43 +361,28 @@ struct OfferWaitingIndicator: View {
 private struct OfferResultCard<Actions: View>: View {
     let accepted: Bool
     let title: String
-    let subtitle: String
+    let subtitle: String?
     @ViewBuilder let actions: () -> Actions
 
     var body: some View {
-        VStack(spacing: 0) {
-            Image(systemName: accepted ? "checkmark" : "xmark")
-                .font(.system(size: 22, weight: .bold))
-                .foregroundStyle(.white)
-                .frame(width: 56, height: 56)
-                .background(Circle().fill(accepted ? RF.C.money : RF.C.hibiscus))
-                .padding(.bottom, 14)
-                .accessibilityHidden(true)
-            Text(title)
-                .font(RF.F.display(15))
-                .foregroundStyle(RF.C.text)
-                .multilineTextAlignment(.center)
-                .padding(.bottom, 6)
-                .accessibilityAddTraits(.isHeader)
-            Text(subtitle)
-                .font(RF.F.body(11.5))
-                .foregroundStyle(RF.C.textDim)
-                .multilineTextAlignment(.center)
-                .lineSpacing(2)
-                .padding(.bottom, 14)
-                .fixedSize(horizontal: false, vertical: true)
+        VStack(spacing: RF.S.md) {
+            VStack(spacing: RF.S.xs) {
+                Label(title, systemImage: accepted ? "checkmark.circle.fill" : "xmark.circle")
+                    .font(RF.T.headline)
+                    .foregroundStyle(accepted ? RF.C.moneyDeep : RF.C.text)
+                    .accessibilityAddTraits(.isHeader)
+                if let subtitle {
+                    Text(subtitle)
+                        .font(RF.T.footnote)
+                        .foregroundStyle(RF.C.textDim)
+                        .multilineTextAlignment(.center)
+                }
+            }
             actions()
         }
-        .padding(EdgeInsets(top: 26, leading: RF.S.gutter, bottom: 16, trailing: RF.S.gutter))
         .frame(maxWidth: .infinity)
-        .background {
-            if accepted {
-                RoundedRectangle(cornerRadius: RF.R.lg, style: .continuous)
-                    .fill(RF.C.money.opacity(0.08))
-                    .padding(.horizontal, RF.S.gutter / 2)
-            }
-        }
-        .transition(.scale(scale: 0.95).combined(with: .opacity))
+        .padding(.top, RF.S.sm)
+        .transition(.opacity)
     }
 }
 

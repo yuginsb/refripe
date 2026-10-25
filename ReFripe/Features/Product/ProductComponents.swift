@@ -1,6 +1,6 @@
 import SwiftUI
 
-// MARK: - Share (mockup `shareSheetHTML` → native iOS share sheet)
+// MARK: - Share (native iOS share sheet)
 
 /// Native share sheet (covers WhatsApp status/chat, Facebook, Messages, AirDrop, copy…) with a rich
 /// preview: "<title> · <price>" + the first photo when it is a bundled asset.
@@ -13,7 +13,7 @@ struct ProductShareButton: View {
 
     private var title: String { "\(listing.title) · \(Fmt.fcfa(listing.price))" }
     private var message: Text {
-        Text("Regarde cette pièce sur ReFripe : \(listing.title) à \(Fmt.fcfa(listing.price)), \(listing.district).")
+        Text("\(listing.title) à \(Fmt.fcfa(listing.price)) sur ReFripe")
     }
 
     var body: some View {
@@ -38,125 +38,104 @@ struct ProductShareButton: View {
     }
 }
 
-// MARK: - Tags (mockup `.pd-tags` / `.tag`)
+// MARK: - Attributes (taille, état, marque, couleur)
 
-struct ProductTag: View {
-    enum Style { case plain, negotiable, fixed, alert }
-
-    let text: String
-    var symbol: String?
-    var style: Style = .plain
-
-    private var colors: (bg: Color, fg: Color) {
-        switch style {
-        case .plain: (RF.C.paperDim, RF.C.text)
-        case .negotiable: (RF.C.money.opacity(0.14), RF.C.moneyDeep)
-        case .fixed: (RF.C.text.opacity(0.08), RF.C.textDim)
-        case .alert: (RF.C.hibiscus.opacity(0.12), RF.C.hibiscus)
-        }
-    }
-
-    var body: some View {
-        HStack(spacing: 5) {
-            if let symbol {
-                Image(systemName: symbol).font(.system(size: 10, weight: .bold))
-            }
-            Text(text).font(RF.F.body(11, .semibold)).lineLimit(1)
-        }
-        .foregroundStyle(colors.fg)
-        .padding(.vertical, 5)
-        .padding(.horizontal, 10)
-        .background(colors.bg, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
-        .accessibilityElement(children: .combine)
-    }
-}
-
-struct ProductTags: View {
+/// Compact grouped list of the listing's attributes, styled like an inset-grouped `List`.
+struct ProductAttributes: View {
     let listing: Listing
-    /// When a price has been negotiated the "offres" badge is hidden (mockup).
-    let negotiated: Bool
 
-    private var freeTags: [String] {
-        var seen = Set<String>()
-        let candidates = [listing.brand, listing.color] + listing.tags
-        return candidates.compactMap { raw in
-            let t = raw.trimmingCharacters(in: .whitespaces)
-            guard !t.isEmpty, t != "Sans marque précise", seen.insert(t.lowercased()).inserted else { return nil }
-            return t
-        }
+    private var rows: [(label: String, value: String)] {
+        var r: [(label: String, value: String)] = [(label: "Taille", value: listing.sizeLabel),
+                                                   (label: "État", value: listing.condition.label)]
+        let brand = listing.brand.trimmingCharacters(in: .whitespaces)
+        if !brand.isEmpty, brand != "Sans marque précise" { r.append((label: "Marque", value: brand)) }
+        let color = listing.color.trimmingCharacters(in: .whitespaces)
+        if !color.isEmpty { r.append((label: "Couleur", value: color)) }
+        return r
     }
 
     var body: some View {
-        DiscoverWrapLayout(spacing: 8, lineSpacing: 8) {
-            ProductTag(text: listing.sizeLabel, symbol: "ruler")
-            if !negotiated {
-                if listing.negotiable {
-                    ProductTag(text: "Ouvert aux offres", symbol: "arrow.left.arrow.right", style: .negotiable)
-                } else {
-                    ProductTag(text: "Prix fixe", symbol: "lock.fill", style: .fixed)
-                }
-            }
-            if listing.isLastPiece {
-                ProductTag(text: "Dernière pièce", symbol: "flame.fill", style: .alert)
-            }
-            ForEach(freeTags, id: \.self) { tag in
-                ProductTag(text: tag)
-            }
+        ProductGroupedRows(count: rows.count) { i in
+            LabeledContent(rows[i].label, value: rows[i].value)
+                .font(RF.T.body)
+                .foregroundStyle(RF.C.text)
+                .padding(.vertical, 11)
+                .padding(.horizontal, RF.S.lg)
         }
     }
 }
 
-// MARK: - Delivery options
+// MARK: - Delivery options (plain rows)
 
 struct ProductDeliveryList: View {
     let methods: [DeliveryMethod]
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            SectionLabel("Livraison")
-            VStack(spacing: 0) {
-                ForEach(Array(methods.enumerated()), id: \.element) { pair in
-                    row(pair.element)
-                    if pair.offset < methods.count - 1 {
-                        Rectangle().fill(RF.C.line).frame(height: 1).padding(.leading, 50)
-                    }
-                }
+        ProductGroupedRows(count: methods.count) { i in
+            let m = methods[i]
+            HStack(spacing: RF.S.md) {
+                Image(systemName: m.symbol)
+                    .foregroundStyle(RF.C.textDim)
+                    .frame(width: 24)
+                    .accessibilityHidden(true)
+                Text(m.shortLabel)
+                    .font(RF.T.body)
+                    .foregroundStyle(RF.C.text)
+                Spacer(minLength: RF.S.sm)
+                Text(m.fee == 0 ? "Gratuit" : Fmt.fcfa(m.fee))
+                    .font(RF.T.price(.subheadline, weight: .regular))
+                    .foregroundStyle(RF.C.textDim)
             }
-            .rfCard()
+            .padding(.vertical, 11)
+            .padding(.horizontal, RF.S.lg)
+            .accessibilityElement(children: .combine)
         }
     }
+}
 
-    private func row(_ m: DeliveryMethod) -> some View {
-        HStack(spacing: 12) {
-            Image(systemName: m.symbol)
-                .font(.system(size: 15, weight: .semibold))
-                .foregroundStyle(RF.C.text)
-                .frame(width: 26, height: 26)
-                .accessibilityHidden(true)
-            VStack(alignment: .leading, spacing: 2) {
-                Text(m.label)
-                    .font(RF.F.body(12.5, .bold))
-                    .foregroundStyle(RF.C.text)
-                Text(m.subtitle)
-                    .font(RF.F.body(10.5))
-                    .foregroundStyle(RF.C.textDim)
-                    .fixedSize(horizontal: false, vertical: true)
+/// White rounded container with hairline separators between rows (inset-grouped look).
+struct ProductGroupedRows<Row: View>: View {
+    let count: Int
+    @ViewBuilder let row: (Int) -> Row
+
+    var body: some View {
+        VStack(spacing: 0) {
+            ForEach(0..<count, id: \.self) { i in
+                row(i)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                if i < count - 1 {
+                    Rectangle().fill(RF.C.line).frame(height: 0.5).padding(.leading, RF.S.lg)
+                }
             }
-            Spacer(minLength: 8)
-            Text(m.fee == 0 ? "Gratuit" : Fmt.fcfa(m.fee))
-                .font(RF.F.mono(12, .semibold))
-                .foregroundStyle(m.fee == 0 ? RF.C.moneyDeep : RF.C.text)
         }
-        .padding(12)
-        .accessibilityElement(children: .combine)
+        .background(RF.C.card, in: RoundedRectangle(cornerRadius: RF.R.md, style: .continuous))
+    }
+}
+
+extension DeliveryMethod {
+    /// Short row label (the long Catalog label includes the carrier).
+    var shortLabel: String {
+        switch self {
+        case .relais: "Point relais"
+        case .mainPropre: "Main propre"
+        case .yango: "Livraison Yango"
+        }
+    }
+    /// One short line under the label (checkout).
+    var shortSubtitle: String {
+        switch self {
+        case .relais: "Retrait sous 24-48 h"
+        case .mainPropre: "Rendez-vous avec la vendeuse"
+        case .yango: "Chez toi en 30 à 60 min"
+        }
     }
 }
 
 #Preview {
     let listing = DemoSeed.make().listings[2]
     return ScrollView {
-        VStack(alignment: .leading, spacing: 20) {
-            ProductTags(listing: listing, negotiated: false)
+        VStack(alignment: .leading, spacing: 24) {
+            ProductAttributes(listing: listing)
             ProductDeliveryList(methods: DeliveryMethod.allCases)
             ProductShareButton(listing: listing)
         }

@@ -1,10 +1,9 @@
 import SwiftUI
 
-/// "Grille" mode of Découvrir (mockup `grilleSection`): search, category chips, "Filtres" chip with
-/// active-count badge, result count and a 2-column grid of `ListingCard`, with pull-to-refresh.
+/// "Grille" mode of Découvrir: search, category chips, "Filtres" chip with active-count badge,
+/// result count and a 2-column grid of `ListingCard`, with pull-to-refresh.
 struct DiscoverGridSection: View {
     @Binding var filters: ListingFilters
-    let dropDate: Date?
 
     @Environment(AppStore.self) private var store
 
@@ -20,10 +19,8 @@ struct DiscoverGridSection: View {
     var body: some View {
         ScrollView {
             VStack(spacing: 0) {
-                DropCountdownBanner(date: dropDate)
-                    .padding(EdgeInsets(top: 12, leading: RF.S.gutter, bottom: 4, trailing: RF.S.gutter))
                 searchField
-                    .padding(EdgeInsets(top: 8, leading: RF.S.gutter, bottom: 4, trailing: RF.S.gutter))
+                    .padding(.horizontal, RF.S.gutter)
                 chips
                 resultCount
                 content
@@ -63,16 +60,15 @@ struct DiscoverGridSection: View {
         hasLoaded = true
     }
 
-    // MARK: Search (mockup `.search-fake`, here a real field)
+    // MARK: Search (styled like the native search field)
 
     private var searchField: some View {
-        HStack(spacing: 8) {
+        HStack(spacing: 6) {
             Image(systemName: "magnifyingglass")
-                .font(.system(size: 13, weight: .semibold))
                 .foregroundStyle(RF.C.textDim)
                 .accessibilityHidden(true)
-            TextField("Robe, Nike, wax…", text: $filters.query)
-                .font(RF.F.body(12.5))
+            TextField("Rechercher", text: $filters.query)
+                .font(RF.T.body)
                 .foregroundStyle(RF.C.text)
                 .textInputAutocapitalization(.never)
                 .autocorrectionDisabled()
@@ -84,16 +80,15 @@ struct DiscoverGridSection: View {
                     filters.query = ""
                 } label: {
                     Image(systemName: "xmark.circle.fill")
-                        .font(.system(size: 14))
                         .foregroundStyle(RF.C.textDim)
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel("Effacer la recherche")
             }
         }
-        .padding(.vertical, 10)
-        .padding(.horizontal, 14)
-        .background(RF.C.paperDim, in: RoundedRectangle(cornerRadius: RF.R.md, style: .continuous))
+        .padding(.vertical, 8)
+        .padding(.horizontal, 10)
+        .background(RF.C.paperDim, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
         .contentShape(Rectangle())
         .onTapGesture { searchFocused = true }
     }
@@ -114,8 +109,7 @@ struct DiscoverGridSection: View {
                 }
             }
             .padding(.horizontal, RF.S.gutter)
-            .padding(.top, 12)
-            .padding(.bottom, 4)
+            .padding(.vertical, RF.S.md)
         }
     }
 
@@ -127,17 +121,17 @@ struct DiscoverGridSection: View {
 
     private var resultCount: some View {
         let n = items.count
-        let suffix = filters.activeCount > 0 ? " · filtres actifs" : ""
         return HStack(spacing: 6) {
-            Text("\(n) article\(n > 1 ? "s" : "")\(suffix)")
-                .font(RF.F.body(11, .semibold))
+            Text("\(Fmt.number(n)) article\(n > 1 ? "s" : "")")
+                .font(RF.T.footnote)
                 .foregroundStyle(RF.C.textDim)
+                .monospacedDigit()
             if isLoading && hasLoaded {
                 ProgressView().controlSize(.mini).tint(RF.C.textDim)
             }
             Spacer()
         }
-        .padding(EdgeInsets(top: 2, leading: RF.S.gutter, bottom: 4, trailing: RF.S.gutter))
+        .padding(.horizontal, RF.S.gutter)
         .opacity(hasLoaded ? 1 : 0)
         .accessibilityElement(children: .combine)
     }
@@ -160,30 +154,33 @@ struct DiscoverGridSection: View {
                     ListingCard(listing: listing)
                 }
             }
-            .padding(EdgeInsets(top: 14, leading: RF.S.gutter, bottom: 20, trailing: RF.S.gutter))
+            .padding(EdgeInsets(top: RF.S.sm, leading: RF.S.gutter, bottom: RF.S.xl, trailing: RF.S.gutter))
         }
     }
 
     @ViewBuilder
     private var emptyState: some View {
-        let hasAdvanced = filters.activeCount > 0
-        let hasQuery = !filters.query.trimmingCharacters(in: .whitespaces).isEmpty
-        if hasAdvanced || hasQuery {
-            EmptyStateView(symbol: "magnifyingglass",
-                           title: "Aucun article trouvé",
-                           message: hasAdvanced
-                               ? "Aucun article ne correspond à ces filtres. Essaie d'élargir la fourchette de prix."
-                               : "Rien ne correspond à « \(filters.query) » pour l'instant.",
-                           actionTitle: hasAdvanced ? "Réinitialiser les filtres" : "Effacer la recherche") {
-                withAnimation {
-                    if hasAdvanced { filters.resetAdvancedFilters() } else { filters.query = "" }
+        let query = filters.query.trimmingCharacters(in: .whitespaces)
+        Group {
+            if filters.activeCount > 0 {
+                ContentUnavailableView {
+                    Label("Aucun article", systemImage: "line.3.horizontal.decrease.circle")
+                } description: {
+                    Text("Élargis tes filtres.")
+                } actions: {
+                    Button("Réinitialiser les filtres") {
+                        withAnimation { filters.resetAdvancedFilters() }
+                    }
+                    .buttonStyle(.bordered)
+                    .tint(RF.C.hibiscus)
                 }
+            } else if !query.isEmpty {
+                ContentUnavailableView.search(text: query)
+            } else {
+                ContentUnavailableView("Rien ici pour l'instant", systemImage: "tshirt")
             }
-        } else {
-            EmptyStateView(symbol: "tshirt",
-                           title: "Pas encore d'articles ici",
-                           message: "Pas encore d'articles dans cette catégorie près de chez toi. On te prévient dès qu'il y en a.")
         }
+        .padding(.top, 40)
     }
 }
 
@@ -204,7 +201,7 @@ private struct DiscoverGridPreview: View {
     @State private var filters = ListingFilters()
     var body: some View {
         NavigationStack {
-            DiscoverGridSection(filters: $filters, dropDate: .now.addingTimeInterval(5_000))
+            DiscoverGridSection(filters: $filters)
                 .rfScreenBackground()
                 .withAppRoutes()
         }
