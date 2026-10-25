@@ -96,21 +96,27 @@ struct DiscoverGridSection: View {
     // MARK: Chips (mockup `.chips`)
 
     private var chips: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 8) {
-                Chip("Tout", selected: filters.gender == nil) { setGender(nil) }
-                ForEach(Gender.allCases) { g in
-                    Chip(g.label, selected: filters.gender == g) { setGender(g) }
-                }
-                Chip("Filtres", selected: filters.activeCount > 0, badge: filters.activeCount,
-                     symbol: "slider.horizontal.3") {
-                    searchFocused = false
-                    showFilters = true
-                }
+        // "Filtres" stays pinned at the leading edge; only the category chips scroll.
+        HStack(spacing: 8) {
+            Chip("Filtres", selected: filters.activeCount > 0, badge: filters.activeCount,
+                 symbol: "slider.horizontal.3") {
+                searchFocused = false
+                showFilters = true
             }
-            .padding(.horizontal, RF.S.gutter)
-            .padding(.vertical, RF.S.md)
+            .fixedSize()
+            Divider().frame(height: 22)
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 8) {
+                    Chip("Tout", selected: filters.gender == nil) { setGender(nil) }
+                    ForEach(Gender.allCases) { g in
+                        Chip(g.label, selected: filters.gender == g) { setGender(g) }
+                    }
+                }
+                .padding(.trailing, RF.S.gutter)
+            }
         }
+        .padding(.leading, RF.S.gutter)
+        .padding(.vertical, RF.S.md)
     }
 
     private func setGender(_ g: Gender?) {
