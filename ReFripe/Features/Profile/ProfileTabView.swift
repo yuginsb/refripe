@@ -61,9 +61,8 @@ struct ProfileTabView: View {
             }
         }
         .font(RF.T.subheadline.weight(.semibold))
-        .buttonStyle(.bordered)
-        .controlSize(.large)
-        .tint(RF.C.text)
+        .foregroundStyle(RF.C.text)
+        .buttonStyle(ProfileOutlineButtonStyle())
     }
 
     // MARK: Statistiques
@@ -165,4 +164,16 @@ struct ProfileTabView: View {
 #Preview {
     NavigationStack { ProfileTabView().withAppRoutes() }
         .previewEnvironment()
+}
+
+
+/// Light outlined button for the profile header (white fill, hairline), lighter than `.bordered`.
+private struct ProfileOutlineButtonStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .padding(.vertical, 11)
+            .background(RF.C.card, in: RoundedRectangle(cornerRadius: RF.R.md, style: .continuous))
+            .overlay(RoundedRectangle(cornerRadius: RF.R.md, style: .continuous).strokeBorder(RF.C.line))
+            .opacity(configuration.isPressed ? 0.6 : 1)
+    }
 }

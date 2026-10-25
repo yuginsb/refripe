@@ -167,20 +167,27 @@ struct OrderTrackingView: View {
                 }
 
                 amounts(order)
-
-                VStack(spacing: 12) {
-                    actions(order)
-                    RFButton(role == .buyer ? "Écrire à la vendeuse" : "Écrire à l'acheteuse",
-                             symbol: "bubble.left", style: .ghost, isLoading: isOpeningChat) {
-                        Task { await contact(order) }
-                    }
-                }
             }
             .padding(RF.S.gutter)
             .padding(.bottom, 16)
             .animation(.snappy, value: order.status)
         }
         .refreshable { await refresh() }
+        // Actions pinned above the tab bar so the next step is always visible.
+        .safeAreaInset(edge: .bottom, spacing: 0) {
+            VStack(spacing: 10) {
+                actions(order)
+                RFButton(role == .buyer ? "Écrire à la vendeuse" : "Écrire à l'acheteuse",
+                         symbol: "bubble.left", style: .ghost, isLoading: isOpeningChat) {
+                    Task { await contact(order) }
+                }
+            }
+            .padding(.horizontal, RF.S.gutter)
+            .padding(.top, 10)
+            .padding(.bottom, 10)
+            .background(RF.C.paper)
+            .overlay(alignment: .top) { Divider().overlay(RF.C.line) }
+        }
     }
 
     private func contextCard(_ order: Order) -> some View {

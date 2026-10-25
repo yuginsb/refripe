@@ -24,7 +24,6 @@ struct ConversationList: View {
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .searchable(text: $query, prompt: "Rechercher")
         .task {
             await load()
             while !Task.isCancelled {
@@ -73,9 +72,40 @@ struct ConversationList: View {
 
     // MARK: Views
 
+    private var searchField: some View {
+        HStack(spacing: 6) {
+            Image(systemName: "magnifyingglass")
+                .foregroundStyle(RF.C.textDim)
+                .accessibilityHidden(true)
+            TextField("Rechercher", text: $query)
+                .font(RF.T.body)
+                .foregroundStyle(RF.C.text)
+                .textInputAutocapitalization(.never)
+                .autocorrectionDisabled()
+                .submitLabel(.search)
+                .accessibilityLabel("Rechercher une conversation")
+            if !query.isEmpty {
+                Button { query = "" } label: {
+                    Image(systemName: "xmark.circle.fill").foregroundStyle(RF.C.textDim)
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Effacer la recherche")
+            }
+        }
+        .padding(.vertical, 8)
+        .padding(.horizontal, 10)
+        .background(RF.C.paperDim, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+    }
+
     private func list(_ all: [Conversation]) -> some View {
         let shown = filtered(all)
         return List {
+            if !all.isEmpty {
+                searchField
+                    .listRowInsets(EdgeInsets(top: 4, leading: RF.S.gutter, bottom: 8, trailing: RF.S.gutter))
+                    .listRowBackground(RF.C.paper)
+                    .listRowSeparator(.hidden)
+            }
             ForEach(shown) { c in
                 ConversationListRow(conversation: c,
                                     profile: profiles[c.otherUserId],

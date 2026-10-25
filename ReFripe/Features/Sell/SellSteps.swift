@@ -30,11 +30,15 @@ struct SellPhotosStep: View {
                                  preferredItemEncoding: .current) {
                         addSlot(symbol: "plus", label: "Ajouter")
                     }
+                    .buttonStyle(.plain)
+                    .frame(maxWidth: .infinity)
                     .accessibilityLabel("Ajouter des photos depuis la photothèque")
                     if SellCameraPicker.isAvailable {
                         Button { showCamera = true } label: {
                             addSlot(symbol: "camera", label: "Photo")
                         }
+                        .buttonStyle(.plain)
+                        .frame(maxWidth: .infinity)
                         .accessibilityLabel("Prendre une photo")
                     }
                 }

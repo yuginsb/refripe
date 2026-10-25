@@ -208,9 +208,11 @@ struct NotificationRow: View {
                 .multilineTextAlignment(.leading)
             }
             .padding(.vertical, 4)
-            .overlay(alignment: .leading) {
+            .overlay(alignment: .topTrailing) {
                 if unread {
-                    Circle().fill(RF.C.hibiscus).frame(width: 8, height: 8).offset(x: -12)
+                    Circle().fill(RF.C.hibiscus).frame(width: 8, height: 8)
+                        .offset(y: 26)
+                        .accessibilityHidden(true)
                 }
             }
             .contentShape(Rectangle())
