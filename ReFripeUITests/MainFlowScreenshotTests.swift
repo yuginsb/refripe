@@ -188,6 +188,8 @@ final class MainFlowScreenshotTests: XCTestCase {
         _ = require(app.navigationBars["Boîte"], "inbox")
         selectSegment("Messages")
         _ = require(element(prefix: "SneakDak"), "conversation row")
+        // Let the large title finish appearing before the capture.
+        _ = app.navigationBars["Boîte"].staticTexts["Boîte"].waitForExistence(timeout: 3)
         snap("09-inbox-messages")
     }
 

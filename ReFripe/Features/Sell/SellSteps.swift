@@ -159,16 +159,19 @@ struct SellPhotosStep: View {
 
     private func addSlot(symbol: String, label: String) -> some View {
         let shape = RoundedRectangle(cornerRadius: 10, style: .continuous)
-        return VStack(spacing: 4) {
-            Image(systemName: symbol).font(RF.T.title3.weight(.regular))
-            Text(label).font(RF.T.caption)
-        }
-        .foregroundStyle(RF.C.textDim)
-        .frame(maxWidth: .infinity)
-        .aspectRatio(1, contentMode: .fit)
-        .background(RF.C.card, in: shape)
-        .overlay(shape.strokeBorder(RF.C.line, lineWidth: 1))
-        .contentShape(shape)
+        // Shapes are greedy: the tile takes the full grid cell width, then stays square.
+        return shape
+            .fill(RF.C.card)
+            .overlay(shape.strokeBorder(RF.C.line, lineWidth: 1))
+            .overlay {
+                VStack(spacing: 4) {
+                    Image(systemName: symbol).font(RF.T.title3.weight(.regular))
+                    Text(label).font(RF.T.caption)
+                }
+                .foregroundStyle(RF.C.textDim)
+            }
+            .aspectRatio(1, contentMode: .fit)
+            .contentShape(shape)
     }
 }
 
