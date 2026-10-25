@@ -35,6 +35,8 @@ protocol Repository: AnyObject, Sendable {
     func signOut() async throws
     func loadPreferences() async throws -> UserPreferences
     func savePreferences(_ prefs: UserPreferences) async throws
+    /// Edits my public profile (pseudo, prénom, ville, quartier). Returns the saved profile.
+    func updateProfile(username: String, firstName: String, city: String, district: String) async throws -> UserProfile
 
     // Catalog
     func feed(filters: ListingFilters, preferences: UserPreferences?) async throws -> [Listing]

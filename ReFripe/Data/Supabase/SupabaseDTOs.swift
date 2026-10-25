@@ -238,6 +238,18 @@ struct ListingInsert: Encodable {
     }
 }
 
+/// Columns a user may update on their own profile (see the column grant in the RLS migration).
+struct ProfileUpdate: Encodable {
+    let username: String
+    let firstName: String
+    let city: String
+    let district: String
+    enum CodingKeys: String, CodingKey {
+        case username, city, district
+        case firstName = "first_name"
+    }
+}
+
 struct PriceUpdate: Encodable {
     let price: FCFA
 }

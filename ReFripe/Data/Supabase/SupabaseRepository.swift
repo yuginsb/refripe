@@ -68,6 +68,24 @@ final class SupabaseRepository: Repository, @unchecked Sendable {
         }
     }
 
+    func updateProfile(username: String, firstName: String, city: String, district: String) async throws -> UserProfile {
+        try await run {
+            let uid = try await requireUser()
+            let rows: [ProfileRow] = try await client.from("profiles")
+                .update(ProfileUpdate(
+                    username: username.trimmingCharacters(in: .whitespacesAndNewlines),
+                    firstName: firstName.trimmingCharacters(in: .whitespacesAndNewlines),
+                    city: city,
+                    district: district.trimmingCharacters(in: .whitespacesAndNewlines)
+                ), returning: .representation)
+                .eq("id", value: uid)
+                .select(ProfileRow.columns)
+                .execute().value
+            guard let row = rows.first else { throw RepositoryError.notFound }
+            return row.model
+        }
+    }
+
     func signOut() async throws {
         try await run { try await client.auth.signOut() }
     }

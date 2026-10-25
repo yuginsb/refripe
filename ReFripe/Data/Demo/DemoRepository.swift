@@ -20,6 +20,9 @@ final class DemoRepository: Repository {
     func signOut() async throws { await state.signOut() }
     func loadPreferences() async throws -> UserPreferences { try await state.loadPreferences() }
     func savePreferences(_ prefs: UserPreferences) async throws { try await state.savePreferences(prefs) }
+    func updateProfile(username: String, firstName: String, city: String, district: String) async throws -> UserProfile {
+        try await state.updateProfile(username: username, firstName: firstName, city: city, district: district)
+    }
 
     // MARK: Catalog
     func feed(filters: ListingFilters, preferences: UserPreferences?) async throws -> [Listing] {
@@ -185,6 +188,24 @@ actor DemoState {
         pendingPhone = nil; pendingApple = false
         me = id
         return profile
+    }
+
+    func updateProfile(username: String, firstName: String, city: String, district: String) throws -> UserProfile {
+        let me = try requireMe()
+        guard var p = users[me] else { throw RepositoryError.notFound }
+        let first = firstName.trimmingCharacters(in: .whitespacesAndNewlines)
+        let handle = username.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !first.isEmpty else { throw RepositoryError.invalidState("Indique ton prénom.") }
+        guard handle.count >= 3 else { throw RepositoryError.invalidState("Ton pseudo doit faire au moins 3 caractères.") }
+        if users.values.contains(where: { $0.id != me && $0.username.lowercased() == handle.lowercased() }) {
+            throw RepositoryError.invalidState("Ce pseudo est déjà pris.")
+        }
+        p.username = handle
+        p.firstName = first
+        p.city = city
+        p.district = district.trimmingCharacters(in: .whitespacesAndNewlines)
+        users[me] = p
+        return p
     }
 
     func signOut() { me = nil }

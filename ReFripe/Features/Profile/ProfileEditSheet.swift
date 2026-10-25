@@ -1,10 +1,6 @@
 import SwiftUI
 
 /// « Modifier le profil »: username, first name, city, district.
-///
-/// TODO(contract): `Repository` has no profile-update method yet, so the edit only updates the
-/// current session (`AppStore.me` via `didSignIn`). Add `updateProfile(_:) async throws -> UserProfile`
-/// to the contract (+ Demo / Supabase) and call it in `save()`.
 struct ProfileEditSheet: View {
     @Environment(AppStore.self) private var store
     @Environment(\.dismiss) private var dismiss
@@ -67,17 +63,23 @@ struct ProfileEditSheet: View {
     }
 
     private func save() async {
-        guard var updated = store.me, canSave else { return }
+        guard canSave else { return }
         isSaving = true
         defer { isSaving = false }
-        updated.username = trimmedUsername
-        updated.firstName = trimmedFirstName
-        updated.city = city
-        updated.district = district.trimmingCharacters(in: .whitespacesAndNewlines)
-        await store.didSignIn(updated)
-        Haptics.success()
-        store.show("Profil mis à jour")
-        dismiss()
+        do {
+            let saved = try await store.repo.updateProfile(
+                username: trimmedUsername,
+                firstName: trimmedFirstName,
+                city: city,
+                district: district
+            )
+            await store.didSignIn(saved)
+            Haptics.success()
+            store.show("Profil mis à jour")
+            dismiss()
+        } catch {
+            store.show(error)
+        }
     }
 }
 
