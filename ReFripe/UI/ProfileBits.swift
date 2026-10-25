@@ -22,7 +22,7 @@ struct Avatar: View {
         ZStack {
             Circle().fill(RF.C.marigold)
             Text(initial)
-                .font(.custom(RF.F.DisplayWeight.bold.rawValue, fixedSize: size * 0.37))
+                .font(.system(size: size * 0.4, weight: .semibold))
                 .foregroundStyle(RF.C.ink0)
             if let url {
                 AsyncImage(url: url) { image in

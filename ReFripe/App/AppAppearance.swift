@@ -1,7 +1,7 @@
 import SwiftUI
 import UIKit
 
-/// UIKit appearance for the native bars: paper background, hairline, hibiscus selection, brand fonts.
+/// UIKit appearance for the native bars: paper background, hairline, hibiscus selection, system font.
 @MainActor
 enum AppAppearance {
     static func configure() {
@@ -12,7 +12,7 @@ enum AppAppearance {
         let hairline = UIColor(RF.C.line)
 
         // Tab bar (mockup `.bottomnav`)
-        let itemFont = scaled("Manrope-Bold", 10, weight: .bold, style: .caption2)
+        let itemFont = UIFont.preferredFont(forTextStyle: .caption2)
         let tab = UITabBarAppearance()
         tab.configureWithOpaqueBackground()
         tab.backgroundColor = paper
@@ -35,9 +35,9 @@ enum AppAppearance {
             nav.backgroundColor = paper
             nav.shadowColor = shadow
             nav.titleTextAttributes = [.foregroundColor: text,
-                                       .font: scaled("Unbounded-Bold", 15, weight: .bold, style: .headline)]
+                                       .font: UIFont.preferredFont(forTextStyle: .headline)]
             nav.largeTitleTextAttributes = [.foregroundColor: text,
-                                            .font: scaled("Unbounded-Bold", 26, weight: .bold, style: .largeTitle)]
+                                            .font: bold(.largeTitle)]
             return nav
         }
         UINavigationBar.appearance().standardAppearance = navAppearance(hairline: hairline)
@@ -46,8 +46,9 @@ enum AppAppearance {
         UINavigationBar.appearance().tintColor = hibiscus
     }
 
-    private static func scaled(_ name: String, _ size: CGFloat, weight: UIFont.Weight, style: UIFont.TextStyle) -> UIFont {
-        let base = UIFont(name: name, size: size) ?? .systemFont(ofSize: size, weight: weight)
-        return UIFontMetrics(forTextStyle: style).scaledFont(for: base)
+    private static func bold(_ style: UIFont.TextStyle) -> UIFont {
+        let base = UIFont.preferredFont(forTextStyle: style)
+        let d = base.fontDescriptor.withSymbolicTraits(.traitBold) ?? base.fontDescriptor
+        return UIFont(descriptor: d, size: 0)
     }
 }
