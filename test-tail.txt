@@ -1,0 +1,300 @@
+    t =    12.51s         Wait for dev.eugenebessan.refripe to idle
+    t =    12.51s     Type '0707070707' into "07 12 34 56 78" TextField
+    t =    12.51s         Wait for dev.eugenebessan.refripe to idle
+    t =    12.52s         Find the "07 12 34 56 78" TextField
+    t =    12.99s         Check for interrupting elements affecting "07 12 34 56 78" TextField
+    t =    13.16s         Synthesize event
+    t =    13.55s         Wait for dev.eugenebessan.refripe to idle
+    t =    13.77s     Find the Target Application 'dev.eugenebessan.refripe'
+    t =    14.49s     Added attachment named '00-signup-phone'
+    t =    14.49s     Waiting 15.0s for "Recevoir le code" Button to exist
+    t =    15.53s         Checking `Expect predicate `existsNoRetry == 1` for object "Recevoir le code" Button`
+    t =    15.53s             Checking existence of `"Recevoir le code" Button`
+    t =    15.84s     Tap "Recevoir le code" Button
+    t =    15.84s         Wait for dev.eugenebessan.refripe to idle
+    t =    15.85s         Find the "Recevoir le code" Button
+    t =    16.45s         Check for interrupting elements affecting "Recevoir le code" Button
+    t =    16.59s         Synthesize event
+    t =    16.99s         Wait for dev.eugenebessan.refripe to idle
+    t =    18.02s     Waiting 15.0s for "Valider" Button to exist
+    t =    19.07s         Checking `Expect predicate `existsNoRetry == 1` for object "Valider" Button`
+    t =    19.07s             Checking existence of `"Valider" Button`
+    t =    19.20s     Waiting 15.0s for "Code de vérification à 4 chiffres" TextField to exist
+    t =    20.27s         Checking `Expect predicate `existsNoRetry == 1` for object "Code de vérification à 4 chiffres" TextField`
+    t =    20.28s             Checking existence of `"Code de vérification à 4 chiffres" TextField`
+    t =    20.72s     Tap "Code de vérification à 4 chiffres" TextField[0.50, 0.50]
+    t =    20.72s         Wait for dev.eugenebessan.refripe to idle
+    t =    20.73s         Find the "Code de vérification à 4 chiffres" TextField
+    t =    21.08s         Check for interrupting elements affecting "Code de vérification à 4 chiffres" TextField
+    t =    21.29s         Synthesize event
+    t =    21.31s             Find the "Code de vérification à 4 chiffres" TextField
+    t =    21.50s             Find the "Code de vérification à 4 chiffres" TextField
+    t =    21.68s             Find the "Code de vérification à 4 chiffres" TextField
+    t =    22.10s         Wait for dev.eugenebessan.refripe to idle
+    t =    22.11s     Waiting 3.0s for Keyboard (First Match) to exist
+    t =    23.15s         Checking `Expect predicate `existsNoRetry == 1` for object Keyboard (First Match)`
+    t =    23.15s             Checking existence of `Keyboard (First Match)`
+    t =    23.17s     Type '1234' into "Code de vérification à 4 chiffres" TextField
+    t =    23.17s         Wait for dev.eugenebessan.refripe to idle
+    t =    23.18s         Find the "Code de vérification à 4 chiffres" TextField
+    t =    23.25s         Check for interrupting elements affecting "Code de vérification à 4 chiffres" TextField
+    t =    23.39s         Synthesize event
+    t =    23.70s         Wait for dev.eugenebessan.refripe to idle
+    t =    24.86s     Waiting 15.0s for TabBar (First Match) to exist
+    t =    25.93s         Checking `Expect predicate `existsNoRetry == 1` for object TabBar (First Match)`
+    t =    25.93s             Checking existence of `TabBar (First Match)`
+    t =    25.97s     Waiting 15.0s for TabBar (First Match) to exist
+    t =    27.00s         Checking `Expect predicate `existsNoRetry == 1` for object TabBar (First Match)`
+    t =    27.00s             Checking existence of `TabBar (First Match)`
+    t =    27.03s 01 discover swipe
+    t =    27.03s     Waiting 15.0s for "Découvrir" Button to exist
+    t =    28.06s         Checking `Expect predicate `existsNoRetry == 1` for object "Découvrir" Button`
+    t =    28.06s             Checking existence of `"Découvrir" Button`
+    t =    28.11s     Tap "Découvrir" Button
+    t =    28.11s         Wait for dev.eugenebessan.refripe to idle
+    t =    28.11s         Find the "Découvrir" Button
+    t =    28.16s         Check for interrupting elements affecting "house" Button
+    t =    28.24s         Found 1 interrupting element:
+    t =    28.25s             Find the Alert (Identity Binding)
+    t =    28.29s     Alert from Target Application 'dev.eugenebessan.refripe'
+    t =    28.29s         Invoking UI interruption monitors for Alert from Target Application 'dev.eugenebessan.refripe'
+    t =    28.29s     Invoking System alert
+    t =    28.29s                 Checking existence of `"Autoriser" Button`
+    t =    28.50s                 Checking existence of `"Allow" Button`
+    t =    28.56s                 Checking existence of `"OK" Button`
+    t =    28.59s                 Checking existence of `"Ne pas autoriser" Button`
+    t =    28.64s                 Checking existence of `"Don’t Allow" Button`
+    t =    28.69s                 Checking existence of `"Don't Allow" Button`
+    t =    28.74s             Find the Alert
+    t =    28.77s             Checking existence of `Button (Elements matching predicate 'userTestingAttributes CONTAINS "cancel-button"')`
+    t =    28.87s             Get all elements bound by accessibility element for: Elements matching predicate 'userTestingAttributes CONTAINS "default-button"'
+    t =    28.92s             Checking existence of `Button (Elements matching predicate 'label CONTAINS[d] "Don’t" OR label CONTAINS "Cancel"')`
+    t =    28.96s             Requesting snapshot of accessibility hierarchy for app with pid 13932
+    t =    29.03s             Find: Descendants matching type Alert
+    t =    29.03s             Find: Identity Binding
+    t =    29.18s             Requesting snapshot of accessibility hierarchy for app with pid 13932
+    t =    29.24s             Find: Descendants matching type Alert
+    t =    29.24s             Find: Identity Binding
+    t =    29.24s             Requesting snapshot of accessibility hierarchy for app with pid 13932
+    t =    29.31s             Find: Descendants matching type Alert
+    t =    29.31s             Requesting snapshot of accessibility hierarchy for app with pid 13932
+    t =    29.36s     Default interruption handler not attempting to dismiss alert: unable to find any qualified button in Attributes: Alert, 0x104a745d0, {{16.0, 242.7}, {370.0, 460.3}}
+Element subtree:
+ →Alert, 0x104a745d0, {{16.0, 242.7}, {370.0, 460.3}}
+    Image, 0x104a74910, {{49.2, 397.9}, {25.3, 24.0}}, identifier: 'hand.draw', label: 'hand.draw'
+    StaticText, 0x104a74c60, {{81.3, 399.7}, {111.7, 20.3}}, label: 'Glisse la carte'
+    Image, 0x104a74fd0, {{50.0, 438.0}, {13.7, 11.3}}, identifier: 'arrow.left', label: 'Gauche'
+    StaticText, 0x104a75330, {{50.0, 434.7}, {166.0, 18.0}}, label: 'À gauche : tu passes'
+    Image, 0x104a756a0, {{50.0, 468.0}, {13.7, 11.3}}, identifier: 'arrow.right', label: 'Droite'
+    StaticText, 0x104a75a20, {{50.0, 464.7}, {195.7, 18.0}}, label: 'À droite : dans tes envies'
+    Button, 0x104a75d80, {{48.0, 498.7}, {306.0, 50.0}}, label: 'J'ai compris'
+Path to element:
+ →Application, 0x104891390, pid: 13932, label: 'ReFripe'
+  ↳Window (Main), 0x104893620, {{0.0, 0.0}, {402.0, 874.0}}
+   ↳Other, 0x10486d490, {{0.0, 0.0}, {402.0, 874.0}}
+    ↳Other, 0x10486aeb0, {{0.0, 0.0}, {402.0, 874.0}}
+     ↳Other, 0x1048681f0, {{0.0, 0.0}, {402.0, 874.0}}
+      ↳Other, 0x104867ad0, {{0.0, 0.0}, {402.0, 874.0}}
+       ↳Other, 0x10486c680, {{0.0, 0.0}, {402.0, 874.0}}
+        ↳Other, 0x10486bc50, {{0.0, 0.0}, {402.0, 874.0}}
+         ↳Other, 0x104868fc0, {{0.0, 0.0}, {402.0, 874.0}}
+          ↳Other, 0x10486b8f0, {{0.0, 0.0}, {402.0, 874.0}}
+           ↳Other, 0x10486c310, {{0.0, 0.0}, {402.0, 874.0}}
+            ↳Other, 0x10486bfc0, {{0.0, 0.0}, {402.0, 874.0}}
+             ↳Other, 0x10486a7e0, {{0.0, 0.0}, {402.0, 874.0}}
+              ↳Other, 0x10486d100, {{0.0, 0.0}, {402.0, 874.0}}
+               ↳Other, 0x10486dbb0, {{0.0, 0.0}, {402.0, 874.0}}
+                ↳Other, 0x10486a460, {{0.0, 0.0}, {402.0, 874.0}}
+                 ↳Other, 0x1048696c0, {{0.0, 0.0}, {402.0, 874.0}}
+                  ↳Alert, 0x104a745d0, {{16.0, 242.7}, {370.0, 460.3}}
+Query chain:
+ →Find: Target Application 'dev.eugenebessan.refripe'
+  Output: {
+    Application, 0x104882440, pid: 13932, label: 'ReFripe'
+  }
+  ↪︎Find: Descendants matching type Alert
+    Output: {
+      Alert, 0x10487fed0, {{16.0, 242.7}, {370.0, 460.3}}
+    }
+    ↪︎Find: Identity Binding
+      Output: {
+        Alert, 0x104a892c0, {{16.0, 242.7}, {370.0, 460.3}}
+      }
+.
+    t =    29.36s             Find the Alert at {{16.0, 242.7}, {370.0, 460.3}}
+    t =    29.43s             Find the Alert
+    t =    29.47s     No monitors handled UI interruption, checking to see if element still exists...
+    t =    29.47s                 Checking existence of `Alert`
+    t =    29.51s     Did not handle the interruption, but will attempt to continue…
+    t =    29.51s         Synthesize event
+    t =    29.84s         Wait for dev.eugenebessan.refripe to idle
+    t =    31.29s     Tap "house" Button
+    t =    31.29s         Wait for dev.eugenebessan.refripe to idle
+    t =    31.29s         Find the "house" Button
+    t =    31.39s         Check for interrupting elements affecting "house" Button
+    t =    31.47s         Found 1 interrupting element:
+    t =    31.47s             Find the Alert (Identity Binding)
+    t =    31.52s     Alert from Target Application 'dev.eugenebessan.refripe'
+    t =    31.52s         Invoking UI interruption monitors for Alert from Target Application 'dev.eugenebessan.refripe'
+    t =    31.53s     Invoking System alert
+    t =    31.53s                 Checking existence of `"Autoriser" Button`
+    t =    31.57s                 Checking existence of `"Allow" Button`
+    t =    31.61s                 Checking existence of `"OK" Button`
+    t =    31.65s                 Checking existence of `"Ne pas autoriser" Button`
+    t =    31.69s                 Checking existence of `"Don’t Allow" Button`
+    t =    31.74s                 Checking existence of `"Don't Allow" Button`
+    t =    31.78s             Find the Alert
+    t =    31.83s             Checking existence of `Button (Elements matching predicate 'userTestingAttributes CONTAINS "cancel-button"')`
+    t =    31.90s             Get all elements bound by accessibility element for: Elements matching predicate 'userTestingAttributes CONTAINS "default-button"'
+    t =    31.95s             Checking existence of `Button (Elements matching predicate 'label CONTAINS[d] "Don’t" OR label CONTAINS "Cancel"')`
+    t =    32.01s             Requesting snapshot of accessibility hierarchy for app with pid 13932
+    t =    32.09s             Find: Descendants matching type Alert
+    t =    32.09s             Find: Identity Binding
+    t =    32.49s             Requesting snapshot of accessibility hierarchy for app with pid 13932
+    t =    32.56s             Find: Descendants matching type Alert
+    t =    32.56s             Find: Identity Binding
+    t =    32.56s             Requesting snapshot of accessibility hierarchy for app with pid 13932
+    t =    32.63s             Find: Descendants matching type Alert
+    t =    32.64s             Requesting snapshot of accessibility hierarchy for app with pid 13932
+    t =    32.76s     Default interruption handler not attempting to dismiss alert: unable to find any qualified button in Attributes: Alert, 0x104881630, {{16.0, 242.7}, {370.0, 460.3}}
+Element subtree:
+ →Alert, 0x104881630, {{16.0, 242.7}, {370.0, 460.3}}
+    Image, 0x1048820a0, {{48.7, 397.4}, {26.2, 25.0}}, identifier: 'hand.draw', label: 'hand.draw'
+    StaticText, 0x104a90a60, {{81.3, 399.7}, {111.7, 20.3}}, label: 'Glisse la carte'
+    Image, 0x104a906e0, {{50.0, 438.0}, {13.7, 11.3}}, identifier: 'arrow.left', label: 'Gauche'
+    StaticText, 0x104a90360, {{50.0, 434.7}, {166.0, 18.0}}, label: 'À gauche : tu passes'
+    Image, 0x104a8e730, {{50.0, 468.0}, {13.7, 11.3}}, identifier: 'arrow.right', label: 'Droite'
+    StaticText, 0x104a8fc60, {{50.0, 464.7}, {195.7, 18.0}}, label: 'À droite : dans tes envies'
+    Button, 0x104a8f8e0, {{48.0, 498.7}, {306.0, 50.0}}, label: 'J'ai compris'
+Path to element:
+ →Application, 0x104a726d0, pid: 13932, label: 'ReFripe'
+  ↳Window (Main), 0x104a6cda0, {{0.0, 0.0}, {402.0, 874.0}}
+   ↳Other, 0x104a6e200, {{0.0, 0.0}, {402.0, 874.0}}
+    ↳Other, 0x104a6e570, {{0.0, 0.0}, {402.0, 874.0}}
+     ↳Other, 0x104a6ca50, {{0.0, 0.0}, {402.0, 874.0}}
+      ↳Other, 0x104a6dea0, {{0.0, 0.0}, {402.0, 874.0}}
+       ↳Other, 0x104a6db30, {{0.0, 0.0}, {402.0, 874.0}}
+        ↳Other, 0x104a6c3a0, {{0.0, 0.0}, {402.0, 874.0}}
+         ↳Other, 0x104a6f360, {{0.0, 0.0}, {402.0, 874.0}}
+          ↳Other, 0x104a71590, {{0.0, 0.0}, {402.0, 874.0}}
+           ↳Other, 0x104a70ed0, {{0.0, 0.0}, {402.0, 874.0}}
+            ↳Other, 0x104a72a50, {{0.0, 0.0}, {402.0, 874.0}}
+             ↳Other, 0x104a93c10, {{0.0, 0.0}, {402.0, 874.0}}
+              ↳Other, 0x104a93520, {{0.0, 0.0}, {402.0, 874.0}}
+               ↳Other, 0x104a92e50, {{0.0, 0.0}, {402.0, 874.0}}
+                ↳Other, 0x104962680, {{0.0, 0.0}, {402.0, 874.0}}
+                 ↳Other, 0x104965dc0, {{0.0, 0.0}, {402.0, 874.0}}
+                  ↳Alert, 0x104881630, {{16.0, 242.7}, {370.0, 460.3}}
+Query chain:
+ →Find: Target Application 'dev.eugenebessan.refripe'
+  Output: {
+    Application, 0x10497cb50, pid: 13932, label: 'ReFripe'
+  }
+  ↪︎Find: Descendants matching type Alert
+    Output: {
+      Alert, 0x10486a7e0, {{16.0, 242.7}, {370.0, 460.3}}
+    }
+    ↪︎Find: Identity Binding
+      Output: {
+        Alert, 0x10497c5f0, {{16.0, 242.7}, {370.0, 460.3}}
+      }
+.
+    t =    32.77s             Find the Alert at {{16.0, 242.7}, {370.0, 460.3}}
+    t =    32.85s             Find the Alert
+    t =    32.90s     No monitors handled UI interruption, checking to see if element still exists...
+    t =    32.91s                 Checking existence of `Alert`
+    t =    32.97s     Did not handle the interruption, but will attempt to continue…
+    t =    32.97s         Synthesize event
+    t =    33.30s         Wait for dev.eugenebessan.refripe to idle
+    t =    34.76s     Waiting 5.0s for "J'ai compris" Button to exist
+    t =    35.80s         Checking `Expect predicate `existsNoRetry == 1` for object "J'ai compris" Button`
+    t =    35.80s             Checking existence of `"J'ai compris" Button`
+    t =    36.19s     Find the Target Application 'dev.eugenebessan.refripe'
+    t =    36.49s     Added attachment named '01-discover-swipe-coach'
+    t =    36.49s     Tap "J'ai compris" Button
+    t =    36.49s         Wait for dev.eugenebessan.refripe to idle
+    t =    36.49s         Find the "J'ai compris" Button
+    t =    36.86s         Check for interrupting elements affecting "J'ai compris" Button
+    t =    37.01s         Synthesize event
+    t =    37.33s         Wait for dev.eugenebessan.refripe to idle
+    t =    37.33s     Waiting 15.0s for "discover.swipe.topCard" Any to exist
+    t =    38.36s         Checking `Expect predicate `existsNoRetry == 1` for object "discover.swipe.topCard" Any`
+    t =    38.36s             Checking existence of `"discover.swipe.topCard" Any`
+    t =    38.43s     Find the "discover.swipe.topCard" Any
+    t =    38.48s     Find the Target Application 'dev.eugenebessan.refripe'
+    t =    38.71s     Added attachment named '01-discover-swipe'
+    t =    38.71s 02 discover grid
+    t =    38.71s     Waiting 15.0s for "Découvrir" Button to exist
+    t =    39.73s         Checking `Expect predicate `existsNoRetry == 1` for object "Découvrir" Button`
+    t =    39.73s             Checking existence of `"Découvrir" Button`
+    t =    39.78s     Tap "Découvrir" Button
+    t =    39.78s         Wait for dev.eugenebessan.refripe to idle
+    t =    39.78s         Find the "Découvrir" Button
+    t =    39.84s         Check for interrupting elements affecting "house" Button
+    t =    39.90s         Synthesize event
+    t =    40.22s         Wait for dev.eugenebessan.refripe to idle
+    t =    41.71s     Tap "house" Button
+    t =    41.71s         Wait for dev.eugenebessan.refripe to idle
+    t =    41.71s         Find the "house" Button
+    t =    41.85s         Check for interrupting elements affecting "house" Button
+    t =    41.90s         Synthesize event
+    t =    42.22s         Wait for dev.eugenebessan.refripe to idle
+    t =    42.99s     Waiting 15.0s for "Grille" Button to exist
+    t =    44.02s         Checking `Expect predicate `existsNoRetry == 1` for object "Grille" Button`
+    t =    44.02s             Checking existence of `"Grille" Button`
+    t =    44.32s     Tap "Grille" Button
+    t =    44.32s         Wait for dev.eugenebessan.refripe to idle
+    t =    44.33s         Find the "Grille" Button
+    t =    44.58s         Check for interrupting elements affecting "Grille" Button
+    t =    44.64s         Synthesize event
+    t =    44.96s         Wait for dev.eugenebessan.refripe to idle
+    t =    46.54s     Waiting 15.0s for Any (First Match) to exist
+    t =    47.55s         Checking `Expect predicate `existsNoRetry == 1` for object Any (First Match)`
+    t =    47.55s             Checking existence of `Any (First Match)`
+    t =    47.96s     Find the Target Application 'dev.eugenebessan.refripe'
+    t =    48.23s     Added attachment named '02-discover-grid'
+    t =    48.23s 03 filter sheet
+    t =    48.23s     Waiting 15.0s for Any (First Match) to exist
+    t =    49.29s         Checking `Expect predicate `existsNoRetry == 1` for object Any (First Match)`
+    t =    49.29s             Checking existence of `Any (First Match)`
+    t =    49.41s     Tap Any (First Match)
+    t =    49.41s         Wait for dev.eugenebessan.refripe to idle
+    t =    49.41s         Find the Any (First Match)
+    t =    49.51s         Check for interrupting elements affecting "Filtres" Button
+    t =    49.59s         Synthesize event
+    t =    49.67s             Failed: Failed to compute hit point for Button, {{406.7, 284.7}, {87.7, 32.0}}, label: 'Filtres': Activation point invalid and no suggested hit points based on element frame
+    t =    49.67s             Requesting snapshot of accessibility hierarchy for app with pid 13932
+    t =    50.76s         Retrying `Tap Any (First Match)` (attempt #2)
+    t =    50.76s             Wait for dev.eugenebessan.refripe to idle
+    t =    50.77s             Find the "Filtres" Button
+    t =    51.01s             Check for interrupting elements affecting "Filtres" Button
+    t =    51.12s             Synthesize event
+    t =    51.21s                 Failed: Failed to compute hit point for Button, {{406.7, 284.7}, {87.7, 32.0}}, label: 'Filtres': Activation point invalid and no suggested hit points based on element frame
+    t =    51.21s                 Requesting snapshot of accessibility hierarchy for app with pid 13932
+    t =    52.28s         Retrying `Tap Any (First Match)` (attempt #3)
+    t =    52.28s             Wait for dev.eugenebessan.refripe to idle
+    t =    52.29s             Find the "Filtres" Button
+    t =    52.45s             Check for interrupting elements affecting "Filtres" Button
+    t =    52.56s             Synthesize event
+    t =    52.66s                 Failed: Failed to compute hit point for Button, {{406.7, 284.7}, {87.7, 32.0}}, label: 'Filtres': Activation point invalid and no suggested hit points based on element frame
+    t =    52.66s                 Requesting snapshot of accessibility hierarchy for app with pid 13932
+    t =    52.74s     Requesting snapshot of accessibility hierarchy for app with pid 13932
+/Users/runner/work/refripe/refripe/ReFripeUITests/MainFlowScreenshotTests.swift:113: error: -[ReFripeUITests.MainFlowScreenshotTests testMainFlowScreenshots] : Failed to failed to compute hit point for Button, {{406.7, 284.7}, {87.7, 32.0}}, label: 'Filtres': Activation point invalid and no suggested hit points based on element frame. (Underlying Error: Activation point invalid and no suggested hit points based on element frame)
+    t =    54.12s Tear Down
+Test Case '-[ReFripeUITests.MainFlowScreenshotTests testMainFlowScreenshots]' failed (54.496 seconds).
+Test Suite 'MainFlowScreenshotTests' failed at 2026-10-25 21:49:06.829.
+	 Executed 1 test, with 1 failure (0 unexpected) in 54.496 (54.497) seconds
+Test Suite 'ReFripeUITests.xctest' failed at 2026-10-25 21:49:06.830.
+	 Executed 1 test, with 1 failure (0 unexpected) in 54.496 (54.498) seconds
+Test Suite 'All tests' failed at 2026-10-25 21:49:06.830.
+	 Executed 1 test, with 1 failure (0 unexpected) in 54.496 (54.499) seconds
+2026-10-25 21:49:39.938 xcodebuild[6172:23875] [MT] IDETestOperationsObserverDebug: 163.587 elapsed -- Testing started completed.
+2026-10-25 21:49:39.938 xcodebuild[6172:23875] [MT] IDETestOperationsObserverDebug: 0.000 sec, +0.000 sec -- start
+2026-10-25 21:49:39.938 xcodebuild[6172:23875] [MT] IDETestOperationsObserverDebug: 163.587 sec, +163.587 sec -- end
+
+Test session results, code coverage, and logs:
+	/Users/runner/work/refripe/refripe/TestResults.xcresult
+
+** TEST FAILED **
+
+Testing started

@@ -1,0 +1,2 @@
+** TEST FAILED **
+/Users/runner/work/refripe/refripe/ReFripeUITests/MainFlowScreenshotTests.swift:113: error: -[ReFripeUITests.MainFlowScreenshotTests testMainFlowScreenshots] : Failed to failed to compute hit point for Button, {{406.7, 284.7}, {87.7, 32.0}}, label: 'Filtres': Activation point invalid and no suggested hit points based on element frame. (Underlying Error: Activation point invalid and no suggested hit points based on element frame)
