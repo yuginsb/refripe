@@ -29,7 +29,8 @@ struct InboxView: View {
         }
         .rfScreenBackground()
         .navigationTitle("Boîte")
-        .navigationBarTitleDisplayMode(.large)
+        // Inline: a large title collapses unpredictably above the pinned segmented control.
+        .navigationBarTitleDisplayMode(.inline)
         .sensoryFeedback(.selection, trigger: router.inboxSegment)
         .task(id: router.inboxSegment) { await store.refreshBadges() }
     }
