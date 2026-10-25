@@ -1,10 +1,9 @@
 import SwiftUI
 
-/// Écran 3 — Messages (mockup `screenMessagesList`, PANEL `messagesList`).
-/// Conversations triées par date, chacune rattachée à une annonce (miniature), pastille de non-lus,
-/// recherche, pull-to-refresh. Re-polle tant que l'écran est visible (pas de temps réel).
+/// Boîte › Messages: conversations sorted by date, each tied to a listing (thumbnail), unread count,
+/// search, pull-to-refresh. Re-polls while visible (no realtime).
 @MainActor
-struct MessagesListView: View {
+struct ConversationList: View {
     @Environment(AppStore.self) private var store
     @Environment(Router.self) private var router
 
@@ -17,12 +16,7 @@ struct MessagesListView: View {
     var body: some View {
         Group {
             if let conversations {
-                if conversations.isEmpty {
-                    ScrollView { emptyState }
-                        .refreshable { await load() }
-                } else {
-                    list(conversations)
-                }
+                list(conversations)
             } else if let loadError {
                 ErrorStateView(error: loadError) { Task { await load() } }
             } else {
@@ -30,10 +24,7 @@ struct MessagesListView: View {
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .rfScreenBackground()
-        .navigationTitle("Messages")
-        .navigationBarTitleDisplayMode(.inline)
-        .searchable(text: $query, placement: .navigationBarDrawer(displayMode: .always), prompt: "Rechercher une conversation")
+        .searchable(text: $query, prompt: "Rechercher")
         .task {
             await load()
             while !Task.isCancelled {
@@ -94,33 +85,32 @@ struct MessagesListView: View {
                 .listRowInsets(EdgeInsets())
                 .listRowBackground(RF.C.paper)
                 .listRowSeparatorTint(RF.C.line)
-                .alignmentGuide(.listRowSeparatorLeading) { _ in RF.S.gutter }
+                .alignmentGuide(.listRowSeparatorLeading) { _ in RF.S.gutter + 44 + 12 }
             }
         }
         .listStyle(.plain)
         .refreshable { await load() }
         .overlay {
-            if shown.isEmpty {
-                EmptyStateView(symbol: "magnifyingglass", title: "Aucun résultat",
-                               message: "Aucune conversation ne correspond à « \(query) ».")
+            if all.isEmpty {
+                ContentUnavailableView {
+                    Label("Aucun message", systemImage: "bubble.left.and.bubble.right")
+                } description: {
+                    Text("Écris à une vendeuse depuis une annonce.")
+                } actions: {
+                    Button("Découvrir") { router.selectedTab = .discover }
+                        .buttonStyle(.borderedProminent)
+                        .tint(RF.C.hibiscus)
+                }
+            } else if shown.isEmpty {
+                ContentUnavailableView.search(text: query)
             }
-        }
-    }
-
-    private var emptyState: some View {
-        EmptyStateView(symbol: "bubble.left.and.bubble.right",
-                       title: "Pas encore de messages",
-                       message: "Écris à une vendeuse depuis une annonce : la conversation garde l'article et le prix sous tes yeux jusqu'à l'achat.",
-                       actionTitle: "Découvrir des articles") {
-            router.selectedTab = .discover
         }
     }
 }
 
 // MARK: - Reusable row
 
-/// Conversation row (mockup `.conv`): avatar, pseudo + vérifié, date relative, aperçu,
-/// pastille de non-lus, miniature de l'annonce liée.
+/// Conversation row: avatar, username + verified, relative date, preview, unread count, listing thumbnail.
 struct ConversationListRow: View {
     let conversation: Conversation
     let profile: UserProfile?
@@ -131,40 +121,39 @@ struct ConversationListRow: View {
 
     var body: some View {
         Button(action: action) {
-            HStack(spacing: 11) {
-                Avatar(profile: profile, size: 38)
+            HStack(spacing: 12) {
+                Avatar(profile: profile, size: 44)
                 VStack(alignment: .leading, spacing: 2) {
-                    HStack(spacing: 5) {
+                    HStack(spacing: 4) {
                         Text(profile?.username ?? "…")
-                            .font(RF.F.body(12.5, .bold))
+                            .font(RF.T.subheadline.weight(.semibold))
                             .foregroundStyle(RF.C.text)
                             .lineLimit(1)
-                        if profile?.verified == true { VerifiedBadge(size: 11) }
-                        Spacer(minLength: 6)
+                        if profile?.verified == true { VerifiedBadge(size: 12) }
+                        Spacer(minLength: 8)
                         Text(Fmt.relative(conversation.lastMessageAt))
-                            .font(RF.F.body(10, unread ? .bold : .medium))
+                            .font(RF.T.footnote.monospacedDigit())
                             .foregroundStyle(unread ? RF.C.hibiscus : RF.C.textDim)
                             .lineLimit(1)
                     }
-                    HStack(spacing: 6) {
+                    HStack(spacing: 8) {
                         Text(conversation.lastMessage.isEmpty ? "Nouvelle conversation" : conversation.lastMessage)
-                            .font(RF.F.body(11.5, unread ? .bold : .medium))
+                            .font(unread ? RF.T.subheadline.weight(.semibold) : RF.T.subheadline)
                             .foregroundStyle(unread ? RF.C.text : RF.C.textDim)
                             .lineLimit(1)
-                            .truncationMode(.tail)
                         Spacer(minLength: 0)
                         if unread {
                             Text("\(conversation.unreadCount)")
-                                .font(RF.F.body(9.5, .extraBold))
+                                .font(RF.T.caption.weight(.semibold).monospacedDigit())
                                 .foregroundStyle(.white)
-                                .padding(.horizontal, 5)
-                                .frame(minWidth: 17, minHeight: 17)
+                                .padding(.horizontal, 6)
+                                .frame(minWidth: 20, minHeight: 20)
                                 .background(Capsule().fill(RF.C.hibiscus))
                         }
                     }
                     if let listing {
                         Text(listing.title)
-                            .font(RF.F.body(10))
+                            .font(RF.T.footnote)
                             .foregroundStyle(RF.C.textDim)
                             .lineLimit(1)
                     }
@@ -172,7 +161,7 @@ struct ConversationListRow: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
                 if let listing {
                     ListingPhotoView(photo: listing.photos.first, listingId: listing.id)
-                        .frame(width: 40, height: 40)
+                        .frame(width: 44, height: 44)
                         .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
                 }
             }
@@ -197,7 +186,7 @@ struct ConversationListRow: View {
     }
 }
 
-/// Row highlight like the mockup's `.conv:active { background: paper-dim }`.
+/// Native-looking row highlight.
 private struct ConversationRowPressStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
@@ -205,28 +194,6 @@ private struct ConversationRowPressStyle: ButtonStyle {
     }
 }
 
-// MARK: - Opening a conversation from anywhere
-
-/// Get-or-create the conversation with `userId` about `listingId`, then push `.chat(id)` on the current tab.
-/// Use it from any « Contacter » button. It also remembers the conversation so `ChatThreadView` can show
-/// its header even before the first message (the repository only lists conversations that have messages).
-@MainActor
-enum ChatLauncher {
-    private(set) static var known: [UUID: Conversation] = [:]
-
-    static func remember(_ conversation: Conversation) { known[conversation.id] = conversation }
-
-    static func open(with userId: UUID, listingId: UUID?, store: AppStore, router: Router) async {
-        do {
-            let c = try await store.repo.conversation(withUser: userId, listingId: listingId)
-            remember(c)
-            router.push(.chat(c.id))
-        } catch {
-            store.show(error)
-        }
-    }
-}
-
 #Preview {
-    NavigationStack { MessagesListView() }.previewEnvironment()
+    NavigationStack { ConversationList().navigationTitle("Boîte") }.previewEnvironment()
 }

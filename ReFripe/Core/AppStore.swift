@@ -20,6 +20,10 @@ final class AppStore {
     private(set) var wishlist: Set<UUID> = []
     private(set) var unreadNotifications = 0
     private(set) var unreadMessages = 0
+    /// Negotiations waiting for MY answer: offers on my listings + counter-offers on my offers.
+    private(set) var offersAwaitingMe = 0
+    /// « Boîte » tab badge.
+    var inboxBadge: Int { unreadMessages + offersAwaitingMe + unreadNotifications }
     /// Accepted offer amounts, by listing id → used by Checkout.
     var negotiatedPrices: [UUID: FCFA] = [:]
     /// Simple profile cache so cards/rows can show seller names without refetching.
@@ -95,6 +99,9 @@ final class AppStore {
     func refreshBadges() async {
         unreadNotifications = ((try? await repo.notifications()) ?? []).filter { !$0.read }.count
         unreadMessages = ((try? await repo.conversations()) ?? []).reduce(0) { $0 + $1.unreadCount }
+        let asSeller = ((try? await repo.offerThreads(role: .seller)) ?? []).filter(\.awaitsSellerAnswer)
+        let asBuyer = ((try? await repo.offerThreads(role: .buyer)) ?? []).filter(\.awaitsBuyerAnswer)
+        offersAwaitingMe = asSeller.count + asBuyer.count
     }
 
     // MARK: Profiles
@@ -113,4 +120,11 @@ final class AppStore {
         Task { try? await Task.sleep(for: .seconds(2.2)); if toast == message { toast = nil } }
     }
     func show(_ error: Error) { show(error.localizedDescription) }
+}
+
+extension OfferThread {
+    /// Pending and the buyer spoke last → the seller has to accept / refuse / counter.
+    var awaitsSellerAnswer: Bool { status == .pending && rounds.last?.by == .buyer }
+    /// Pending and the seller countered last → the buyer has to answer.
+    var awaitsBuyerAnswer: Bool { status == .pending && rounds.last?.by == .seller }
 }

@@ -4,9 +4,19 @@ import SwiftUI
 // One NavigationStack per tab. Push with `router.push(.product(id))` from anywhere.
 // "Vendre" is not a real tab: tapping it presents SellFlowView full screen.
 // Signup/onboarding is presented full screen by RootView when there is no session.
+// `.messages` is the « Boîte » tab (Messages · Commandes · Notifications); the case name is kept for compatibility.
 
 enum AppTab: Hashable, CaseIterable {
     case discover, wishlist, sell, messages, profile
+}
+
+/// Segments of the « Boîte » tab.
+enum InboxSegment: String, CaseIterable, Identifiable, Hashable {
+    case messages, orders, notifications
+    var id: String { rawValue }
+    var label: String {
+        switch self { case .messages: "Messages"; case .orders: "Commandes"; case .notifications: "Notifications" }
+    }
 }
 
 enum Route: Hashable {
@@ -18,8 +28,9 @@ enum Route: Hashable {
     case order(UUID)                // order id — tracking (buyer & seller)
     case chat(UUID)                 // conversation id
     case sellerProfile(UUID)        // user id
-    case dashboard
+    case dashboard                  // Profil › Statistiques (seller dashboard)
     case notifications
+    case settings                   // Profil › Réglages
 }
 
 @MainActor
@@ -28,6 +39,8 @@ final class Router {
     var selectedTab: AppTab = .discover
     var paths: [AppTab: NavigationPath] = Dictionary(uniqueKeysWithValues: AppTab.allCases.map { ($0, NavigationPath()) })
     var isSellPresented = false
+    /// Selected segment of the « Boîte » tab.
+    var inboxSegment: InboxSegment = .messages
 
     func push(_ route: Route) {
         paths[selectedTab, default: NavigationPath()].append(route)
@@ -43,6 +56,12 @@ final class Router {
     func open(_ route: Route, in tab: AppTab) {
         selectedTab = tab
         paths[tab] = NavigationPath([route])
+    }
+    /// Switch to « Boîte » on the given segment, at its root.
+    func openInbox(_ segment: InboxSegment) {
+        inboxSegment = segment
+        selectedTab = .messages
+        paths[.messages] = NavigationPath()
     }
     func binding(for tab: AppTab) -> Binding<NavigationPath> {
         Binding(get: { self.paths[tab] ?? NavigationPath() }, set: { self.paths[tab] = $0 })
@@ -64,6 +83,7 @@ extension View {
             case .sellerProfile(let id): SellerProfileView(userId: id)
             case .dashboard: DashboardView()
             case .notifications: NotificationsView()
+            case .settings: SettingsView()
             }
         }
     }

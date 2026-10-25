@@ -1,7 +1,7 @@
 import SwiftUI
 
-/// Public seller profile (mockup `screenProfile`, PANEL `profil`): trust header (avatar, verified, rating,
-/// sales, seniority, response time, city), "Écrire" → conversation, grid of the seller's active listings.
+/// Public seller profile: header (avatar, verified, rating, sales, response time, city),
+/// « Écrire » → conversation, grid of the seller's active listings.
 struct SellerProfileView: View {
     let userId: UUID
 
@@ -27,13 +27,13 @@ struct SellerProfileView: View {
             }
         }
         .rfScreenBackground()
-        .navigationTitle(isMe ? "Mon profil public" : "Profil")
+        .navigationTitle(profile?.username ?? "Profil")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             if let profile {
                 ToolbarItem(placement: .topBarTrailing) {
                     ShareLink(item: AppLinks.profile(profile.id),
-                              message: Text("Découvre la boutique de \(profile.username) sur ReFripe — fripe à \(profile.city), paiement sécurisé Wave / Orange Money.")) {
+                              message: Text("Le dressing de \(profile.username) sur ReFripe")) {
                         Image(systemName: "square.and.arrow.up")
                     }
                     .accessibilityLabel("Partager ce profil")
@@ -45,57 +45,43 @@ struct SellerProfileView: View {
 
     private func content(_ profile: UserProfile) -> some View {
         ScrollView {
-            VStack(spacing: 0) {
-                ProfileHeroView(profile: profile)
-
-                if isMe {
-                    DashboardCTAButton(subtitle: "Tes ventes et tes achats au même endroit") {
-                        router.push(.dashboard)
+            VStack(spacing: 24) {
+                VStack(spacing: 16) {
+                    ProfileHeroView(profile: profile)
+                    if !isMe {
+                        RFButton("Écrire à \(profile.firstName.isEmpty ? profile.username : profile.firstName)",
+                                 symbol: "bubble.left", style: .primary, isLoading: isOpeningChat) {
+                            Task { await openChat() }
+                        }
                     }
-                    .padding(.horizontal, RF.S.gutter)
-                    .padding(.bottom, 6)
-                } else {
-                    RFButton("Écrire à \(profile.firstName.isEmpty ? profile.username : profile.firstName)",
-                             symbol: "bubble.left", style: .ink, isLoading: isOpeningChat) {
-                        Task { await openChat() }
-                    }
-                    .padding(.horizontal, RF.S.gutter)
-                    .padding(.bottom, 6)
                 }
+                .padding(.top, 8)
 
-                VStack(alignment: .leading, spacing: 10) {
-                    HStack {
-                        Text((isMe ? "Mes articles" : "Ses articles").uppercased())
-                            .font(RF.F.body(11, .bold))
-                            .kerning(0.55)
-                            .foregroundStyle(RF.C.textDim)
+                VStack(alignment: .leading, spacing: 12) {
+                    HStack(alignment: .firstTextBaseline) {
+                        Text(isMe ? "Mon dressing" : "Son dressing")
+                            .font(RF.T.title3)
+                            .foregroundStyle(RF.C.text)
                             .accessibilityAddTraits(.isHeader)
                         Spacer()
                         if !listings.isEmpty {
                             Text("\(listings.count) en vente")
-                                .font(RF.F.mono(11))
+                                .font(RF.T.footnote.monospacedDigit())
                                 .foregroundStyle(RF.C.textDim)
                         }
                     }
                     if listings.isEmpty {
-                        if isMe {
-                            EmptyStateView(symbol: "hanger", title: "Aucun article en vente",
-                                           message: "Publie ton premier article en quelques minutes.",
-                                           actionTitle: "Vendre un article") { router.isSellPresented = true }
-                        } else {
-                            EmptyStateView(symbol: "hanger", title: "Aucun article en vente",
-                                           message: "Reviens bientôt : les nouveautés arrivent vite.")
-                        }
+                        ContentUnavailableView("Aucun article en vente", systemImage: "hanger",
+                                               description: Text(isMe ? "Publie ton premier article." : "Reviens bientôt."))
                     } else {
-                        LazyVGrid(columns: columns, spacing: 12) {
+                        LazyVGrid(columns: columns, spacing: 16) {
                             ForEach(listings) { ListingCard(listing: $0) }
                         }
                     }
                 }
-                .padding(.horizontal, RF.S.gutter)
-                .padding(.top, 18)
-                .padding(.bottom, 24)
             }
+            .padding(.horizontal, RF.S.gutter)
+            .padding(.bottom, 24)
         }
         .refreshable { await load() }
     }

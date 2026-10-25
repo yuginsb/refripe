@@ -1,8 +1,7 @@
 import SwiftUI
 
-/// Écran 3 — Conversation (mockup `screenChatThread`, PANEL `chatThread`).
-/// L'annonce liée reste toujours visible en haut (photo, titre, prix, « Acheter »), bulles me/them,
-/// horodatage, « Vu », réponses rapides, défilement auto en bas. Re-polle toutes les 2 s.
+/// Conversation: the linked listing stays pinned on top (photo, title, price, « Acheter »), bubbles,
+/// timestamps, « Vu », quick replies, auto-scroll to the bottom. Re-polls every 2 s.
 @MainActor
 struct ChatThreadView: View {
     let conversationId: UUID
@@ -140,14 +139,14 @@ struct ChatThreadView: View {
                 VStack(alignment: .leading, spacing: 0) {
                     HStack(spacing: 4) {
                         Text(other?.username ?? "Conversation")
-                            .font(RF.F.display(13.5))
+                            .font(RF.T.subheadline.weight(.semibold))
                             .foregroundStyle(RF.C.text)
                             .lineLimit(1)
                         if other?.verified == true { VerifiedBadge(size: 11) }
                     }
                     if let minutes = other?.responseTimeMinutes {
                         Text("Répond en ~\(Self.responseLabel(minutes))")
-                            .font(RF.F.body(9.5))
+                            .font(RF.T.caption)
                             .foregroundStyle(RF.C.textDim)
                     }
                 }
@@ -202,16 +201,15 @@ struct ChatThreadView: View {
     private var emptyHint: some View {
         VStack(spacing: 6) {
             Image(systemName: "bubble.left.and.bubble.right")
-                .font(.system(size: 26))
-                .foregroundStyle(RF.C.textDim.opacity(0.5))
+                .font(RF.T.title)
+                .foregroundStyle(RF.C.textDim)
             Text("Lance la conversation")
-                .font(RF.F.display(13))
+                .font(RF.T.headline)
                 .foregroundStyle(RF.C.text)
-            Text("L'article reste affiché en haut jusqu'à l'achat. Pour négocier, fais une offre depuis l'annonce : elle reste protégée par le séquestre.")
-                .font(RF.F.body(11.5))
+            Text("Pour négocier, fais une offre depuis l'annonce.")
+                .font(RF.T.footnote)
                 .foregroundStyle(RF.C.textDim)
                 .multilineTextAlignment(.center)
-                .lineSpacing(3)
         }
         .padding(.horizontal, 24)
         .padding(.vertical, 40)
@@ -272,9 +270,7 @@ struct ChatThreadView: View {
     @ViewBuilder private func rowView(_ row: Row) -> some View {
         if let day = row.dayLabel {
             Text(day)
-                .font(RF.F.mono(9.5, .medium))
-                .textCase(.uppercase)
-                .kerning(0.5)
+                .font(RF.T.caption.weight(.semibold))
                 .foregroundStyle(RF.C.textDim)
                 .frame(maxWidth: .infinity)
                 .padding(.top, 10)
@@ -291,7 +287,7 @@ struct ChatThreadView: View {
                         Text(receipt).fontWeight(receipt == "Vu" ? .bold : .regular)
                     }
                 }
-                .font(RF.F.body(9.5))
+                .font(RF.T.caption.monospacedDigit())
                 .foregroundStyle(RF.C.textDim)
                 .padding(.horizontal, 4)
             }
@@ -310,8 +306,7 @@ struct ChatThreadView: View {
                                            topTrailingRadius: 16,
                                            style: .continuous)
         return Text(row.message.text)
-            .font(RF.F.body(12.5))
-            .lineSpacing(2)
+            .font(RF.T.body)
             .foregroundStyle(row.isMine ? Color.white : RF.C.text)
             .textSelection(.enabled)
             .padding(.vertical, 9)
@@ -340,24 +335,21 @@ struct ChatThreadView: View {
             } label: {
                 HStack(spacing: 9) {
                     ListingPhotoView(photo: listing.photos.first, listingId: listing.id)
-                        .frame(width: 34, height: 34)
+                        .frame(width: 40, height: 40)
                         .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
                     VStack(alignment: .leading, spacing: 1) {
                         Text(listing.title)
-                            .font(RF.F.body(11, .bold))
+                            .font(RF.T.subheadline.weight(.semibold))
                             .foregroundStyle(RF.C.text)
                             .lineLimit(1)
                         HStack(spacing: 5) {
                             Text(Fmt.fcfa(price))
-                                .font(RF.F.mono(10.5))
+                                .font(RF.T.price(.footnote, weight: .regular))
                                 .foregroundStyle(RF.C.textDim)
                             if let tag = statusTag(listing) {
                                 Text(tag)
-                                    .font(RF.F.body(9, .extraBold))
+                                    .font(RF.T.caption.weight(.semibold))
                                     .foregroundStyle(RF.C.textDim)
-                                    .padding(.horizontal, 6)
-                                    .padding(.vertical, 1)
-                                    .background(Capsule().fill(RF.C.paper))
                             }
                         }
                     }
@@ -374,7 +366,7 @@ struct ChatThreadView: View {
                     router.push(.checkout(listing.id))
                 } label: {
                     Text("Acheter")
-                        .font(RF.F.body(11.5, .extraBold))
+                        .font(RF.T.subheadline.weight(.semibold))
                         .foregroundStyle(.white)
                         .padding(.horizontal, 14)
                         .padding(.vertical, 7)
@@ -384,13 +376,12 @@ struct ChatThreadView: View {
                 .accessibilityLabel("Acheter \(listing.title)")
             }
         }
-        .padding(.vertical, 9)
+        .padding(.vertical, 8)
         .padding(.horizontal, RF.S.gutter)
-        .background(RF.C.paperDim, in: RoundedRectangle(cornerRadius: RF.R.md, style: .continuous))
-        .padding(.horizontal, RF.S.gutter)
-        .padding(.top, 4)
-        .padding(.bottom, 10)
-        .background(RF.C.paper)
+        .background {
+            RF.C.card
+                .overlay(alignment: .bottom) { Rectangle().fill(RF.C.line).frame(height: 1) }
+        }
     }
 
     private func statusTag(_ listing: Listing) -> String? {
@@ -428,8 +419,8 @@ struct ChatThreadView: View {
                 .transition(.opacity)
             }
             HStack(spacing: 8) {
-                TextField("Écrire un message…", text: $draft)
-                    .font(RF.F.body(12))
+                TextField("Message", text: $draft)
+                    .font(RF.T.body)
                     .foregroundStyle(RF.C.text)
                     .focused($inputFocused)
                     .submitLabel(.send)
@@ -439,7 +430,7 @@ struct ChatThreadView: View {
                     }
                     .padding(.vertical, 10)
                     .padding(.horizontal, 14)
-                    .background(Capsule().fill(RF.C.paperDim))
+                    .background(Capsule().fill(RF.C.card))
                     .overlay(Capsule().strokeBorder(RF.C.line, lineWidth: 1))
                 Button {
                     Task { await send(draft) }

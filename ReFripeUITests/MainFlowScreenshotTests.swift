@@ -35,11 +35,14 @@ final class MainFlowScreenshotTests: XCTestCase {
         step("06 checkout") { checkout() }
         step("07 wishlist") { wishlist() }
         step("08 sell") { sell() }
-        step("09 messages") { messages() }
+        step("09 inbox messages") { inboxMessages() }
         step("10 chat") { chat() }
-        step("11 profile") { profile() }
-        step("12 dashboard") { dashboard() }
-        step("13 notifications") { notifications() }
+        step("11 inbox orders") { inboxOrders() }
+        step("12 order tracking") { orderTracking() }
+        step("13 inbox notifications") { inboxNotifications() }
+        step("14 profile") { profile() }
+        step("15 stats") { stats() }
+        step("16 settings") { settings() }
     }
 
     // MARK: - Steps
@@ -179,11 +182,13 @@ final class MainFlowScreenshotTests: XCTestCase {
         _ = require(app.tabBars.firstMatch, "tab bar after closing the sell flow")
     }
 
-    private func messages() {
-        openTab("Messages")
-        _ = require(app.navigationBars["Messages"], "messages list")
+    /// « Boîte » tab, Messages segment.
+    private func inboxMessages() {
+        openTab("Boîte")
+        _ = require(app.navigationBars["Boîte"], "inbox")
+        selectSegment("Messages")
         _ = require(element(prefix: "SneakDak"), "conversation row")
-        snap("09-messages")
+        snap("09-inbox-messages")
     }
 
     private func chat() {
@@ -192,33 +197,61 @@ final class MainFlowScreenshotTests: XCTestCase {
         row.tap()
         _ = require(element(containing: "Je peux t'envoyer une photo"), "chat messages")
         snap("10-chat")
-        openTab("Messages")
+        openTab("Boîte")
+    }
+
+    /// Commandes segment: « Offres à traiter » on top, then Achats / Ventes.
+    private func inboxOrders() {
+        openTab("Boîte")
+        selectSegment("Commandes")
+        _ = require(element(containing: "Offres à traiter"), "offers to handle")
+        selectSegment("Ventes")
+        _ = require(element(prefix: "Robe wax imprimé"), "sale row")
+        snap("11-inbox-orders")
+    }
+
+    private func orderTracking() {
+        let row = element(prefix: "Robe wax imprimé")
+        guard require(row, "sale row") else { return }
+        row.tap()
+        _ = require(app.navigationBars.matching(NSPredicate(format: "identifier BEGINSWITH %@", "Commande")).firstMatch,
+                    "order tracking")
+        snap("12-order-tracking")
+        openTab("Boîte")
+    }
+
+    private func inboxNotifications() {
+        openTab("Boîte")
+        selectSegment("Notifications")
+        _ = require(element(containing: "Contre-offre reçue"), "notification row")
+        snap("13-inbox-notifications")
+        selectSegment("Messages")   // leave the tab on its default segment
     }
 
     private func profile() {
         openTab("Profil")
         _ = require(app.navigationBars["Profil"], "profile")
-        _ = require(element(prefix: "Tableau de bord"), "dashboard entry")
-        snap("11-profile")
+        _ = require(element(containing: "Mon dressing"), "dressing")
+        snap("14-profile")
     }
 
-    private func dashboard() {
-        let entry = element(prefix: "Tableau de bord")
-        guard require(entry, "dashboard entry") else { return }
+    private func stats() {
+        let entry = element(prefix: "Statistiques")
+        guard require(entry, "stats entry") else { return }
         entry.tap()
-        _ = require(app.navigationBars["Tableau de bord"], "dashboard")
-        snap("12-dashboard")
+        _ = require(app.navigationBars["Statistiques"], "stats")
+        snap("15-stats")
         openTab("Profil")
     }
 
-    private func notifications() {
-        let bell = app.navigationBars.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", "Notifications")).firstMatch
-        let fallback = element(prefix: "Notifications")
-        if bell.waitForExistence(timeout: timeout) { bell.tap() }
-        else if require(fallback, "notifications button") { fallback.tap() }
-        _ = require(app.navigationBars["Notifications"], "notifications")
-        _ = require(element(containing: "Contre-offre reçue"), "notification row")
-        snap("13-notifications")
+    private func settings() {
+        let gear = app.navigationBars.buttons["Réglages"].firstMatch
+        guard require(gear, "settings button") else { return }
+        gear.tap()
+        _ = require(app.navigationBars["Réglages"], "settings")
+        _ = require(element(prefix: "Pseudo"), "account section")
+        snap("16-settings")
+        openTab("Profil")
     }
 
     // MARK: - Helpers
@@ -246,6 +279,14 @@ final class MainFlowScreenshotTests: XCTestCase {
         guard require(tab, "tab \(name)") else { return }
         tab.tap()
         tab.tap()
+    }
+
+    /// Taps a segment of a segmented `Picker` (exposed as buttons).
+    private func selectSegment(_ label: String) {
+        let segment = app.segmentedControls.buttons[label].firstMatch
+        let target = segment.waitForExistence(timeout: timeout) ? segment : button(label)
+        guard require(target, "segment \(label)") else { return }
+        target.tap()
     }
 
     private func goBack() {

@@ -2,9 +2,19 @@ import SwiftUI
 import UIKit
 import UserNotifications
 
-/// Notifications (mockup `screenNotifications`, PANEL `notifications`): grouped list, unread highlight,
-/// marked read on open, deep links on tap, and a card asking for push permission when undetermined.
+/// `.notifications` route: the same list as Boîte › Notifications, as a pushed screen.
 struct NotificationsView: View {
+    var body: some View {
+        NotificationsList()
+            .rfScreenBackground()
+            .navigationTitle("Notifications")
+            .navigationBarTitleDisplayMode(.inline)
+    }
+}
+
+/// Boîte › Notifications: grouped list (Aujourd'hui / Plus tôt), unread dot, marked read on open,
+/// deep links on tap, and a one-line row asking for push permission when it isn't granted.
+struct NotificationsList: View {
     @Environment(AppStore.self) private var store
     @Environment(Router.self) private var router
     @Environment(\.scenePhase) private var scenePhase
@@ -22,57 +32,52 @@ struct NotificationsView: View {
             if isLoading && items.isEmpty {
                 LoadingView()
             } else if let loadError, items.isEmpty {
-                ScrollView { ErrorStateView(error: loadError) { Task { await load() } } }
+                ErrorStateView(error: loadError) { Task { await load() } }
             } else {
                 list
             }
         }
-        .rfScreenBackground()
-        .navigationTitle("Notifications")
-        .navigationBarTitleDisplayMode(.inline)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
         .task { await load() }
         .task { await refreshPushStatus() }
         .onChange(of: scenePhase) { _, phase in
             if phase == .active { Task { await refreshPushStatus() } }
         }
-        .refreshable { await load() }
     }
 
     private var list: some View {
-        ScrollView {
-            LazyVStack(alignment: .leading, spacing: 0) {
-                if let pushStatus, pushStatus == .notDetermined || pushStatus == .denied {
-                    PushPermissionCard(status: pushStatus) { await requestPush() }
-                        .padding(.bottom, 14)
-                }
-                if items.isEmpty {
-                    EmptyStateView(symbol: "bell",
-                                   title: "Rien de neuf pour l'instant",
-                                   message: "Baisse de prix sur une envie, nouvelle pièce dans ta taille, message reçu : tout arrivera ici.",
-                                   actionTitle: "Découvrir des articles") {
-                        open(tab: .discover)
-                    }
-                } else {
-                    section("Aujourd'hui", today)
-                    section("Plus tôt", earlier)
+        List {
+            if let pushStatus, pushStatus == .notDetermined || pushStatus == .denied {
+                Section {
+                    PushPermissionRow(status: pushStatus) { await requestPush() }
                 }
             }
-            .padding(.horizontal, RF.S.gutter)
-            .padding(.top, 4)
-            .padding(.bottom, 16)
+            section("Aujourd'hui", today)
+            section("Plus tôt", earlier)
+        }
+        .listStyle(.plain)
+        .refreshable { await load() }
+        .overlay {
+            if items.isEmpty {
+                ContentUnavailableView("Rien de neuf", systemImage: "bell",
+                                       description: Text("Baisses de prix, offres et messages arrivent ici."))
+            }
         }
     }
 
     @ViewBuilder private func section(_ title: String, _ notifications: [AppNotification]) -> some View {
         if !notifications.isEmpty {
-            SectionLabel(title)
-                .padding(.top, 12)
-                .padding(.bottom, 2)
-            ForEach(notifications) { notification in
-                NotificationRow(notification: notification) { handleTap(notification) }
-                if notification.id != notifications.last?.id {
-                    Rectangle().fill(RF.C.line).frame(height: 1)
+            Section {
+                ForEach(notifications) { notification in
+                    NotificationRow(notification: notification) { handleTap(notification) }
+                        .listRowBackground(RF.C.paper)
+                        .listRowSeparatorTint(RF.C.line)
                 }
+            } header: {
+                Text(title)
+                    .font(RF.T.footnote.weight(.semibold))
+                    .foregroundStyle(RF.C.textDim)
+                    .textCase(nil)
             }
         }
     }
@@ -130,12 +135,27 @@ struct NotificationsView: View {
     // MARK: Push permission
 
     private func refreshPushStatus() async {
-        let settings = await UNUserNotificationCenter.current().notificationSettings()
-        pushStatus = settings.authorizationStatus
+        pushStatus = await PushPermission.status()
     }
 
     private func requestPush() async {
-        if pushStatus == .denied {
+        await PushPermission.request(store: store)
+        await refreshPushStatus()
+    }
+}
+
+// MARK: - Push permission (shared with Réglages)
+
+@MainActor
+enum PushPermission {
+    static func status() async -> UNAuthorizationStatus {
+        await UNUserNotificationCenter.current().notificationSettings().authorizationStatus
+    }
+
+    /// Asks for permission the first time; afterwards opens the app's notification settings.
+    static func request(store: AppStore) async {
+        let current = await status()
+        guard current == .notDetermined else {
             if let url = URL(string: UIApplication.openNotificationSettingsURLString) {
                 _ = await UIApplication.shared.open(url)
             }
@@ -150,87 +170,78 @@ struct NotificationsView: View {
         } catch {
             store.show(error)
         }
-        await refreshPushStatus()
     }
 }
 
 // MARK: - Row
 
-/// Mockup `.notif`: icon, title, text, relative time; unread = tinted background + dot.
+/// Icon, title, text, relative time; unread = hibiscus dot.
 struct NotificationRow: View {
     let notification: AppNotification
     let onTap: () -> Void
 
     var body: some View {
-        let style = NotificationStyle(kind: notification.kind)
         let unread = !notification.read
         Button(action: onTap) {
-            HStack(alignment: .top, spacing: 11) {
-                Image(systemName: style.symbol)
-                    .font(.system(size: 15, weight: .semibold))
-                    .foregroundStyle(style.color)
-                    .frame(width: 34, height: 34)
-                    .background(Circle().fill(style.color.opacity(0.14)))
+            HStack(alignment: .top, spacing: 12) {
+                Image(systemName: NotificationStyle(kind: notification.kind).symbol)
+                    .font(RF.T.body)
+                    .foregroundStyle(RF.C.text)
+                    .frame(width: 24)
+                    .padding(.top, 1)
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(notification.title)
-                        .font(RF.F.body(12.5, unread ? .extraBold : .bold))
-                        .foregroundStyle(RF.C.text)
+                    HStack(alignment: .firstTextBaseline) {
+                        Text(notification.title)
+                            .font(RF.T.subheadline.weight(.semibold))
+                            .foregroundStyle(RF.C.text)
+                        Spacer(minLength: 8)
+                        Text(Fmt.relative(notification.createdAt))
+                            .font(RF.T.footnote.monospacedDigit())
+                            .foregroundStyle(RF.C.textDim)
+                            .lineLimit(1)
+                    }
                     Text(notification.body)
-                        .font(RF.F.body(11.5))
+                        .font(RF.T.subheadline)
                         .foregroundStyle(RF.C.textDim)
-                        .lineSpacing(2)
-                        .fixedSize(horizontal: false, vertical: true)
+                        .lineLimit(3)
                 }
                 .multilineTextAlignment(.leading)
-                Spacer(minLength: 6)
-                VStack(alignment: .trailing, spacing: 6) {
-                    Text(Fmt.relative(notification.createdAt))
-                        .font(RF.F.body(9.5, unread ? .bold : .medium))
-                        .foregroundStyle(unread ? RF.C.hibiscus : RF.C.textDim)
-                        .lineLimit(1)
-                    if unread {
-                        Circle().fill(RF.C.hibiscus).frame(width: 8, height: 8)
-                    }
-                }
-                .padding(.top, 1)
             }
-            .padding(.vertical, 13)
-            .padding(.horizontal, unread ? 10 : 0)
-            .background {
+            .padding(.vertical, 4)
+            .overlay(alignment: .leading) {
                 if unread {
-                    RoundedRectangle(cornerRadius: RF.R.md, style: .continuous).fill(RF.C.marigold.opacity(0.12))
+                    Circle().fill(RF.C.hibiscus).frame(width: 8, height: 8).offset(x: -12)
                 }
             }
             .contentShape(Rectangle())
         }
-        .buttonStyle(RFPressStyle(scale: 0.98))
+        .buttonStyle(.plain)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("\(unread ? "Non lue. " : "")\(notification.title). \(notification.body). \(Fmt.relative(notification.createdAt))")
         .accessibilityAddTraits(.isButton)
     }
 }
 
-/// SF Symbol + colour per notification kind (mockup `ICON[n.icon]`).
+/// SF Symbol per notification kind.
 struct NotificationStyle {
     let symbol: String
-    let color: Color
 
     init(kind: NotificationKind) {
         switch kind {
-        case .counterOffer: symbol = "arrow.left.arrow.right"; color = RF.C.marigold
-        case .priceDrop: symbol = "chart.line.downtrend.xyaxis"; color = RF.C.money
-        case .newInSize: symbol = "sparkles"; color = RF.C.marigold
-        case .message: symbol = "bubble.left.fill"; color = RF.C.ink2
-        case .streak: symbol = "flame.fill"; color = RF.C.hibiscus
-        case .orderUpdate: symbol = "shippingbox.fill"; color = RF.C.moneyDeep
+        case .counterOffer: symbol = "arrow.left.arrow.right"
+        case .priceDrop: symbol = "tag"
+        case .newInSize: symbol = "sparkles"
+        case .message: symbol = "bubble.left"
+        case .streak: symbol = "flame"
+        case .orderUpdate: symbol = "shippingbox"
         }
     }
 }
 
-// MARK: - Push permission card
+// MARK: - Push permission row
 
-/// "Active les alertes" — asks for push permission, or points to Settings if it was refused.
-struct PushPermissionCard: View {
+/// « Active les alertes » — asks for push permission, or points to Settings if it was refused.
+struct PushPermissionRow: View {
     let status: UNAuthorizationStatus
     let action: () async -> Void
     @State private var working = false
@@ -238,49 +249,31 @@ struct PushPermissionCard: View {
     private var denied: Bool { status == .denied }
 
     var body: some View {
-        HStack(alignment: .top, spacing: 12) {
-            Image(systemName: denied ? "bell.slash.fill" : "bell.badge.fill")
-                .font(.system(size: 18))
-                .foregroundStyle(RF.C.marigold)
-                .frame(width: 36, height: 36)
-                .background(Circle().fill(RF.C.ink2))
-            VStack(alignment: .leading, spacing: 4) {
-                Text(denied ? "Alertes désactivées" : "Active les alertes")
-                    .font(RF.F.display(13, .bold))
-                    .foregroundStyle(RF.C.textOnInk)
-                Text(denied
-                     ? "Tu rates les baisses de prix et les contre-offres. Réactive les notifications dans Réglages."
-                     : "Sois prévenu·e d'une baisse de prix sur tes envies, d'une contre-offre ou d'un message, même appli fermée.")
-                    .font(RF.F.body(11.5))
-                    .foregroundStyle(RF.C.textOnInkDim)
-                    .lineSpacing(2)
-                    .fixedSize(horizontal: false, vertical: true)
-                Button {
-                    working = true
-                    Task {
-                        await action()
-                        working = false
-                    }
-                } label: {
-                    HStack(spacing: 6) {
-                        if working { ProgressView().tint(RF.C.ink0).controlSize(.small) }
-                        Text(denied ? "Ouvrir les Réglages" : "Activer")
-                    }
-                    .font(RF.F.body(12, .extraBold))
-                    .foregroundStyle(RF.C.ink0)
-                    .padding(.vertical, 8)
-                    .padding(.horizontal, 16)
-                    .background(Capsule().fill(RF.C.marigold))
+        HStack(spacing: 12) {
+            Image(systemName: denied ? "bell.slash" : "bell.badge")
+                .font(RF.T.body)
+                .foregroundStyle(RF.C.text)
+                .frame(width: 24)
+            Text(denied ? "Alertes désactivées" : "Active les alertes")
+                .font(RF.T.subheadline.weight(.semibold))
+                .foregroundStyle(RF.C.text)
+            Spacer(minLength: 8)
+            Button {
+                working = true
+                Task {
+                    await action()
+                    working = false
                 }
-                .buttonStyle(RFPressStyle(scale: 0.95))
-                .disabled(working)
-                .padding(.top, 6)
+            } label: {
+                if working { ProgressView().controlSize(.small) } else { Text(denied ? "Réglages" : "Activer") }
             }
-            Spacer(minLength: 0)
+            .buttonStyle(.borderedProminent)
+            .buttonBorderShape(.capsule)
+            .controlSize(.small)
+            .tint(RF.C.hibiscus)
+            .disabled(working)
         }
-        .padding(14)
-        .background(RF.C.ink1, in: RoundedRectangle(cornerRadius: RF.R.lg, style: .continuous))
-        .accessibilityElement(children: .contain)
+        .listRowBackground(RF.C.paper)
     }
 }
 

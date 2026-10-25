@@ -1,9 +1,8 @@
 import SwiftUI
 
-/// Écran 4b — Suivi de commande (mockup `screenCheckoutSuccess`, PANEL `checkoutSuccess`).
-/// Même écran pour l'acheteuse et la vendeuse (rôle = `order.sellerId == store.me?.id`).
-/// Frise du chemin heureux ou carte d'issue alternative, récap montants, actions selon rôle et statut.
-/// Pas de temps réel : l'écran re-polle tant que la commande peut encore évoluer.
+/// Order tracking, same screen for buyer and seller (role = `order.sellerId == store.me?.id`):
+/// listing, status + one line, timeline, escrow note, amounts, actions by role and status.
+/// No realtime: re-polls while the order can still change.
 @MainActor
 struct OrderTrackingView: View {
     let orderId: UUID
@@ -145,233 +144,153 @@ struct OrderTrackingView: View {
 
     private func content(_ order: Order) -> some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 0) {
-                Text(role == .buyer ? "Ton achat" : "Vente à \(order.buyerName)")
-                    .font(RF.F.body(10.5, .extraBold))
-                    .kerning(0.6)
-                    .textCase(.uppercase)
-                    .foregroundStyle(RF.C.textDim)
-                Text("Commande passée \(Self.placedLabel(order.createdAt))")
-                    .font(RF.F.body(11))
-                    .foregroundStyle(RF.C.textDim)
-                    .padding(.top, 2)
-
+            VStack(alignment: .leading, spacing: 24) {
                 contextCard(order)
-                    .padding(.top, 14)
-                    .padding(.bottom, 4)
 
-                hero(order)
-
-                if let alt = order.status.alternativeInfo {
-                    alternativeBanner(order.status, alt)
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(headline(order))
+                        .font(RF.T.title3)
+                        .foregroundStyle(RF.C.text)
+                    Text(statusLine(order))
+                        .font(RF.T.subheadline)
+                        .foregroundStyle(RF.C.textDim)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
+                .accessibilityElement(children: .combine)
 
                 OrderTimeline(order: order)
-                    .padding(.top, 22)
-                    .padding(.bottom, 4)
+                    .padding(16)
+                    .rfCard(radius: RF.R.md)
 
-                if order.status.alternativeInfo == nil && order.status != .completed {
-                    escrowNote.padding(.top, 18)
+                if !order.status.isAlternative && order.status != .completed {
+                    escrowNote
                 }
 
-                amounts(order).padding(.top, 18)
+                amounts(order)
 
-                actions(order).padding(.top, 20)
-
-                RFButton(role == .buyer ? "Contacter la vendeuse" : "Contacter l'acheteuse",
-                         symbol: "bubble.left.and.bubble.right", style: .ghost, isLoading: isOpeningChat) {
-                    Task { await contact(order) }
+                VStack(spacing: 12) {
+                    actions(order)
+                    RFButton(role == .buyer ? "Écrire à la vendeuse" : "Écrire à l'acheteuse",
+                             symbol: "bubble.left", style: .ghost, isLoading: isOpeningChat) {
+                        Task { await contact(order) }
+                    }
                 }
-                .padding(.top, 18)
             }
-            .padding(EdgeInsets(top: 18, leading: 20, bottom: 30, trailing: 20))
+            .padding(RF.S.gutter)
+            .padding(.bottom, 16)
             .animation(.snappy, value: order.status)
         }
         .refreshable { await refresh() }
-    }
-
-    private static func placedLabel(_ date: Date) -> String {
-        let rel = Fmt.relative(date)
-        let lower = rel.lowercased()
-        if lower.hasPrefix("il y a") || lower.hasPrefix("à l'instant") || lower == "hier" { return lower }
-        return "le \(rel)"
     }
 
     private func contextCard(_ order: Order) -> some View {
         Button {
             router.push(.product(order.listingId))
         } label: {
-            HStack(spacing: 10) {
+            HStack(spacing: 12) {
                 ListingPhotoView(photo: order.listingPhoto, listingId: order.listingId)
-                    .frame(width: 44, height: 44)
+                    .frame(width: 56, height: 56)
                     .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
                 VStack(alignment: .leading, spacing: 2) {
                     Text(order.listingTitle)
-                        .font(RF.F.body(12, .bold))
+                        .font(RF.T.subheadline.weight(.semibold))
                         .foregroundStyle(RF.C.text)
                         .lineLimit(2)
                         .multilineTextAlignment(.leading)
-                    Text("\(Fmt.fcfa(order.itemPrice)) · \(role == .buyer ? sellerName : order.buyerName)")
-                        .font(RF.F.mono(10.5))
+                    Text(role == .buyer ? "Chez \(sellerName)" : "Vente à \(order.buyerName)")
+                        .font(RF.T.footnote)
                         .foregroundStyle(RF.C.textDim)
-                    Label(order.delivery.label, systemImage: order.delivery.symbol)
-                        .font(RF.F.body(10.5))
+                    Text("\(order.delivery.label) · \(Fmt.relative(order.createdAt))")
+                        .font(RF.T.footnote)
                         .foregroundStyle(RF.C.textDim)
-                        .labelStyle(TrackingLabelStyle())
+                        .lineLimit(1)
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
                 Image(systemName: "chevron.right")
-                    .font(.system(size: 11, weight: .semibold))
+                    .font(RF.T.footnote.weight(.semibold))
                     .foregroundStyle(RF.C.textDim)
             }
-            .padding(.vertical, 9)
-            .padding(.horizontal, 12)
-            .background(RF.C.paperDim, in: RoundedRectangle(cornerRadius: RF.R.md, style: .continuous))
+            .padding(12)
+            .rfCard(radius: RF.R.md)
             .contentShape(RoundedRectangle(cornerRadius: RF.R.md, style: .continuous))
         }
-        .buttonStyle(RFPressStyle(scale: 0.98))
-        .accessibilityLabel("\(order.listingTitle), \(Fmt.fcfa(order.itemPrice)), \(order.delivery.label)")
+        .buttonStyle(.plain)
+        .accessibilityLabel("\(order.listingTitle), \(order.delivery.label)")
         .accessibilityHint("Ouvre l'annonce")
     }
 
-    /// Success header: fresh purchase (payment pending / confirmed) or completed order.
-    @ViewBuilder private func hero(_ order: Order) -> some View {
-        let fresh = role == .buyer
-            && [.paymentPending, .paid, .awaitingShipment].contains(order.status)
-            && Date.now.timeIntervalSince(order.createdAt) < 15 * 60
-        if order.status == .completed {
-            heroBlock(pending: false, title: "Commande terminée",
-                      message: role == .buyer
-                        ? "Merci pour ton achat ! Les fonds ont été libérés à \(sellerName)."
-                        : "Les fonds ont été versés sur ton compte \(order.payment.label).")
-        } else if fresh && order.status == .paymentPending {
-            heroBlock(pending: true, title: "Paiement en cours",
-                      message: "Valide le paiement dans ton app \(order.payment.label). Cet écran se met à jour tout seul.")
-        } else if fresh {
-            heroBlock(pending: false, title: "Paiement confirmé !",
-                      message: "\(Fmt.fcfa(order.total)) sont bloqués en séquestre. \(sellerName) prépare ton colis.")
+    private func headline(_ order: Order) -> String {
+        switch order.status {
+        case .cancelled: "Commande annulée"
+        case .refunded: "Commande remboursée"
+        default: order.status.label
         }
     }
 
-    private func heroBlock(pending: Bool, title: String, message: String) -> some View {
-        VStack(spacing: 0) {
-            ZStack {
-                Circle().fill(pending ? RF.C.marigold : RF.C.money)
-                if pending {
-                    ProgressView().controlSize(.large).tint(.white)
-                } else {
-                    Image(systemName: "checkmark")
-                        .font(.system(size: 30, weight: .bold))
-                        .foregroundStyle(.white)
-                        .transition(.scale.combined(with: .opacity))
-                }
-            }
-            .frame(width: 74, height: 74)
-            .padding(.top, 22)
-            .padding(.bottom, 12)
-            .accessibilityHidden(true)
-            Text(title)
-                .font(RF.F.display(17))
-                .foregroundStyle(RF.C.text)
-                .multilineTextAlignment(.center)
-                .padding(.bottom, 10)
-            Text(message)
-                .font(RF.F.body(12.5))
-                .lineSpacing(4)
-                .foregroundStyle(RF.C.textDim)
-                .multilineTextAlignment(.center)
+    /// One short line under the status, per role.
+    private func statusLine(_ order: Order) -> String {
+        let buyer = role == .buyer
+        switch order.status {
+        case .paymentPending:
+            return buyer ? "Valide le paiement dans \(order.payment.label)." : "En attente du paiement de l'acheteuse."
+        case .paid, .awaitingShipment:
+            return buyer ? "\(sellerName) prépare ton colis." : "Expédie le colis puis marque-le comme expédié."
+        case .shipped:
+            return buyer ? "Ton colis est en route." : "Le colis est en route."
+        case .delivered, .buyerValidation:
+            return buyer ? "Confirme la réception pour libérer les fonds." : "En attente de la confirmation de l'acheteuse."
+        case .completed:
+            return buyer ? "Fonds versés à \(sellerName)." : "Fonds versés sur ton compte \(order.payment.label)."
+        case .cancelled:
+            return "Le paiement est remboursé à l'acheteuse."
+        case .disputed:
+            return "Fonds bloqués pendant la médiation, réponse sous 48 h."
+        case .returnPending:
+            return "Fonds bloqués jusqu'au retour de l'article."
+        case .refunded:
+            return "Fonds recrédités à l'acheteuse."
         }
-        .frame(maxWidth: .infinity)
-        .accessibilityElement(children: .combine)
-    }
-
-    private func alternativeBanner(_ status: OrderStatus, _ alt: (symbol: String, title: String, detail: String)) -> some View {
-        let isNegative = status == .cancelled || status == .refunded
-        let shape = RoundedRectangle(cornerRadius: RF.R.lg, style: .continuous)
-        return HStack(alignment: .top, spacing: 12) {
-            Image(systemName: alt.symbol)
-                .font(.system(size: 20, weight: .semibold))
-                .foregroundStyle(isNegative ? RF.C.hibiscus : RF.C.marigold)
-                .frame(width: 24)
-                .accessibilityHidden(true)
-            VStack(alignment: .leading, spacing: 3) {
-                Text(alt.title)
-                    .font(RF.F.body(13.5, .extraBold))
-                    .foregroundStyle(RF.C.text)
-                Text(alt.detail)
-                    .font(RF.F.body(11.5))
-                    .lineSpacing(3)
-                    .foregroundStyle(RF.C.textDim)
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
-        }
-        .padding(14)
-        .background(RF.C.paperDim, in: shape)
-        .overlay(shape.strokeBorder(isNegative ? RF.C.hibiscus.opacity(0.35) : RF.C.marigold.opacity(0.55), lineWidth: 1))
-        .padding(.top, 18)
-        .padding(.bottom, 4)
-        .accessibilityElement(children: .combine)
     }
 
     private var escrowNote: some View {
-        HStack(alignment: .top, spacing: 7) {
-            Image(systemName: "lock.fill")
-                .font(.system(size: 11, weight: .semibold))
-                .foregroundStyle(RF.C.moneyDeep)
-                .padding(.top, 2)
-                .accessibilityHidden(true)
-            (Text("Les fonds sont bloqués en séquestre jusqu'à la validation de l'acheteuse, ou automatiquement sous ")
-             + Text("\(Catalog.escrowAutoReleaseHours)h").bold()
-             + Text(" après la remise du colis si aucun litige n'est signalé."))
-                .font(RF.F.body(11))
-                .lineSpacing(3)
-                .foregroundStyle(RF.C.text)
-                .frame(maxWidth: .infinity, alignment: .leading)
+        Label {
+            Text("Fonds en séquestre jusqu'à la confirmation, ou \(Catalog.escrowAutoReleaseHours) h après la livraison.")
+        } icon: {
+            Image(systemName: "lock.fill").foregroundStyle(RF.C.moneyDeep)
         }
-        .padding(.vertical, 10)
-        .padding(.horizontal, 12)
-        .background(RF.C.paperDim, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
-        .accessibilityElement(children: .combine)
+        .font(RF.T.footnote)
+        .foregroundStyle(RF.C.textDim)
     }
 
     private func amounts(_ order: Order) -> some View {
-        VStack(spacing: 9) {
+        VStack(spacing: 10) {
             amountRow("Article", Fmt.fcfa(order.itemPrice))
-            amountRow("Livraison · \(order.delivery.label)", order.deliveryFee > 0 ? Fmt.fcfa(order.deliveryFee) : "Gratuit")
-            Rectangle().fill(RF.C.line).frame(height: 1)
+            amountRow("Livraison", order.deliveryFee > 0 ? Fmt.fcfa(order.deliveryFee) : "Gratuite")
+            Divider().overlay(RF.C.line)
             HStack(alignment: .firstTextBaseline) {
                 Text("Total")
-                    .font(RF.F.body(12.5, .bold))
-                    .foregroundStyle(RF.C.textDim)
+                    .font(RF.T.headline)
+                    .foregroundStyle(RF.C.text)
                 Spacer()
                 Text(Fmt.fcfa(order.total))
-                    .font(RF.F.mono(17, .semibold))
-                    .monospacedDigit()
+                    .font(RF.T.price(.headline))
                     .foregroundStyle(RF.C.text)
             }
             .accessibilityElement(children: .combine)
-            HStack(spacing: 8) {
-                PaymentBrandLogo(method: order.payment, size: 20)
-                Text(role == .buyer ? "Payé avec \(order.payment.label)" : "Payé par l'acheteuse avec \(order.payment.label)")
-                    .font(RF.F.body(11))
-                    .foregroundStyle(RF.C.textDim)
-                Spacer()
-                StatusPill(status: order.status)
-            }
+            amountRow("Paiement", order.payment.label)
         }
-        .padding(14)
-        .rfCard()
+        .padding(16)
+        .rfCard(radius: RF.R.md)
     }
 
     private func amountRow(_ label: String, _ value: String) -> some View {
         HStack(alignment: .firstTextBaseline) {
             Text(label)
-                .font(RF.F.body(12))
+                .font(RF.T.subheadline)
                 .foregroundStyle(RF.C.textDim)
             Spacer(minLength: 12)
             Text(value)
-                .font(RF.F.mono(12.5))
-                .monospacedDigit()
+                .font(RF.T.price(.subheadline, weight: .regular))
                 .foregroundStyle(RF.C.text)
         }
         .accessibilityElement(children: .combine)
@@ -403,14 +322,15 @@ struct OrderTrackingView: View {
     }
 
     @ViewBuilder private func actions(_ order: Order) -> some View {
-        let list = availableActions(order)
+        let all = availableActions(order)
+        let list = all.filter { !$0.isDemo } + all.filter(\.isDemo)   // demo helpers last
         if !list.isEmpty {
-            VStack(spacing: 10) {
+            VStack(spacing: 12) {
                 ForEach(list, id: \.self) { action in
                     if action.isDemo {
                         TrackingDemoButton(title: action.title, isLoading: working == action) { trigger(action) }
                     } else {
-                        RFButton(action.title, symbol: action.symbol, style: action == list.first && action.isPositive ? .primary : .ghost,
+                        RFButton(action.title, style: action == list.first(where: { !$0.isDemo }) && action.isPositive ? .primary : .secondary,
                                  isLoading: working == action) { trigger(action) }
                     }
                 }
@@ -431,22 +351,13 @@ private enum TrackingAction: Hashable {
 
     var title: String {
         switch self {
-        case .ship: "Marquer comme expédié"
+        case .ship: "Marquer comme expédiée"
         case .cancel: "Annuler la commande"
         case .confirmReceipt: "Confirmer la réception"
         case .dispute: "Signaler un problème"
         case .requestReturn: "Demander un retour"
-        case .simulateShip: "Simuler l'expédition par la vendeuse (démo)"
+        case .simulateShip: "Simuler l'expédition (démo)"
         case .simulateDeliver: "Simuler la livraison (démo)"
-        }
-    }
-    var symbol: String? {
-        switch self {
-        case .ship: "shippingbox"
-        case .confirmReceipt: "checkmark.seal"
-        case .dispute: "exclamationmark.bubble"
-        case .requestReturn: "arrow.uturn.backward"
-        default: nil
         }
     }
     var isDemo: Bool { self == .simulateShip || self == .simulateDeliver }
@@ -465,17 +376,17 @@ private enum TrackingAction: Hashable {
     }
     var confirmMessage: String {
         switch self {
-        case .cancel: "L'article sera remis en vente et le paiement intégralement remboursé à l'acheteuse."
-        case .confirmReceipt: "Les fonds seront libérés à la vendeuse. Cette action est définitive."
-        case .dispute: "Les fonds restent bloqués en séquestre pendant que notre équipe médiation examine le dossier (réponse sous 48h)."
-        case .requestReturn: "Les fonds restent en séquestre jusqu'à réception et vérification de l'article par la vendeuse."
+        case .cancel: "L'article est remis en vente et l'acheteuse remboursée."
+        case .confirmReceipt: "Les fonds seront versés à la vendeuse."
+        case .dispute: "Les fonds restent bloqués pendant la médiation, réponse sous 48 h."
+        case .requestReturn: "Les fonds restent bloqués jusqu'au retour de l'article."
         default: ""
         }
     }
     var confirmButton: String {
         switch self {
         case .cancel: "Annuler la commande"
-        case .confirmReceipt: "Oui, libérer les fonds"
+        case .confirmReceipt: "Confirmer"
         case .dispute: "Ouvrir un litige"
         case .requestReturn: "Demander le retour"
         default: title
@@ -483,57 +394,42 @@ private enum TrackingAction: Hashable {
     }
     var doneMessage: String {
         switch self {
-        case .ship, .simulateShip: "Colis marqué comme expédié"
+        case .ship, .simulateShip: "Commande expédiée"
         case .simulateDeliver: "Colis arrivé au point de retrait"
         case .cancel: "Commande annulée"
-        case .confirmReceipt: "Réception confirmée, fonds libérés"
-        case .dispute: "Litige ouvert, la médiation te recontacte sous 48h"
+        case .confirmReceipt: "Réception confirmée"
+        case .dispute: "Litige ouvert"
         case .requestReturn: "Demande de retour envoyée"
         }
     }
 }
 
-/// Discreet dashed demo button (mockup `.order-demo-btn`).
+/// Discreet demo-only button (simulates the other party).
 private struct TrackingDemoButton: View {
     let title: String
     let isLoading: Bool
     let action: () -> Void
 
     var body: some View {
-        let shape = RoundedRectangle(cornerRadius: RF.R.md, style: .continuous)
         Button(action: action) {
             HStack(spacing: 6) {
-                if isLoading {
-                    ProgressView().tint(RF.C.textDim)
-                } else {
-                    Image(systemName: "wand.and.stars").font(.system(size: 12, weight: .semibold))
-                }
-                Text(title).font(RF.F.body(11, .extraBold))
+                if isLoading { ProgressView().controlSize(.small) }
+                Text(title)
             }
-            .foregroundStyle(RF.C.text.opacity(0.8))
-            .frame(maxWidth: .infinity, minHeight: 20)
-            .padding(11)
-            .overlay(shape.strokeBorder(RF.C.line, style: StrokeStyle(lineWidth: 1.5, dash: [5, 4])))
-            .contentShape(shape)
+            .font(RF.T.footnote.weight(.semibold))
+            .foregroundStyle(RF.C.textDim)
+            .frame(maxWidth: .infinity, minHeight: 32)
+            .contentShape(Rectangle())
         }
-        .buttonStyle(RFPressStyle())
+        .buttonStyle(.plain)
         .accessibilityLabel(title)
-    }
-}
-
-private struct TrackingLabelStyle: LabelStyle {
-    func makeBody(configuration: Configuration) -> some View {
-        HStack(spacing: 4) {
-            configuration.icon.font(.system(size: 9.5))
-            configuration.title
-        }
     }
 }
 
 // MARK: - Reusable: timeline
 
-/// Vertical happy-path timeline (mockup `.order-timeline`): done = green check, current = marigold halo,
-/// pending = grey. For alternative outcomes, every step reached before the divergence is shown as done.
+/// Vertical happy-path timeline: done = filled check, current = hibiscus ring, pending = hairline.
+/// For alternative outcomes, every step reached before the divergence is shown as done.
 struct OrderTimeline: View {
     let order: Order
 
@@ -553,41 +449,55 @@ struct OrderTimeline: View {
         return .pending
     }
 
+    /// Short step names (the full `OrderStatus.label` is used for the screen headline).
+    static func shortLabel(_ status: OrderStatus) -> String {
+        switch status {
+        case .paymentPending: "Paiement"
+        case .paid: "Payée"
+        case .awaitingShipment: "Préparation"
+        case .shipped: "Expédiée"
+        case .delivered: "Livrée"
+        case .buyerValidation: "Confirmation"
+        case .completed: "Terminée"
+        default: status.label
+        }
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             ForEach(Array(steps.enumerated()), id: \.offset) { i, status in
-                row(status, state: state(at: i), isLast: i == steps.count - 1)
+                row(status, state: state(at: i), next: i + 1 < steps.count ? state(at: i + 1) : nil)
             }
         }
     }
 
-    private func row(_ status: OrderStatus, state: StepState, isLast: Bool) -> some View {
+    private func row(_ status: OrderStatus, state: StepState, next: StepState?) -> some View {
         let date = order.history.last(where: { $0.status == status })?.at
-        return HStack(alignment: .top, spacing: 12) {
-            dot(state)
-            VStack(alignment: .leading, spacing: 1) {
-                Text(status.label)
-                    .font(RF.F.body(13, state == .pending ? .semibold : .bold))
-                    .foregroundStyle(state == .pending ? RF.C.textDim : RF.C.text)
-                if let date {
-                    Text(Fmt.relative(date))
-                        .font(RF.F.body(10.5))
-                        .foregroundStyle(RF.C.textDim)
-                }
+        return HStack(alignment: .firstTextBaseline, spacing: 12) {
+            Text(Self.shortLabel(status))
+                .font(state == .current ? RF.T.subheadline.weight(.semibold) : RF.T.subheadline)
+                .foregroundStyle(state == .pending ? RF.C.textDim : RF.C.text)
+            Spacer(minLength: 8)
+            if let date, state != .pending {
+                Text(Fmt.relative(date))
+                    .font(RF.T.footnote.monospacedDigit())
+                    .foregroundStyle(RF.C.textDim)
             }
-            .padding(.top, 1)
-            .padding(.bottom, isLast ? 0 : 22)
-            .frame(maxWidth: .infinity, alignment: .leading)
         }
+        .padding(.leading, 28)
+        .padding(.bottom, next == nil ? 0 : 20)
         .background(alignment: .topLeading) {
-            if !isLast {
-                Rectangle()
-                    .fill(state == .done ? RF.C.money : RF.C.line)
-                    .frame(width: 2)
-                    .padding(.top, 22)
-                    .padding(.bottom, -2)
-                    .padding(.leading, 9)
+            ZStack(alignment: .top) {
+                if next != nil {
+                    Rectangle()
+                        .fill(next == .pending ? RF.C.line : RF.C.text)
+                        .frame(width: 2)
+                        .padding(.top, 16)
+                        .padding(.bottom, -4)
+                }
+                dot(state).padding(.top, 2)
             }
+            .frame(width: 16)
         }
         .accessibilityElement(children: .combine)
         .accessibilityLabel(accessibility(status, state: state, date: date))
@@ -597,19 +507,19 @@ struct OrderTimeline: View {
         ZStack {
             switch state {
             case .done:
-                Circle().fill(RF.C.money)
+                Circle().fill(RF.C.text)
                 Image(systemName: "checkmark")
-                    .font(.system(size: 9, weight: .heavy))
+                    .font(.system(size: 8, weight: .bold))
                     .foregroundStyle(.white)
             case .current:
-                Circle().fill(RF.C.marigold.opacity(0.22)).padding(-4)
-                Circle().fill(RF.C.marigold)
+                Circle().fill(RF.C.card)
+                Circle().strokeBorder(RF.C.hibiscus, lineWidth: 4)
             case .pending:
-                Circle().fill(RF.C.paper)
+                Circle().fill(RF.C.card)
                 Circle().strokeBorder(RF.C.line, lineWidth: 2)
             }
         }
-        .frame(width: 20, height: 20)
+        .frame(width: 16, height: 16)
     }
 
     private func accessibility(_ status: OrderStatus, state: StepState, date: Date?) -> String {
@@ -623,11 +533,10 @@ struct OrderTimeline: View {
     }
 }
 
-// MARK: - Reusable: order row (dashboard lists)
+// MARK: - Reusable: order row (Boîte › Commandes)
 
-/// Compact order row for lists (dashboard « Ventes » / « Achats »): photo, title, counterpart + date,
-/// amount and `StatusPill`. Tapping pushes `.order(id)` unless `onTap` is provided. No background:
-/// embed it in a card / list as needed.
+/// Compact order row for lists: photo, title, counterpart + date, total and `StatusPill`.
+/// Tapping pushes `.order(id)` unless `onTap` is provided. No background: embed it in a List / card.
 struct OrderListRow: View {
     let order: Order
     var onTap: (() -> Void)?
@@ -643,47 +552,45 @@ struct OrderListRow: View {
     private var isSale: Bool { order.sellerId == store.me?.id }
 
     private var counterpart: String {
-        if isSale { return "Vente à \(order.buyerName)" }
-        return "Achat chez \(store.cachedProfile(order.sellerId)?.username ?? "…")"
+        if isSale { return order.buyerName }
+        return store.cachedProfile(order.sellerId)?.username ?? "…"
     }
 
     var body: some View {
         Button {
             if let onTap { onTap() } else { router.push(.order(order.id)) }
         } label: {
-            HStack(spacing: 10) {
+            HStack(spacing: 12) {
                 ListingPhotoView(photo: order.listingPhoto, listingId: order.listingId)
                     .frame(width: 44, height: 44)
-                    .clipShape(RoundedRectangle(cornerRadius: RF.R.sm, style: .continuous))
+                    .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
                 VStack(alignment: .leading, spacing: 2) {
                     Text(order.listingTitle)
-                        .font(RF.F.body(12.5, .bold))
+                        .font(RF.T.subheadline.weight(.semibold))
                         .foregroundStyle(RF.C.text)
                         .lineLimit(1)
                     Text("\(counterpart) · \(Fmt.relative(order.history.last?.at ?? order.createdAt))")
-                        .font(RF.F.body(10.5))
+                        .font(RF.T.footnote)
                         .foregroundStyle(RF.C.textDim)
                         .lineLimit(1)
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
-                VStack(alignment: .trailing, spacing: 5) {
+                VStack(alignment: .trailing, spacing: 4) {
                     Text(Fmt.fcfa(order.total))
-                        .font(RF.F.mono(12.5))
-                        .monospacedDigit()
+                        .font(RF.T.price(.subheadline))
                         .foregroundStyle(RF.C.text)
                     StatusPill(status: order.status)
                 }
                 .fixedSize()
             }
-            .padding(.vertical, 10)
             .contentShape(Rectangle())
         }
-        .buttonStyle(RFPressStyle(scale: 0.98))
+        .buttonStyle(.plain)
         .task(id: order.sellerId) {
             if !isSale { _ = await store.profile(order.sellerId) }
         }
         .accessibilityElement(children: .combine)
-        .accessibilityLabel("\(order.listingTitle), \(counterpart), \(Fmt.fcfa(order.total)), \(order.status.label)")
+        .accessibilityLabel("\(order.listingTitle), \(isSale ? "vente à" : "achat chez") \(counterpart), \(Fmt.fcfa(order.total)), \(order.status.label)")
         .accessibilityAddTraits(.isButton)
     }
 }

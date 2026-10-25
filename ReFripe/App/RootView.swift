@@ -16,6 +16,9 @@ struct RootView: View {
             }
         }
         .animation(.easeOut(duration: 0.35), value: store.isBootstrapping)
+        .onOpenURL { url in
+            DeepLink(url: url)?.apply(to: router)
+        }
         .fullScreenCover(isPresented: onboardingPresented) {
             OnboardingFlowView()
                 .environment(store)
@@ -35,13 +38,8 @@ struct SplashView: View {
     var body: some View {
         ZStack {
             RF.C.ink0.ignoresSafeArea()
-            MotifPattern(color: RF.C.marigold.opacity(0.10))
-                .ignoresSafeArea()
-                .mask {
-                    RadialGradient(colors: [.black, .clear], center: .center, startRadius: 0, endRadius: 260)
-                }
             (Text("Re").foregroundStyle(RF.C.textOnInk) + Text("Fripe").foregroundStyle(RF.C.marigold))
-                .font(RF.F.display(34, .black))
+                .font(RF.T.brand(34))
             VStack {
                 Spacer()
                 ProgressView()
@@ -54,7 +52,8 @@ struct SplashView: View {
     }
 }
 
-// MARK: - Tabs (mockup `bottomNavHTML`)
+// MARK: - Tabs
+// Découvrir · Envies · Vendre (+) · Boîte (Messages, Commandes, Notifications) · Profil
 
 struct MainTabView: View {
     @Environment(AppStore.self) private var store
@@ -83,10 +82,10 @@ struct MainTabView: View {
                 .tag(AppTab.sell)
                 .accessibilityLabel("Vendre un article")
 
-            stack(.messages) { MessagesListView() }
-                .tabItem { Label("Messages", systemImage: "bubble.left") }
+            stack(.messages) { InboxView() }
+                .tabItem { Label("Boîte", systemImage: "tray") }
                 .tag(AppTab.messages)
-                .badge(store.unreadMessages)
+                .badge(store.inboxBadge)
 
             stack(.profile) { ProfileTabView() }
                 .tabItem { Label("Profil", systemImage: "person") }
