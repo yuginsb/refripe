@@ -1,5 +1,7 @@
 # ReFripe iOS — architecture & conventions
 
+> **Design v2 (octobre 2026)** : la typographie, le style et la navigation sont désormais décrits dans [DESIGN.md](DESIGN.md) (SF + `RF.T`, onglet Boîte, Profil recentré, Réglages). Ce document reste valable pour l'architecture ; les mentions de `RF.F`, de Manrope / Unbounded / IBM Plex Mono et l'aspect des composants ci-dessous datent de la v1.
+
 Application SwiftUI native (iOS 17+, Swift 5 language mode), backend Supabase. Marché : Abidjan & Dakar, prix en **FCFA** (entiers), paiement **Wave / Orange Money** avec **séquestre** (libération auto 72h après livraison), livraison **point relais / main propre / Yango**. Tout le texte de l'UI est en **français**, tutoiement (« ta série », « tes envies »), comme la maquette.
 
 ## Arborescence
