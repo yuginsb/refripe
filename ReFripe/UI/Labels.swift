@@ -1,22 +1,21 @@
 import SwiftUI
 
-/// Small uppercase section title (mockup `.co-label`).
+/// Section header in content: sentence case, footnote semibold, dim (same look as a native List header).
 struct SectionLabel: View {
     let text: String
 
     init(_ text: String) { self.text = text }
 
     var body: some View {
-        Text(text.uppercased())
-            .font(RF.F.mono(11, .semibold))
-            .kerning(0.66)
+        Text(text)
+            .font(RF.T.footnote.weight(.semibold))
             .foregroundStyle(RF.C.textDim)
             .frame(maxWidth: .infinity, alignment: .leading)
             .accessibilityAddTraits(.isHeader)
     }
 }
 
-/// Dashboard tile (mockup `.dash-stat`): optional icon, mono value, label, green delta.
+/// Stat tile: optional icon, tabular-digit value, label, optional green delta.
 struct StatTile: View {
     let title: String
     let value: String
@@ -31,33 +30,32 @@ struct StatTile: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
+        VStack(alignment: .leading, spacing: 2) {
             if let symbol {
                 Image(systemName: symbol)
-                    .font(.system(size: 17))
-                    .foregroundStyle(RF.C.text)
+                    .font(RF.T.subheadline)
+                    .foregroundStyle(RF.C.textDim)
                     .padding(.bottom, 6)
             }
             Text(value)
-                .font(RF.F.mono(17, .semibold))
-                .monospacedDigit()
+                .font(RF.T.number(.title3, weight: .semibold))
                 .foregroundStyle(RF.C.text)
                 .lineLimit(1)
                 .minimumScaleFactor(0.6)
             Text(title)
-                .font(RF.F.body(10.5))
+                .font(RF.T.footnote)
                 .foregroundStyle(RF.C.textDim)
-                .padding(.top, 2)
+                .lineLimit(2)
             if let delta {
                 Text(delta)
-                    .font(RF.F.body(9.5, .bold))
+                    .font(RF.T.caption.monospacedDigit())
                     .foregroundStyle(RF.C.moneyDeep)
-                    .padding(.top, 6)
+                    .padding(.top, 4)
             }
         }
-        .padding(14)
+        .padding(RF.S.md)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(RF.C.paperDim, in: RoundedRectangle(cornerRadius: RF.R.lg, style: .continuous))
+        .background(RF.C.card, in: RoundedRectangle(cornerRadius: RF.R.md, style: .continuous))
         .accessibilityElement(children: .combine)
     }
 }

@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// Filter chip (mockup `.chip`): selected = ink, otherwise paper-dim; optional hibiscus count badge.
+/// Filter chip: subtle capsule, SF subheadline. Selected = hibiscus tint; optional count badge.
 struct Chip: View {
     let title: String
     var selected: Bool
@@ -21,52 +21,53 @@ struct Chip: View {
         Button(action: action) {
             HStack(spacing: 5) {
                 if let symbol {
-                    Image(systemName: symbol).font(.system(size: 12, weight: .semibold))
+                    Image(systemName: symbol).imageScale(.small)
                 }
-                Text(title).font(RF.F.body(11.5, .bold)).lineLimit(1)
+                Text(title).font(RF.T.subheadline.weight(selected ? .semibold : .regular)).lineLimit(1)
                 if let badge, badge > 0 {
                     Text("\(badge)")
-                        .font(RF.F.body(9, .extraBold))
+                        .font(RF.T.caption.weight(.semibold).monospacedDigit())
                         .foregroundStyle(.white)
-                        .frame(minWidth: 15, minHeight: 15)
-                        .background(Circle().fill(RF.C.hibiscus))
+                        .padding(.horizontal, 5)
+                        .frame(minWidth: 18, minHeight: 18)
+                        .background(Capsule().fill(RF.C.hibiscus))
                 }
             }
-            .foregroundStyle(selected ? RF.C.paper : RF.C.text)
-            .padding(.vertical, 6)
-            .padding(.horizontal, 13)
-            .background(Capsule().fill(selected ? RF.C.ink1 : RF.C.paperDim))
+            .foregroundStyle(selected ? RF.C.hibiscus : RF.C.text)
+            .padding(.vertical, 7)
+            .padding(.horizontal, 12)
+            .background(Capsule().fill(selected ? RF.C.hibiscus.opacity(0.10) : RF.C.card))
+            .overlay(Capsule().strokeBorder(selected ? RF.C.hibiscus.opacity(0.35) : RF.C.line, lineWidth: 1))
             .contentShape(Capsule())
         }
-        .buttonStyle(RFPressStyle(scale: 0.95))
+        .buttonStyle(RFPressStyle())
         .sensoryFeedback(.selection, trigger: selected)
         .accessibilityLabel(badge.map { $0 > 0 ? "\(title), \($0) actifs" : title } ?? title)
         .accessibilityAddTraits(selected ? .isSelected : [])
     }
 }
 
-/// Order status pill (mockup `.order-status-pill.pill-*`), coloured by `OrderStatus.tone`.
+/// Order status pill, coloured by `OrderStatus.tone` with low-saturation tints.
 struct StatusPill: View {
     let status: OrderStatus
 
     private var colors: (bg: Color, fg: Color) {
         switch status.tone {
-        case .progress: (RF.C.marigold.opacity(0.2), Color(hex: 0x93601A))
-        case .done: (RF.C.money.opacity(0.18), RF.C.moneyDeep)
-        case .cancelled: (RF.C.hibiscus.opacity(0.18), Color(hex: 0xA8382C))
-        case .alert: (RF.C.hibiscus.opacity(0.14), Color(hex: 0xA8601F))
+        case .progress: (RF.C.text.opacity(0.06), RF.C.textDim)
+        case .done: (RF.C.money.opacity(0.10), RF.C.moneyDeep)
+        case .cancelled: (RF.C.text.opacity(0.06), RF.C.textDim)
+        case .alert: (RF.C.hibiscus.opacity(0.10), Color(hex: 0xA8382C))
         }
     }
 
     var body: some View {
         Text(status.label)
-            .font(RF.F.body(9.5, .extraBold))
+            .font(RF.T.caption.weight(.medium))
             .foregroundStyle(colors.fg)
             .multilineTextAlignment(.trailing)
-            .lineSpacing(1)
             .padding(.vertical, 3)
             .padding(.horizontal, 8)
-            .background(RoundedRectangle(cornerRadius: 20, style: .continuous).fill(colors.bg))
+            .background(Capsule().fill(colors.bg))
             .fixedSize(horizontal: false, vertical: true)
             .accessibilityLabel("Statut : \(status.label)")
     }

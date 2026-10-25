@@ -1,19 +1,18 @@
 import SwiftUI
 import UIKit
 
-/// Dark pill toast (mockup `.share-toast`).
+/// Dark pill toast, SF subheadline, no glow.
 struct ToastView: View {
     let message: String
 
     var body: some View {
         Text(message)
-            .font(RF.F.body(12, .bold))
+            .font(RF.T.subheadline.weight(.medium))
             .foregroundStyle(.white)
             .multilineTextAlignment(.center)
-            .padding(.vertical, 10)
-            .padding(.horizontal, 16)
-            .background(Capsule().fill(RF.C.ink0))
-            .shadow(color: RF.C.ink0.opacity(0.32), radius: 11, y: 10)
+            .padding(.vertical, 12)
+            .padding(.horizontal, 18)
+            .background(Capsule().fill(RF.C.ink1.opacity(0.95)))
             .padding(.horizontal, 24)
     }
 }

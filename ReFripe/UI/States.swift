@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// Empty state (mockup `.empty-state`): faded house motif, icon, title, message, optional action.
+/// Empty state: native `ContentUnavailableView` (icon, title, one line, optional action), tinted hibiscus.
 struct EmptyStateView: View {
     let symbol: String
     let title: String
@@ -17,40 +17,24 @@ struct EmptyStateView: View {
     }
 
     var body: some View {
-        VStack(spacing: 0) {
-            Image(systemName: symbol)
-                .font(.system(size: 34))
-                .foregroundStyle(RF.C.textDim.opacity(0.5))
-                .padding(.bottom, 12)
-                .accessibilityHidden(true)
-            Text(title)
-                .font(RF.F.display(15))
+        ContentUnavailableView {
+            Label(title, systemImage: symbol)
                 .foregroundStyle(RF.C.text)
-                .multilineTextAlignment(.center)
-                .padding(.bottom, 8)
+        } description: {
             Text(message)
-                .font(RF.F.body(12.5))
                 .foregroundStyle(RF.C.textDim)
-                .multilineTextAlignment(.center)
-                .lineSpacing(3)
+        } actions: {
             if let actionTitle, let action {
-                RFButton(actionTitle, style: .primary, action: action)
-                    .padding(.top, 20)
-                    .padding(.horizontal, 20)
+                Button(actionTitle, action: action)
+                    .font(RF.T.button)
+                    .buttonStyle(.borderedProminent)
+                    .buttonBorderShape(.capsule)
+                    .controlSize(.large)
+                    .tint(RF.C.hibiscus)
             }
         }
-        .padding(.horizontal, 30)
-        .padding(.vertical, 54)
+        .padding(.vertical, RF.S.xl)
         .frame(maxWidth: .infinity)
-        .background(alignment: .top) {
-            MotifPattern()
-                .frame(width: 150, height: 150)
-                .mask {
-                    RadialGradient(colors: [.black, .black, .clear], center: .center, startRadius: 0, endRadius: 75)
-                }
-                .opacity(0.75)
-                .padding(.top, 30)
-        }
     }
 }
 
@@ -66,7 +50,7 @@ struct LoadingView: View {
                 .controlSize(.large)
                 .tint(RF.C.hibiscus)
             if let message {
-                Text(message).font(RF.F.body(12.5)).foregroundStyle(RF.C.textDim)
+                Text(message).font(RF.T.footnote).foregroundStyle(RF.C.textDim)
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -87,7 +71,7 @@ struct ErrorStateView: View {
 
     var body: some View {
         EmptyStateView(symbol: "wifi.exclamationmark",
-                       title: "Oups, ça n'a pas marché",
+                       title: "Ça n'a pas marché",
                        message: error.localizedDescription,
                        actionTitle: retry == nil ? nil : "Réessayer",
                        action: retry)
@@ -98,7 +82,7 @@ struct States_Previews: PreviewProvider {
     static var previews: some View {
         ScrollView {
             EmptyStateView(symbol: "heart", title: "Pas encore d'envies",
-                           message: "Swipe à droite ou touche le cœur d'un article pour le retrouver ici.",
+                           message: "Touche le cœur d'un article pour le retrouver ici.",
                            actionTitle: "Découvrir") {}
             ErrorStateView(error: RepositoryError.network("délai dépassé")) {}
             LoadingView("Chargement…").frame(height: 120)

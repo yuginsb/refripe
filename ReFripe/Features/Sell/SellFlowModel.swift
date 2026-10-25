@@ -125,10 +125,10 @@ final class SellFlowModel {
         switch step {
         case .photos:
             if photos.contains(where: \.isChecking) { return "Contrôle qualité en cours…" }
-            if !flaggedPhotos.isEmpty { return "Retire les photos signalées pour continuer." }
+            if !flaggedPhotos.isEmpty { return "Retire les photos signalées." }
             return Catalog.sellPhotoMin > 1 ? "Ajoute au moins \(Catalog.sellPhotoMin) photos." : "Ajoute au moins une photo."
         case .category: return "Choisis une catégorie."
-        case .brand: return draft.brand == SellFlowModel.otherBrand ? "Précise la marque." : "Choisis une marque, ou « Sans marque précise »."
+        case .brand: return draft.brand == SellFlowModel.otherBrand ? "Précise la marque." : "Choisis une marque."
         case .size: return "Choisis une taille."
         case .condition: return "Indique l'état de l'article."
         case .color: return "Choisis la couleur dominante."

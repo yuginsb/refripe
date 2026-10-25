@@ -138,7 +138,7 @@ private struct OnboardingPreferencesStack: View {
 
     var body: some View {
         NavigationStack(path: $model.preferencePath) {
-            OnboardingStepScaffold(step: 0, tagline: "Choisis au moins une catégorie — tu pourras en ajouter d'autres plus tard.") {
+            OnboardingStepScaffold(step: 0, tagline: "Au moins une, modifiable ensuite.") {
                 CategoryPreferenceGrid(categories: $model.categories)
             } actions: {
                 RFButton("Continuer") { model.preferencePath.append(.sizes) }
@@ -148,7 +148,7 @@ private struct OnboardingPreferencesStack: View {
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
                     Button("Changer de compte") { confirmSwitchAccount = true }
-                        .font(RF.F.body(12, .bold))
+                        .font(RF.T.subheadline)
                         .foregroundStyle(RF.C.textDim)
                 }
             }
@@ -174,7 +174,7 @@ private struct OnboardingPreferencesStack: View {
     }
 
     private var sizesStep: some View {
-        OnboardingStepScaffold(step: 1, tagline: "Facultatif — ça affine les notifications de nouveautés dans ta taille.") {
+        OnboardingStepScaffold(step: 1, tagline: "Facultatif. Pour des nouveautés à ta taille.") {
             SizePreferenceRows(sizes: $model.sizes)
         } actions: {
             OnboardingActions(skip: { model.preferencePath.append(.brands) }, primaryTitle: "Continuer") {
@@ -185,7 +185,7 @@ private struct OnboardingPreferencesStack: View {
     }
 
     private var brandsStep: some View {
-        OnboardingStepScaffold(step: 2, tagline: "Facultatif — sélectionne celles que tu portes le plus souvent.") {
+        OnboardingStepScaffold(step: 2, tagline: "Facultatif. Celles que tu portes le plus.") {
             BrandPreferenceChips(brands: $model.brands)
         } actions: {
             OnboardingActions(skip: savePreferencesAndContinue, primaryTitle: "Terminer", primary: savePreferencesAndContinue)
@@ -216,20 +216,20 @@ private struct OnboardingStepScaffold<Content: View, Actions: View>: View {
         ScrollView {
             VStack(spacing: 0) {
                 OnboardingProgressDots(count: 3, current: step)
-                    .padding(.bottom, 20)
+                    .padding(.bottom, RF.S.xl)
                 OnboardingTagline(tagline)
-                    .padding(.bottom, 22)
+                    .padding(.bottom, RF.S.lg)
                 content
             }
             .padding(.horizontal, RF.S.gutter)
-            .padding(.top, 22)
-            .padding(.bottom, 16)
+            .padding(.top, RF.S.lg)
+            .padding(.bottom, RF.S.lg)
         }
         .safeAreaInset(edge: .bottom) {
             actions
                 .padding(.horizontal, RF.S.gutter)
-                .padding(.top, 10)
-                .padding(.bottom, 8)
+                .padding(.top, RF.S.md)
+                .padding(.bottom, RF.S.sm)
                 .background(RF.C.paper)
         }
         .navigationBarTitleDisplayMode(.inline)

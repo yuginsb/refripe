@@ -1,7 +1,8 @@
 import SwiftUI
 
-/// Full-width button from the mockup (`.btn`): radius 12, padding 13, Manrope ExtraBold 13.5.
-/// `.primary` = hibiscus, `.secondary` = paper-dim, `.ink` = dark, `.ghost` = outlined.
+/// Full-width button: SF headline, height 50, radius 12.
+/// `.primary` = hibiscus fill (one per screen), `.secondary` = subtle tinted fill,
+/// `.ink` = dark fill (kept for compatibility, use sparingly), `.ghost` = hairline outline.
 struct RFButton: View {
     enum Style { case primary, secondary, ink, ghost }
 
@@ -25,7 +26,8 @@ struct RFButton: View {
     private var fgColor: Color {
         switch style {
         case .primary: .white
-        case .secondary, .ghost: RF.C.text
+        case .secondary: RF.C.hibiscus
+        case .ghost: RF.C.text
         case .ink: RF.C.paper
         }
     }
@@ -33,7 +35,7 @@ struct RFButton: View {
     private var bgColor: Color {
         switch style {
         case .primary: RF.C.hibiscus
-        case .secondary: RF.C.paperDim
+        case .secondary: RF.C.hibiscus.opacity(0.10)
         case .ink: RF.C.ink1
         case .ghost: .clear
         }
@@ -42,22 +44,24 @@ struct RFButton: View {
     var body: some View {
         let shape = RoundedRectangle(cornerRadius: RF.R.md, style: .continuous)
         Button(action: action) {
-            HStack(spacing: 7) {
+            HStack(spacing: 6) {
                 if isLoading {
                     ProgressView().tint(fgColor)
                 } else if let symbol {
-                    Image(systemName: symbol).font(.system(size: 15, weight: .semibold))
+                    Image(systemName: symbol).imageScale(.medium)
                 }
                 Text(title)
-                    .font(RF.F.body(13.5, .extraBold))
+                    .font(RF.T.button)
+                    .lineLimit(2)
                     .multilineTextAlignment(.center)
+                    .minimumScaleFactor(0.85)
             }
             .foregroundStyle(fgColor)
-            .frame(maxWidth: .infinity, minHeight: 20)
-            .padding(13)
+            .padding(.horizontal, 16)
+            .frame(maxWidth: .infinity, minHeight: 50)
             .background(bgColor, in: shape)
             .overlay {
-                if style == .ghost { shape.strokeBorder(RF.C.line, lineWidth: 1.5) }
+                if style == .ghost { shape.strokeBorder(RF.C.line, lineWidth: 1) }
             }
             .contentShape(shape)
             .opacity(isEnabled ? 1 : 0.4)
@@ -68,13 +72,14 @@ struct RFButton: View {
     }
 }
 
-/// Press feedback used across the kit (mockup `.card:active { transform: scale(0.97) }`).
+/// Press feedback used across the kit: a light dim + slight scale, close to native button behaviour.
 struct RFPressStyle: ButtonStyle {
-    var scale: CGFloat = 0.97
+    var scale: CGFloat = 0.98
 
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .scaleEffect(configuration.isPressed ? scale : 1)
+            .opacity(configuration.isPressed ? 0.75 : 1)
             .animation(.easeOut(duration: 0.12), value: configuration.isPressed)
     }
 }
@@ -82,10 +87,10 @@ struct RFPressStyle: ButtonStyle {
 struct RFButton_Previews: PreviewProvider {
     static var previews: some View {
         VStack(spacing: 12) {
-            RFButton("Acheter maintenant", symbol: "lock.fill") {}
-            RFButton("Faire une offre", symbol: "arrow.left.arrow.right", style: .ghost) {}
-            RFButton("Voir le tableau de bord", style: .ink) {}
-            RFButton("Plus tard", style: .secondary) {}
+            RFButton("Acheter", symbol: "lock.fill") {}
+            RFButton("Faire une offre", style: .secondary) {}
+            RFButton("Plus tard", style: .ghost) {}
+            RFButton("Statistiques", style: .ink) {}
             RFButton("Paiement…", isLoading: true) {}
             RFButton("Désactivé") {}.disabled(true)
         }

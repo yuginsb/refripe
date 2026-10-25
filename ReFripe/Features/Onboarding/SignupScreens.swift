@@ -49,31 +49,18 @@ struct SignupMethodScreen: View {
     var body: some View {
         ZStack {
             RF.C.ink0.ignoresSafeArea()
-            MotifPattern(color: RF.C.marigold.opacity(0.09), spacing: 15)
-                .ignoresSafeArea()
-                .mask {
-                    LinearGradient(colors: [.black, .black.opacity(0.35), .clear], startPoint: .top, endPoint: .center)
-                        .ignoresSafeArea()
-                }
 
             VStack(spacing: 0) {
                 Spacer(minLength: 40)
                 brand
                 Spacer(minLength: 32)
                 methods
-                Text("Apple pré-remplit ton prénom — tout reste modifiable ensuite. Ton numéro sert aussi pour Wave et Orange Money au moment de payer.")
-                    .font(RF.F.body(10.5))
-                    .foregroundStyle(RF.C.textOnInkDim)
-                    .multilineTextAlignment(.center)
-                    .lineSpacing(3)
-                    .padding(.top, 16)
-                    .padding(.horizontal, 8)
                 if store.isDemo {
-                    Label("Mode démo — numéro 07 07 07 07 07, code 1234 pour retrouver Awa", systemImage: "sparkles")
-                        .font(RF.F.mono(10, .medium))
-                        .foregroundStyle(RF.C.marigold)
+                    Text("Démo : 07 07 07 07 07, code \(DemoIDs.otpCode)")
+                        .font(RF.T.footnote.monospacedDigit())
+                        .foregroundStyle(RF.C.textOnInkDim)
                         .multilineTextAlignment(.center)
-                        .padding(.top, 12)
+                        .padding(.top, RF.S.lg)
                 }
             }
             .padding(.horizontal, 20)
@@ -81,7 +68,7 @@ struct SignupMethodScreen: View {
 
             if model.isAuthenticating {
                 RF.C.scrim.ignoresSafeArea()
-                ProgressView().controlSize(.large).tint(RF.C.marigold)
+                ProgressView().controlSize(.large).tint(RF.C.textOnInk)
                     .accessibilityLabel("Connexion en cours")
             }
         }
@@ -89,26 +76,17 @@ struct SignupMethodScreen: View {
     }
 
     private var brand: some View {
-        VStack(spacing: 14) {
+        VStack(spacing: 12) {
             (Text("Re").foregroundStyle(RF.C.textOnInk) + Text("Fripe").foregroundStyle(RF.C.marigold))
-                .font(RF.F.display(44, .black))
+                .font(RF.T.brand(44))
+                .lineLimit(1)
+                .minimumScaleFactor(0.6)
                 .accessibilityLabel("ReFripe")
                 .accessibilityAddTraits(.isHeader)
-            Text("Achète et vends la fripe près de chez toi, en toute confiance.")
-                .font(RF.F.body(14, .medium))
+            Text("La fripe près de chez toi.")
+                .font(RF.T.body)
                 .foregroundStyle(RF.C.textOnInkDim)
                 .multilineTextAlignment(.center)
-                .lineSpacing(3)
-                .padding(.horizontal, 20)
-            HStack(spacing: 8) {
-                Label("Séquestre", systemImage: "lock.shield")
-                Label("Wave · OM", systemImage: "iphone")
-                Label("Abidjan · Dakar", systemImage: "mappin")
-            }
-            .font(RF.F.body(10, .bold))
-            .foregroundStyle(RF.C.textOnInk)
-            .labelStyle(SignupPillLabelStyle())
-            .padding(.top, 6)
         }
     }
 
@@ -123,29 +101,19 @@ struct SignupMethodScreen: View {
                 handleApple(result)
             }
             .signInWithAppleButtonStyle(.white)
-            .frame(height: 48)
+            .frame(height: 50)
             .clipShape(RoundedRectangle(cornerRadius: RF.R.md, style: .continuous))
             .disabled(model.isAuthenticating)
 
-            RFButton("Continuer avec mon numéro", symbol: "iphone") {
+            RFButton("Continuer avec mon numéro", symbol: "phone") {
                 model.method = .phone
                 model.authPath.append(.phone)
             }
             .disabled(model.isAuthenticating)
 
-            SoonMethodButton(title: "Continuer avec Google") {
-                Text("G")
-                    .font(RF.F.body(14, .extraBold))
-                    .foregroundStyle(RF.C.ink0)
-                    .frame(width: 26, height: 26)
-                    .background(Circle().fill(.white))
-            }
-            SoonMethodButton(title: "Continuer avec Facebook") {
-                Text("f")
-                    .font(RF.F.body(15, .extraBold))
-                    .foregroundStyle(.white)
-                    .frame(width: 26, height: 26)
-                    .background(Circle().fill(Color(hex: 0x2B5CB8)))   // mockup `.mi-fb`
+            HStack(spacing: 10) {
+                SoonMethodButton(title: "Google")
+                SoonMethodButton(title: "Facebook")
             }
         }
     }
@@ -191,53 +159,28 @@ struct SignupMethodScreen: View {
     }
 }
 
-/// Outlined method button on ink, tagged "Bientôt" (Google / Facebook are not wired on the backend yet).
-private struct SoonMethodButton<Icon: View>: View {
+/// Discreet outlined method button on ink, "bientôt" (Google / Facebook are not wired on the backend yet).
+private struct SoonMethodButton: View {
     let title: String
-    @ViewBuilder var icon: Icon
     @Environment(AppStore.self) private var store
 
     var body: some View {
         Button {
             Haptics.warning()
-            store.show("Bientôt disponible — utilise Apple ou ton numéro pour l'instant.")
+            store.show("Bientôt disponible. Utilise Apple ou ton numéro.")
         } label: {
-            HStack(spacing: 12) {
-                icon
-                Text(title)
-                    .font(RF.F.body(13, .bold))
-                    .foregroundStyle(RF.C.textOnInk)
-                Spacer(minLength: 4)
-                Text("Bientôt")
-                    .font(RF.F.body(9, .extraBold))
-                    .foregroundStyle(RF.C.ink0)
-                    .padding(.vertical, 3)
-                    .padding(.horizontal, 8)
-                    .background(Capsule().fill(RF.C.marigold))
+            VStack(spacing: 1) {
+                Text(title).font(RF.T.subheadline.weight(.semibold))
+                Text("Bientôt").font(RF.T.caption)
+                    .foregroundStyle(RF.C.textOnInkDim)
             }
-            .padding(.vertical, 11)
-            .padding(.horizontal, 14)
-            .frame(maxWidth: .infinity)
-            .background(RF.C.ink1, in: RoundedRectangle(cornerRadius: RF.R.md, style: .continuous))
-            .overlay(RoundedRectangle(cornerRadius: RF.R.md, style: .continuous).strokeBorder(RF.C.lineOnInk, lineWidth: 1.5))
-            .opacity(0.75)
+            .foregroundStyle(RF.C.textOnInk)
+            .frame(maxWidth: .infinity, minHeight: 50)
+            .overlay(RoundedRectangle(cornerRadius: RF.R.md, style: .continuous).strokeBorder(RF.C.lineOnInk, lineWidth: 1))
             .contentShape(RoundedRectangle(cornerRadius: RF.R.md, style: .continuous))
         }
         .buttonStyle(RFPressStyle())
-        .accessibilityLabel("\(title), bientôt disponible")
-    }
-}
-
-private struct SignupPillLabelStyle: LabelStyle {
-    func makeBody(configuration: Configuration) -> some View {
-        HStack(spacing: 4) {
-            configuration.icon.font(.system(size: 10, weight: .semibold)).foregroundStyle(RF.C.marigold)
-            configuration.title.lineLimit(1)
-        }
-        .padding(.vertical, 5)
-        .padding(.horizontal, 9)
-        .background(Capsule().fill(RF.C.textOnInk.opacity(0.08)))
-        .overlay(Capsule().strokeBorder(RF.C.lineOnInk, lineWidth: 1))
+        .accessibilityLabel("Continuer avec \(title), bientôt disponible")
     }
 }
 
@@ -270,8 +213,8 @@ struct SignupPhoneScreen: View {
     var body: some View {
         ScrollView {
             VStack(spacing: 0) {
-                OnboardingTagline("Ce numéro sert aussi pour Wave et Orange Money au moment de payer.")
-                    .padding(.bottom, 22)
+                OnboardingTagline("Il sert aussi pour Wave et Orange Money.")
+                    .padding(.bottom, RF.S.xl)
 
                 OnboardingField("Numéro mobile", content: {
                     HStack(spacing: 10) {
@@ -280,7 +223,7 @@ struct SignupPhoneScreen: View {
                         TextField(model.country.placeholder, text: phoneBinding)
                             .keyboardType(.phonePad)
                             .textContentType(.telephoneNumber)
-                            .font(RF.F.mono(15, .medium))
+                            .font(RF.T.body.monospacedDigit())
                             .focused($focus, equals: .phone)
                             .disabled(codeSent)
                             .accessibilityLabel("Numéro mobile")
@@ -294,14 +237,14 @@ struct SignupPhoneScreen: View {
                     otpSection
                         .transition(.move(edge: .bottom).combined(with: .opacity))
                 } else {
-                    RFButton("Recevoir le code", symbol: "message", isLoading: isSending) {
+                    RFButton("Recevoir le code", isLoading: isSending) {
                         Task { await sendCode() }
                     }
                     .disabled(!model.isPhoneComplete)
                     .padding(.top, 6)
                     if store.isDemo {
-                        Text("Démo : 07 07 07 07 07 te reconnecte en tant qu'Awa ; tout autre numéro crée un nouveau compte.")
-                            .font(RF.F.body(10.5))
+                        Text("Démo : 07 07 07 07 07 pour retrouver Awa.")
+                            .font(RF.T.footnote)
                             .foregroundStyle(RF.C.textDim)
                             .multilineTextAlignment(.center)
                             .padding(.top, 12)
@@ -314,7 +257,7 @@ struct SignupPhoneScreen: View {
         }
         .scrollDismissesKeyboard(.interactively)
         .rfScreenBackground()
-        .navigationTitle("Numéro de téléphone")
+        .navigationTitle("Ton numéro")
         .navigationBarTitleDisplayMode(.inline)
         .onAppear { if !codeSent { focus = .phone } }
         .onChange(of: code) { _, newValue in
@@ -351,10 +294,10 @@ struct SignupPhoneScreen: View {
             HStack(spacing: 4) {
                 Text(model.country.flag)
                 Text("+\(model.country.dialCode)")
-                    .font(RF.F.mono(15, .medium))
+                    .font(RF.T.body.monospacedDigit())
                     .foregroundStyle(RF.C.text)
                 Image(systemName: "chevron.down")
-                    .font(.system(size: 10, weight: .bold))
+                    .font(RF.T.caption.weight(.semibold))
                     .foregroundStyle(RF.C.textDim)
             }
         }
@@ -365,12 +308,12 @@ struct SignupPhoneScreen: View {
     private var otpSection: some View {
         VStack(spacing: 0) {
             Text(store.isDemo
-                 ? "Code envoyé par SMS au +\(model.country.dialCode) \(model.country.format(model.phoneDigits)) (démo : \(DemoIDs.otpCode))"
-                 : "Code envoyé par SMS au +\(model.country.dialCode) \(model.country.format(model.phoneDigits))")
-                .font(RF.F.body(11))
+                 ? "Code envoyé au +\(model.country.dialCode) \(model.country.format(model.phoneDigits)) (démo : \(DemoIDs.otpCode))"
+                 : "Code envoyé au +\(model.country.dialCode) \(model.country.format(model.phoneDigits))")
+                .font(RF.T.footnote.monospacedDigit())
                 .foregroundStyle(RF.C.textDim)
                 .multilineTextAlignment(.center)
-                .padding(.bottom, 12)
+                .padding(.bottom, RF.S.md)
 
             otpBoxes
                 .padding(.bottom, 18)
@@ -390,9 +333,9 @@ struct SignupPhoneScreen: View {
                 .disabled(resendIn > 0 || isSending)
                 .contentTransition(.numericText(countsDown: true))
             }
-            .font(RF.F.body(12, .bold))
-            .foregroundStyle(RF.C.textDim)
-            .padding(.top, 14)
+            .font(RF.T.subheadline)
+            .foregroundStyle(RF.C.hibiscus)
+            .padding(.top, RF.S.lg)
         }
     }
 
@@ -414,13 +357,13 @@ struct SignupPhoneScreen: View {
                 ForEach(0..<codeLength, id: \.self) { i in
                     let isActive = focus == .code && i == min(digits.count, codeLength - 1)
                     Text(i < digits.count ? String(digits[i]) : "")
-                        .font(RF.F.mono(19, .semibold))
+                        .font(RF.T.number(.title2, weight: .semibold))
                         .foregroundStyle(RF.C.text)
-                        .frame(width: 42, height: 50)
+                        .frame(width: 44, height: 52)
                         .background(RF.C.card, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
                         .overlay(
                             RoundedRectangle(cornerRadius: 10, style: .continuous)
-                                .strokeBorder(isActive ? RF.C.hibiscus : RF.C.line, lineWidth: 1.5)
+                                .strokeBorder(isActive ? RF.C.hibiscus : RF.C.line, lineWidth: isActive ? 1.5 : 1)
                         )
                 }
             }
@@ -517,25 +460,24 @@ struct SignupProfileScreen: View {
                             .focused($focus, equals: .username)
                             .onSubmit { focus = .district }
                     }
-                    Text("Visible sur tes annonces. Lettres, chiffres, « _ » et « . », 3 caractères minimum.")
-                        .font(RF.F.body(10.5))
+                    Text("3 caractères minimum : lettres, chiffres, « _ », « . ».")
+                        .font(RF.T.footnote)
                         .foregroundStyle(RF.C.textDim)
                 }
 
                 phoneField
 
                 VStack(alignment: .leading, spacing: 6) {
-                    Text("VILLE")
-                        .font(RF.F.body(10.5, .bold))
-                        .kerning(0.42)
+                    Text("Ville")
+                        .font(RF.T.footnote.weight(.semibold))
                         .foregroundStyle(RF.C.textDim)
-                    HStack(spacing: 8) {
+                    Picker("Ville", selection: $model.signup.city) {
                         ForEach(Catalog.cities, id: \.self) { city in
-                            ChoiceChip(title: city, selected: model.signup.city == city) {
-                                model.signup.city = city
-                            }
+                            Text(city).tag(city)
                         }
                     }
+                    .pickerStyle(.segmented)
+                    .sensoryFeedback(.selection, trigger: model.signup.city)
                 }
 
                 VStack(alignment: .leading, spacing: 5) {
@@ -547,8 +489,8 @@ struct SignupProfileScreen: View {
                             .focused($focus, equals: .district)
                             .onSubmit { focus = nil }
                     }
-                    Text("Jamais ton adresse exacte : juste de quoi situer tes annonces.")
-                        .font(RF.F.body(10.5))
+                    Text("Jamais ton adresse exacte.")
+                        .font(RF.T.footnote)
                         .foregroundStyle(RF.C.textDim)
                 }
 
@@ -578,7 +520,7 @@ struct SignupProfileScreen: View {
         if model.method == .phone {
             OnboardingField("Téléphone", content: {
                 Text("+\(model.country.dialCode) \(model.country.format(model.phoneDigits))")
-                    .font(RF.F.mono(14, .medium))
+                    .font(RF.T.body.monospacedDigit())
                     .foregroundStyle(RF.C.textDim)
                     .frame(maxWidth: .infinity, alignment: .leading)
             }, trailing: {
@@ -586,47 +528,22 @@ struct SignupProfileScreen: View {
             })
             .accessibilityElement(children: .combine)
         } else {
-            HStack(alignment: .top, spacing: 8) {
-                Image(systemName: "iphone").font(.system(size: 13)).foregroundStyle(RF.C.textDim)
-                Text("Ton numéro te sera demandé avant ta première vente ou ton premier achat (Wave / Orange Money).")
-                    .font(RF.F.body(11))
-                    .foregroundStyle(RF.C.textDim)
-            }
-            .padding(12)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .background(RF.C.paperDim, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+            Text("Ton numéro te sera demandé avant ton premier paiement.")
+                .font(RF.T.footnote)
+                .foregroundStyle(RF.C.textDim)
         }
     }
 
-    /// Mockup `.majority-toggle` / `.mt-box`.
     private var majorityToggle: some View {
-        let on = model.signup.isAdultConfirmed
-        return Button {
-            model.signup.isAdultConfirmed.toggle()
-        } label: {
-            HStack(spacing: 10) {
-                Image(systemName: "checkmark")
-                    .font(.system(size: 11, weight: .heavy))
-                    .foregroundStyle(.white)
-                    .opacity(on ? 1 : 0)
-                    .frame(width: 20, height: 20)
-                    .background(RoundedRectangle(cornerRadius: 6, style: .continuous).fill(on ? RF.C.money : Color.clear))
-                    .overlay(RoundedRectangle(cornerRadius: 6, style: .continuous).strokeBorder(on ? RF.C.money : RF.C.line, lineWidth: 1.5))
-                Text("Je confirme avoir 18 ans ou plus")
-                    .font(RF.F.body(12))
-                    .foregroundStyle(RF.C.text)
-                Spacer(minLength: 0)
-            }
-            .padding(.vertical, 8)
-            .padding(.horizontal, 2)
-            .contentShape(Rectangle())
+        Toggle(isOn: $model.signup.isAdultConfirmed) {
+            Text("J'ai 18 ans ou plus")
+                .font(RF.T.body)
+                .foregroundStyle(RF.C.text)
         }
-        .buttonStyle(.plain)
-        .sensoryFeedback(.selection, trigger: on)
-        .animation(.snappy(duration: 0.15), value: on)
+        .tint(RF.C.hibiscus)
+        .padding(.vertical, 4)
+        .sensoryFeedback(.selection, trigger: model.signup.isAdultConfirmed)
         .accessibilityLabel("Je confirme avoir 18 ans ou plus")
-        .accessibilityValue(on ? "Coché" : "Non coché")
-        .accessibilityAddTraits(on ? .isSelected : [])
     }
 
     private func save() async {

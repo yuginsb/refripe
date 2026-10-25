@@ -16,7 +16,7 @@ struct SellPhotosStep: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            SellTagline("Entre \(Catalog.sellPhotoMin) et \(Catalog.sellPhotoMax) photos. Chaque photo passe un contrôle automatique : flou, contenu sensible, doublon, screenshot, watermark professionnel.")
+            SellTagline("\(Catalog.sellPhotoMin) à \(Catalog.sellPhotoMax) photos. La première sert de couverture.")
 
             LazyVGrid(columns: columns, spacing: 8) {
                 ForEach(Array(model.photos.enumerated()), id: \.element.id) { index, photo in
@@ -33,33 +33,42 @@ struct SellPhotosStep: View {
                     .accessibilityLabel("Ajouter des photos depuis la photothèque")
                     if SellCameraPicker.isAvailable {
                         Button { showCamera = true } label: {
-                            addSlot(symbol: "camera", label: "Photographier")
+                            addSlot(symbol: "camera", label: "Photo")
                         }
                         .accessibilityLabel("Prendre une photo")
                     }
                 }
             }
-            .padding(.bottom, 14)
+            .padding(.bottom, RF.S.sm)
 
-            if !model.flaggedPhotos.isEmpty { warning }
-
-            Text("\(model.photos.count)/\(Catalog.sellPhotoMax) photos · la première sert de couverture")
-                .font(RF.F.mono(10.5))
-                .foregroundStyle(RF.C.textDim)
-                .padding(.bottom, 18)
-
-            VStack(alignment: .leading, spacing: 0) {
-                SellFieldLabel(text: "Photographie aussi les défauts (tache, trou, accroc…)", symbol: "camera",
-                               counter: model.draft.defectComment.isEmpty ? nil
-                                   : "\(model.draft.defectComment.count)/\(SellFlowModel.defectMax)")
-                TextField("Commentaire sur un défaut (optionnel)", text: $model.draft.defectComment, axis: .vertical)
-                    .lineLimit(3...6)
-                    .focused($defectFocused)
-                    .sellField(focused: defectFocused)
-                    .onChange(of: model.draft.defectComment) { _, new in
-                        if new.count > SellFlowModel.defectMax { model.draft.defectComment = String(new.prefix(SellFlowModel.defectMax)) }
-                    }
+            HStack(alignment: .firstTextBaseline) {
+                if model.flaggedPhotos.isEmpty {
+                    Text("Contrôle auto : flou, doublon, capture, filigrane, contenu sensible.")
+                        .foregroundStyle(RF.C.textDim)
+                } else {
+                    Label(flagSummary, systemImage: "exclamationmark.triangle")
+                        .foregroundStyle(RF.C.hibiscus)
+                }
+                Spacer(minLength: 8)
+                Text("\(model.photos.count)/\(Catalog.sellPhotoMax)")
+                    .monospacedDigit()
+                    .foregroundStyle(RF.C.textDim)
             }
+            .font(RF.T.footnote)
+            .padding(.bottom, RF.S.xl)
+            .accessibilityElement(children: .combine)
+
+            SellFieldLabel(text: "Défauts (facultatif)",
+                           counter: model.draft.defectComment.isEmpty ? nil
+                               : "\(model.draft.defectComment.count)/\(SellFlowModel.defectMax)")
+            TextField("Tache, trou, accroc… Photographie-les aussi.", text: $model.draft.defectComment, axis: .vertical)
+                .lineLimit(2...6)
+                .focused($defectFocused)
+                .sellField(focused: defectFocused)
+                .accessibilityLabel("Commentaire sur un défaut (optionnel)")
+                .onChange(of: model.draft.defectComment) { _, new in
+                    if new.count > SellFlowModel.defectMax { model.draft.defectComment = String(new.prefix(SellFlowModel.defectMax)) }
+                }
         }
         .onChange(of: pickerItems) { _, items in
             guard !items.isEmpty else { return }
@@ -72,9 +81,15 @@ struct SellPhotosStep: View {
         }
     }
 
+    /// "À retirer : photo 2 (floue), photo 3 (doublon)".
+    private var flagSummary: String {
+        let items = model.flaggedPhotos.map { "photo \($0.index + 1) (\($0.flag.shortLabel))" }
+        return "À retirer : " + items.joined(separator: ", ")
+    }
+
     private func slot(_ photo: SellPhoto, index: Int) -> some View {
         let flag = model.flag(for: photo)
-        let shape = RoundedRectangle(cornerRadius: RF.R.md, style: .continuous)
+        let shape = RoundedRectangle(cornerRadius: 10, style: .continuous)
         return RF.C.paperDim
             .aspectRatio(1, contentMode: .fit)
             .overlay {
@@ -86,44 +101,39 @@ struct SellPhotosStep: View {
             }
             .overlay(alignment: .bottom) {
                 if let flag {
-                    Text(flag.label)
-                        .font(RF.F.body(8.5, .extraBold))
+                    Text(flag.shortLabel.prefix(1).uppercased() + flag.shortLabel.dropFirst())
+                        .font(RF.T.caption.weight(.semibold))
                         .foregroundStyle(.white)
-                        .lineLimit(2)
-                        .multilineTextAlignment(.center)
+                        .lineLimit(1)
                         .padding(.vertical, 4)
-                        .padding(.horizontal, 5)
                         .frame(maxWidth: .infinity)
-                        .background(RF.C.hibiscus.opacity(0.92))
+                        .background(RF.C.hibiscus.opacity(0.9))
                 }
             }
             .clipShape(shape)
             .overlay(shape.strokeBorder(flag == nil ? Color.clear : RF.C.hibiscus, lineWidth: 2))
-            .overlay(alignment: .topLeading) {
+            .overlay(alignment: .bottomLeading) {
                 if index == 0 && !photo.isChecking && flag == nil {
                     Text("Couverture")
-                        .font(RF.F.body(8, .extraBold))
-                        .foregroundStyle(RF.C.ink0)
-                        .padding(.vertical, 3)
+                        .font(RF.T.caption.weight(.medium))
+                        .foregroundStyle(RF.C.text)
+                        .padding(.vertical, 2)
                         .padding(.horizontal, 6)
-                        .background(Capsule().fill(RF.C.marigold))
+                        .background(Capsule().fill(Color.white.opacity(0.92)))
                         .padding(5)
                 }
-            }
-            .overlay(alignment: .bottomLeading) {
-                if flag == nil { statusBadge(photo).padding(4) }
             }
             .overlay(alignment: .topTrailing) {
                 Button { model.removePhoto(photo.id) } label: {
                     Image(systemName: "xmark")
-                        .font(.system(size: 9, weight: .bold))
+                        .font(.system(size: 10, weight: .semibold))
                         .foregroundStyle(.white)
                         .frame(width: 22, height: 22)
-                        .background(Circle().fill(RF.C.ink0.opacity(0.65)))
+                        .background(Circle().fill(RF.C.ink0.opacity(0.6)))
                         .padding(4)
                         .contentShape(Rectangle())
                 }
-                .buttonStyle(RFPressStyle(scale: 0.85))
+                .buttonStyle(RFPressStyle(scale: 0.9))
                 .accessibilityLabel("Retirer la photo \(index + 1)")
             }
             .contextMenu {
@@ -136,18 +146,6 @@ struct SellPhotosStep: View {
             .accessibilityLabel(accessibilityLabel(photo, index: index, flag: flag))
     }
 
-    @ViewBuilder private func statusBadge(_ photo: SellPhoto) -> some View {
-        if photo.isChecking {
-            EmptyView()
-        } else {
-            Image(systemName: "checkmark")
-                .font(.system(size: 8, weight: .heavy))
-                .foregroundStyle(.white)
-                .frame(width: 18, height: 18)
-                .background(Circle().fill(RF.C.money))
-        }
-    }
-
     private func accessibilityLabel(_ photo: SellPhoto, index: Int, flag: PhotoFlag?) -> String {
         let base = "Photo \(index + 1)"
         if photo.isChecking { return "\(base), contrôle en cours" }
@@ -156,37 +154,45 @@ struct SellPhotosStep: View {
     }
 
     private func addSlot(symbol: String, label: String) -> some View {
-        let shape = RoundedRectangle(cornerRadius: RF.R.md, style: .continuous)
+        let shape = RoundedRectangle(cornerRadius: 10, style: .continuous)
         return VStack(spacing: 4) {
-            Image(systemName: symbol).font(.system(size: 18, weight: .medium))
-            Text(label).font(RF.F.body(9.5, .bold))
+            Image(systemName: symbol).font(RF.T.title3.weight(.regular))
+            Text(label).font(RF.T.caption)
         }
         .foregroundStyle(RF.C.textDim)
         .frame(maxWidth: .infinity)
         .aspectRatio(1, contentMode: .fit)
-        .background(RF.C.paperDim, in: shape)
-        .overlay(shape.strokeBorder(RF.C.text.opacity(0.18), style: StrokeStyle(lineWidth: 1.5, dash: [5, 4])))
+        .background(RF.C.card, in: shape)
+        .overlay(shape.strokeBorder(RF.C.line, lineWidth: 1))
         .contentShape(shape)
     }
+}
 
-    private var warning: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            ForEach(model.flaggedPhotos, id: \.index) { item in
-                HStack(alignment: .firstTextBaseline, spacing: 6) {
-                    Image(systemName: "exclamationmark.triangle.fill").font(.system(size: 11))
-                    Text("Photo \(item.index + 1) : \(item.flag.label) — remplace ou retire cette photo.")
-                }
-            }
+private extension PhotoFlag {
+    /// One-word version of `label` for the photo tile and the summary line.
+    var shortLabel: String {
+        switch self {
+        case .blur: "floue"
+        case .nudity: "contenu sensible"
+        case .inappropriate: "inappropriée"
+        case .duplicate: "doublon"
+        case .screenshot: "capture d'écran"
+        case .watermark: "filigrane"
         }
-        .font(RF.F.body(11, .semibold))
-        .foregroundStyle(RF.C.hibiscus)
-        .lineSpacing(2)
-        .padding(.vertical, 10)
-        .padding(.horizontal, 12)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(RF.C.hibiscus.opacity(0.08), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
-        .padding(.bottom, 12)
-        .accessibilityElement(children: .combine)
+    }
+}
+
+/// Section header for the wizard's `Form` steps: one short line, sentence case.
+private struct SellFormHeader: View {
+    let text: String
+    init(_ text: String) { self.text = text }
+
+    var body: some View {
+        Text(text)
+            .font(RF.T.subheadline)
+            .foregroundStyle(RF.C.textDim)
+            .textCase(nil)
+            .padding(.bottom, 4)
     }
 }
 
@@ -194,41 +200,33 @@ struct SellPhotosStep: View {
 
 struct SellCategoryStep: View {
     @Bindable var model: SellFlowModel
-    private let columns = [GridItem(.flexible(), spacing: 10), GridItem(.flexible(), spacing: 10)]
 
-    var body: some View {
-        VStack(spacing: 0) {
-            SellTagline("Dans quelle catégorie se range cet article ?")
-            LazyVGrid(columns: columns, spacing: 10) {
-                ForEach(Gender.allCases) { gender in
-                    tile(gender)
-                }
-            }
-        }
+    private var selection: Binding<Gender?> {
+        Binding(get: { model.draft.gender },
+                set: { if let gender = $0 { model.setGender(gender) } })
     }
 
-    private func tile(_ gender: Gender) -> some View {
-        let selected = model.draft.gender == gender
-        let shape = RoundedRectangle(cornerRadius: RF.R.lg, style: .continuous)
-        return Button { model.setGender(gender) } label: {
-            VStack(spacing: 8) {
-                Image(systemName: gender.symbol)
-                    .font(.system(size: 26))
-                    .foregroundStyle(selected ? RF.C.hibiscus : RF.C.text)
-                    .frame(height: 32)
-                Text(gender.label).font(RF.F.body(12, .bold)).foregroundStyle(RF.C.text)
+    var body: some View {
+        Form {
+            Section {
+                Picker("Catégorie", selection: selection) {
+                    ForEach(Gender.allCases) { gender in
+                        Label {
+                            Text(gender.label).foregroundStyle(RF.C.text)
+                        } icon: {
+                            Image(systemName: gender.symbol).foregroundStyle(RF.C.textDim)
+                        }
+                        .tag(Optional(gender))
+                    }
+                }
+                .pickerStyle(.inline)
+                .labelsHidden()
+            } header: {
+                SellFormHeader("Où ranger cet article ?")
             }
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, 22)
-            .padding(.horizontal, 10)
-            .background(selected ? RF.C.hibiscus.opacity(0.08) : RF.C.card, in: shape)
-            .overlay(shape.strokeBorder(selected ? RF.C.hibiscus : RF.C.line, lineWidth: 1.5))
-            .contentShape(shape)
         }
-        .buttonStyle(RFPressStyle())
-        .sensoryFeedback(.selection, trigger: selected)
-        .accessibilityLabel(gender.label)
-        .accessibilityAddTraits(selected ? [.isButton, .isSelected] : .isButton)
+        .formStyle(.grouped)
+        .sensoryFeedback(.selection, trigger: model.draft.gender)
     }
 }
 
@@ -240,7 +238,7 @@ struct SellBrandStep: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            SellTagline("Sélectionne la marque, ou « Autre » si elle n'est pas listée.")
+            SellTagline("Choisis la marque, ou « Autre ».")
             SellFlowLayout {
                 ForEach(Catalog.brands + [SellFlowModel.otherBrand], id: \.self) { brand in
                     SellPill(title: brand, selected: model.draft.brand == brand) {
@@ -251,16 +249,17 @@ struct SellBrandStep: View {
             }
             if model.draft.brand == SellFlowModel.otherBrand {
                 VStack(alignment: .leading, spacing: 0) {
-                    SellFieldLabel(text: "Précise la marque")
-                    TextField("Ex : Woodin, Vlisco…", text: $model.draft.brandCustom)
+                    SellFieldLabel(text: "Marque")
+                    TextField("Woodin, Vlisco…", text: $model.draft.brandCustom)
                         .textInputAutocapitalization(.words)
                         .autocorrectionDisabled()
                         .submitLabel(.done)
                         .focused($customFocused)
                         .sellField(focused: customFocused)
+                        .accessibilityLabel("Précise la marque")
                         .onSubmit { model.advance() }
                 }
-                .padding(.top, 18)
+                .padding(.top, RF.S.xl)
                 .transition(.opacity.combined(with: .move(edge: .top)))
             }
         }
@@ -275,7 +274,7 @@ struct SellSizeStep: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            SellTagline("Quel type de taille pour cet article ?")
+            SellTagline("Type de taille, puis taille.")
             SellFlowLayout {
                 ForEach(model.allowedSizeTypes) { type in
                     SellPill(title: typeLabel(type), selected: model.draft.sizeType == type, accent: .ink) {
@@ -283,19 +282,15 @@ struct SellSizeStep: View {
                     }
                 }
             }
-            .padding(.bottom, 18)
+            .padding(.bottom, RF.S.xl)
 
-            if let type = model.draft.sizeType {
-                if type == .unique {
-                    SellTagline("Parfait, aucune taille supplémentaire à préciser.")
-                } else {
-                    SectionLabel(type == .chaussures ? "Pointure" : "Taille")
-                        .padding(.bottom, 10)
-                    SellFlowLayout {
-                        ForEach(type.options, id: \.self) { value in
-                            SellPill(title: value, selected: model.draft.sizeValue == value, accent: .ink) {
-                                model.draft.sizeValue = value
-                            }
+            if let type = model.draft.sizeType, type != .unique {
+                SectionLabel(type == .chaussures ? "Pointure" : "Taille")
+                    .padding(.bottom, RF.S.sm)
+                SellFlowLayout {
+                    ForEach(type.options, id: \.self) { value in
+                        SellPill(title: value, selected: model.draft.sizeValue == value, accent: .ink) {
+                            model.draft.sizeValue = value
                         }
                     }
                 }
@@ -306,10 +301,10 @@ struct SellSizeStep: View {
 
     private func typeLabel(_ type: SizeType) -> String {
         switch type {
-        case .haut: "Vêtement · haut"
-        case .pantalon: "Vêtement · bas"
+        case .haut: "Haut"
+        case .pantalon: "Bas"
         case .chaussures: "Chaussures"
-        case .enfant: "Taille enfant"
+        case .enfant: "Enfant"
         case .unique: "Taille unique"
         }
     }
@@ -321,16 +316,23 @@ struct SellConditionStep: View {
     @Bindable var model: SellFlowModel
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            SellTagline("Décris honnêtement l'état — ça évite les litiges après achat.")
-            SellFlowLayout {
-                ForEach(ItemCondition.allCases) { condition in
-                    SellPill(title: condition.label, selected: model.draft.condition == condition) {
-                        model.draft.condition = condition
+        Form {
+            Section {
+                Picker("État", selection: $model.draft.condition) {
+                    ForEach(ItemCondition.allCases) { condition in
+                        Text(condition.label)
+                            .foregroundStyle(RF.C.text)
+                            .tag(Optional(condition))
                     }
                 }
+                .pickerStyle(.inline)
+                .labelsHidden()
+            } header: {
+                SellFormHeader("Sois honnête, ça évite les litiges.")
             }
         }
+        .formStyle(.grouped)
+        .sensoryFeedback(.selection, trigger: model.draft.condition)
     }
 }
 
@@ -341,7 +343,7 @@ struct SellColorStep: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            SellTagline("Quelle est la couleur dominante ?")
+            SellTagline("Couleur dominante.")
             SellFlowLayout {
                 ForEach(Catalog.colors, id: \.self) { color in
                     SellPill(title: color, selected: model.draft.color == color,
@@ -363,14 +365,15 @@ struct SellDetailsStep: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            SellTagline("Matière, coupe, historique de l'article — plus c'est précis, moins tu auras de questions en message.")
+            SellTagline("Plus c'est précis, moins on te pose de questions.")
 
             SellFieldLabel(text: "Titre", counter: "\(model.draft.title.count)/\(SellFlowModel.titleMax)")
-            TextField("Ex : Robe wax cintrée", text: $model.draft.title)
+            TextField("Robe wax cintrée", text: $model.draft.title)
                 .textInputAutocapitalization(.sentences)
                 .submitLabel(.next)
                 .focused($focus, equals: .title)
                 .sellField(focused: focus == .title)
+                .accessibilityLabel("Titre")
                 .onSubmit { focus = .description }
                 .onChange(of: model.draft.title) { _, new in
                     if new.count > SellFlowModel.titleMax { model.draft.title = String(new.prefix(SellFlowModel.titleMax)) }
@@ -381,37 +384,32 @@ struct SellDetailsStep: View {
                     model.draft.title = suggestion
                     Haptics.selection()
                 } label: {
-                    HStack(spacing: 6) {
-                        Image(systemName: "wand.and.stars").font(.system(size: 11, weight: .semibold))
-                        Text("Suggestion : ").font(RF.F.body(11.5)) + Text(suggestion).font(RF.F.body(11.5, .bold))
+                    Label {
+                        Text("Utiliser « \(suggestion) »").lineLimit(1)
+                    } icon: {
+                        Image(systemName: "wand.and.stars")
                     }
-                    .foregroundStyle(RF.C.text)
-                    .padding(.vertical, 6)
-                    .padding(.horizontal, 11)
-                    .background(Capsule().fill(RF.C.paperDim))
+                    .font(RF.T.footnote)
+                    .foregroundStyle(RF.C.hibiscus)
                 }
-                .buttonStyle(RFPressStyle(scale: 0.96))
-                .padding(.top, 8)
+                .buttonStyle(RFPressStyle())
+                .padding(.top, RF.S.sm)
                 .accessibilityLabel("Utiliser le titre suggéré : \(suggestion)")
             }
 
-            SellFieldLabel(text: "Description",
+            SellFieldLabel(text: "Description (facultatif)",
                            counter: "\(model.draft.description.count)/\(SellFlowModel.descriptionMax)")
-                .padding(.top, 20)
-            TextField("Ex : Robe en pagne wax authentique, coupe cintrée, portée 3 fois seulement…",
-                      text: $model.draft.description, axis: .vertical)
-                .lineLimit(6...12)
+                .padding(.top, RF.S.xl)
+            TextField("Matière, coupe, nombre de ports…", text: $model.draft.description, axis: .vertical)
+                .lineLimit(5...12)
                 .focused($focus, equals: .description)
                 .sellField(focused: focus == .description)
+                .accessibilityLabel("Description")
                 .onChange(of: model.draft.description) { _, new in
                     if new.count > SellFlowModel.descriptionMax {
                         model.draft.description = String(new.prefix(SellFlowModel.descriptionMax))
                     }
                 }
-            Text("Facultatif, mais une bonne description vend plus vite.")
-                .font(RF.F.body(10.5))
-                .foregroundStyle(RF.C.textDim)
-                .padding(.top, 6)
         }
         .onAppear { if model.draft.title.isEmpty { focus = .title } }
     }
@@ -424,49 +422,69 @@ struct SellPriceStep: View {
     @State private var priceText = ""
     @FocusState private var priceFocused: Bool
 
+    private var negotiable: Binding<Bool> {
+        Binding(get: { model.draft.negotiable },
+                set: { on in
+                    model.draft.negotiable = on
+                    if on { model.clampMinOffer() }
+                })
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            SellTagline("Fixe ton prix — tu pourras toujours l'ajuster plus tard.")
+            SellTagline("Tu pourras le modifier plus tard.")
 
             PriceStepper(value: $model.draft.price, step: model.priceStep, range: SellFlowModel.priceRange)
                 .frame(maxWidth: .infinity)
-                .padding(.top, 6)
+                .padding(.top, RF.S.sm)
 
             HStack(spacing: 8) {
                 TextField("Saisir un montant", text: $priceText)
                     .keyboardType(.numberPad)
                     .focused($priceFocused)
-                    .font(RF.F.mono(14, .semibold))
+                    .font(RF.T.price(.body, weight: .regular))
                     .multilineTextAlignment(.center)
-                Text("FCFA").font(RF.F.mono(12)).foregroundStyle(RF.C.textDim)
+                    .accessibilityLabel("Prix en FCFA")
+                Text("FCFA").font(RF.T.footnote).foregroundStyle(RF.C.textDim)
+                    .accessibilityHidden(true)
             }
             .sellField(focused: priceFocused)
             .frame(maxWidth: 220)
             .frame(maxWidth: .infinity)
-            .padding(.top, 14)
-            .accessibilityLabel("Prix en FCFA")
+            .padding(.top, RF.S.md)
 
-            segmented
-                .padding(.top, 20)
-                .padding(.bottom, 18)
+            VStack(alignment: .leading, spacing: 0) {
+                Toggle("Ouvert aux offres", isOn: negotiable)
+                    .font(RF.T.body)
+                    .foregroundStyle(RF.C.text)
+                    .tint(RF.C.hibiscus)
+                    .padding(.vertical, 12)
+
+                if model.draft.negotiable {
+                    Divider()
+                    HStack {
+                        Text("Offre minimum").font(RF.T.body).foregroundStyle(RF.C.text)
+                        Spacer(minLength: 8)
+                        PriceStepper(value: $model.draft.minOffer, step: model.priceStep, range: minOfferRange, compact: true)
+                    }
+                    .padding(.vertical, 10)
+                    .accessibilityElement(children: .contain)
+                    .accessibilityLabel("Offre minimum acceptée")
+                    .transition(.opacity)
+                }
+            }
+            .padding(.horizontal, RF.S.lg)
+            .rfCard()
+            .padding(.top, RF.S.xl)
+            .sensoryFeedback(.selection, trigger: model.draft.negotiable)
 
             if model.draft.negotiable {
-                VStack(alignment: .leading, spacing: 0) {
-                    SellFieldLabel(text: "Offre minimum acceptée", symbol: "lock")
-                    PriceStepper(value: $model.draft.minOffer, step: model.priceStep, range: minOfferRange, compact: true)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 6)
-                    Text("Privée : jamais montrée aux acheteuses. Elle t’aide à juger chaque offre : tu restes libre d’accepter, de refuser ou de contre-proposer.")
-                        .font(RF.F.body(10.5))
-                        .foregroundStyle(RF.C.textDim)
-                        .padding(.top, 6)
-                }
-                .padding(14)
-                .rfCard()
-                .padding(.bottom, 14)
-                .transition(.opacity.combined(with: .move(edge: .top)))
-
-                SellTagline("Les acheteuses pourront proposer un prix ; tu gardes la main pour accepter, refuser ou contre-proposer, avec un plafond de \(OfferRules.maxBuyerOffers) échanges.")
+                Text("Offre minimum privée, jamais montrée aux acheteuses.")
+                    .font(RF.T.footnote)
+                    .foregroundStyle(RF.C.textDim)
+                    .padding(.horizontal, RF.S.lg)
+                    .padding(.top, 6)
+                    .transition(.opacity)
             }
         }
         .animation(.snappy, value: model.draft.negotiable)
@@ -492,39 +510,6 @@ struct SellPriceStep: View {
         let step = model.priceStep
         return step...max(step, model.draft.price - step)
     }
-
-    private var segmented: some View {
-        HStack(spacing: 0) {
-            segment("Prix fixe", symbol: "lock", active: !model.draft.negotiable) { model.draft.negotiable = false }
-            segment("Ouvert aux offres", symbol: "arrow.left.arrow.right", active: model.draft.negotiable) {
-                model.draft.negotiable = true
-                model.clampMinOffer()
-            }
-        }
-        .padding(3)
-        .background(Capsule().fill(RF.C.paperDim))
-        .sensoryFeedback(.selection, trigger: model.draft.negotiable)
-    }
-
-    private func segment(_ title: String, symbol: String, active: Bool, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            HStack(spacing: 5) {
-                Image(systemName: symbol).font(.system(size: 10, weight: .bold))
-                Text(title).font(RF.F.body(12, .bold))
-            }
-            .foregroundStyle(active ? RF.C.text : RF.C.textDim)
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, 8)
-            .background {
-                if active {
-                    Capsule().fill(RF.C.card).shadow(color: RF.C.text.opacity(0.1), radius: 3, y: 2)
-                }
-            }
-            .contentShape(Capsule())
-        }
-        .buttonStyle(.plain)
-        .accessibilityAddTraits(active ? [.isButton, .isSelected] : .isButton)
-    }
 }
 
 // MARK: - 9. Livraison
@@ -533,48 +518,40 @@ struct SellDeliveryStep: View {
     @Bindable var model: SellFlowModel
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            SellTagline("Comment les acheteuses peuvent-elles récupérer l'article ? Tu peux en cocher plusieurs.")
-                .padding(.bottom, -10)
-            ForEach(DeliveryMethod.allCases) { method in
-                SellMethodRow(symbol: method.symbol, title: method.label, subtitle: method.subtitle,
-                              trailing: method.fee == 0 ? "Gratuit" : "~\(Fmt.fcfa(method.fee))",
-                              selected: model.draft.delivery.contains(method)) {
-                    if model.draft.delivery.contains(method) { model.draft.delivery.remove(method) }
-                    else { model.draft.delivery.insert(method) }
-                }
-            }
-            tip.padding(.top, 6)
-        }
-    }
-
-    private var tip: some View {
-        let cheap = model.draft.price < SellFlowModel.handDeliveryHint
-        let missingHand = !model.draft.delivery.contains(.mainPropre)
-        return HStack(alignment: .top, spacing: 10) {
-            Image(systemName: "lightbulb.max")
-                .font(.system(size: 15))
-                .foregroundStyle(RF.C.marigold)
-            VStack(alignment: .leading, spacing: 4) {
-                Text("La remise en main propre est idéale sous \(Fmt.fcfa(SellFlowModel.handDeliveryHint)) : pas de frais pour l'acheteuse, la vente se conclut plus vite.")
-                    .font(RF.F.body(11.5))
-                    .foregroundStyle(RF.C.text)
-                    .lineSpacing(2)
-                if cheap && missingHand {
-                    Button("Ajouter la main propre") {
-                        model.draft.delivery.insert(.mainPropre)
+        Form {
+            Section {
+                ForEach(DeliveryMethod.allCases) { method in
+                    SellMethodRow(symbol: method.symbol, title: method.label, subtitle: shortSubtitle(method),
+                                  trailing: method.fee == 0 ? "Gratuit" : "~\(Fmt.fcfa(method.fee))",
+                                  selected: model.draft.delivery.contains(method)) {
+                        if model.draft.delivery.contains(method) { model.draft.delivery.remove(method) }
+                        else { model.draft.delivery.insert(method) }
                     }
-                    .font(RF.F.body(11.5, .extraBold))
-                    .foregroundStyle(RF.C.hibiscus)
                 }
-                Text("Les frais de livraison sont à la charge de l'acheteuse.")
-                    .font(RF.F.body(10.5))
+            } header: {
+                SellFormHeader("Plusieurs choix possibles.")
+            } footer: {
+                Text(footer)
+                    .font(RF.T.footnote)
                     .foregroundStyle(RF.C.textDim)
             }
         }
-        .padding(12)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(RF.C.marigold.opacity(0.14), in: RoundedRectangle(cornerRadius: RF.R.md, style: .continuous))
+        .formStyle(.grouped)
+    }
+
+    private var footer: String {
+        let base = "Frais à la charge de l'acheteuse."
+        let cheap = model.draft.price < SellFlowModel.handDeliveryHint
+        guard cheap, !model.draft.delivery.contains(.mainPropre) else { return base }
+        return base + " Sous \(Fmt.fcfa(SellFlowModel.handDeliveryHint)), pense à la main propre."
+    }
+
+    private func shortSubtitle(_ method: DeliveryMethod) -> String {
+        switch method {
+        case .relais: "Retrait sous 24-48 h"
+        case .mainPropre: "Rendez-vous direct"
+        case .yango: "Coursier, 30 à 60 min"
+        }
     }
 }
 
@@ -584,88 +561,91 @@ struct SellReviewStep: View {
     @Bindable var model: SellFlowModel
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            SellTagline("Dernière vérification avant publication. Touche une ligne pour la modifier.")
-
-            VStack(alignment: .leading, spacing: 0) {
-                photos.padding(.bottom, 12)
-
-                HStack(spacing: 8) {
-                    Text(Fmt.fcfa(model.draft.price))
-                        .font(RF.F.mono(19, .semibold))
-                        .foregroundStyle(RF.C.text)
-                    negotiationTag
-                    Spacer(minLength: 0)
-                    editIcon
+        Form {
+            Section {
+                photos
+                    .listRowInsets(EdgeInsets(top: 12, leading: 12, bottom: 12, trailing: 12))
+                Button { model.edit(.price) } label: {
+                    HStack(spacing: 8) {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(Fmt.fcfa(model.draft.price))
+                                .font(RF.T.price(.title3))
+                                .foregroundStyle(RF.C.text)
+                            Text(model.draft.negotiable ? "Ouvert aux offres" : "Prix fixe")
+                                .font(RF.T.footnote)
+                                .foregroundStyle(RF.C.textDim)
+                        }
+                        Spacer(minLength: 8)
+                        chevron
+                    }
+                    .contentShape(Rectangle())
                 }
-                .contentShape(Rectangle())
-                .onTapGesture { model.edit(.price) }
                 .accessibilityElement(children: .combine)
-                .accessibilityAddTraits(.isButton)
                 .accessibilityHint("Modifier le prix")
-
                 if !model.draft.title.isEmpty {
-                    Text(model.draft.title)
-                        .font(RF.F.display(14, .semibold))
-                        .foregroundStyle(RF.C.text)
-                        .padding(.top, 8)
-                        .onTapGesture { model.edit(.details) }
+                    row("Titre", model.draft.title, .details)
                 }
+            } header: {
+                SellFormHeader("Touche une ligne pour la modifier.")
+            }
 
-                VStack(spacing: 0) {
-                    row("Photos", "\(model.photos.count)", .photos)
-                    row("Catégorie", model.draft.gender?.label ?? "—", .category)
-                    row("Marque", model.brandLabel, .brand)
-                    row("Taille", model.sizeLabel, .size)
-                    row("État", model.draft.condition?.label ?? "—", .condition)
-                    row("Couleur", model.draft.color ?? "—", .color)
-                    if model.draft.negotiable {
-                        row("Offre minimum", Fmt.fcfa(model.draft.minOffer) + " (privée)", .price)
-                    }
-                    row("Livraison", deliveryLabel, .delivery, last: true)
+            Section {
+                row("Photos", "\(model.photos.count)", .photos)
+                row("Catégorie", model.draft.gender?.label ?? "—", .category)
+                row("Marque", model.brandLabel, .brand)
+                row("Taille", model.sizeLabel, .size)
+                row("État", model.draft.condition?.label ?? "—", .condition)
+                row("Couleur", model.draft.color ?? "—", .color)
+                if model.draft.negotiable {
+                    row("Offre minimum", Fmt.fcfa(model.draft.minOffer), .price)
                 }
-                .padding(.top, 12)
+                row("Livraison", deliveryLabel, .delivery)
+            }
 
-                if !model.draft.description.isEmpty {
-                    Text(model.draft.description)
-                        .font(RF.F.body(12.5))
-                        .foregroundStyle(RF.C.text)
-                        .lineSpacing(3)
-                        .padding(.top, 12)
-                        .onTapGesture { model.edit(.details) }
-                }
-                if !model.draft.defectComment.isEmpty {
-                    HStack(alignment: .firstTextBaseline, spacing: 6) {
-                        Image(systemName: "exclamationmark.circle").font(.system(size: 11))
-                        Text("Défauts : \(model.draft.defectComment)")
+            if !model.draft.description.isEmpty || !model.draft.defectComment.isEmpty {
+                Section("Description") {
+                    if !model.draft.description.isEmpty {
+                        Button { model.edit(.details) } label: {
+                            Text(model.draft.description)
+                                .font(RF.T.subheadline)
+                                .foregroundStyle(RF.C.text)
+                                .lineLimit(6)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                        }
+                        .accessibilityHint("Modifier la description")
                     }
-                    .font(RF.F.body(11.5))
-                    .foregroundStyle(RF.C.textDim)
-                    .padding(.top, 10)
-                    .onTapGesture { model.edit(.photos) }
+                    if !model.draft.defectComment.isEmpty {
+                        Button { model.edit(.photos) } label: {
+                            Text("Défauts : \(model.draft.defectComment)")
+                                .font(RF.T.subheadline)
+                                .foregroundStyle(RF.C.textDim)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                        }
+                        .accessibilityHint("Modifier les défauts")
+                    }
                 }
             }
-            .padding(14)
-            .background(RF.C.paperDim, in: RoundedRectangle(cornerRadius: RF.R.lg, style: .continuous))
         }
+        .formStyle(.grouped)
     }
 
     private var photos: some View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 8) {
                 ForEach(Array(model.photos.enumerated()), id: \.element.id) { index, photo in
-                    RF.C.paper
-                        .frame(width: index == 0 ? 160 : 100, height: 160)
+                    RF.C.paperDim
+                        .frame(width: index == 0 ? 112 : 84, height: 140)
                         .overlay {
                             if let image = photo.analysis?.thumbnail {
                                 Image(uiImage: image).resizable().scaledToFill()
                             }
                         }
-                        .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                        .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
                 }
             }
         }
-        .frame(height: 160)
+        .frame(height: 140)
+        .contentShape(Rectangle())
         .onTapGesture { model.edit(.photos) }
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("\(model.photos.count) photos")
@@ -673,24 +653,10 @@ struct SellReviewStep: View {
         .accessibilityHint("Modifier les photos")
     }
 
-    @ViewBuilder private var negotiationTag: some View {
-        let negotiable = model.draft.negotiable
-        HStack(spacing: 5) {
-            Image(systemName: negotiable ? "arrow.left.arrow.right" : "lock").font(.system(size: 10, weight: .semibold))
-            Text(negotiable ? "Offres acceptées" : "Prix fixe")
-        }
-        .font(RF.F.body(11, .semibold))
-        .foregroundStyle(negotiable ? RF.C.moneyDeep : RF.C.textDim)
-        .padding(.vertical, 5)
-        .padding(.horizontal, 10)
-        .background(negotiable ? RF.C.money.opacity(0.14) : RF.C.text.opacity(0.08),
-                    in: RoundedRectangle(cornerRadius: 8, style: .continuous))
-    }
-
-    private var editIcon: some View {
-        Image(systemName: "pencil")
-            .font(.system(size: 11, weight: .semibold))
-            .foregroundStyle(RF.C.textDim)
+    private var chevron: some View {
+        Image(systemName: "chevron.right")
+            .font(RF.T.footnote.weight(.semibold))
+            .foregroundStyle(RF.C.textDim.opacity(0.6))
     }
 
     private var deliveryLabel: String {
@@ -701,30 +667,23 @@ struct SellReviewStep: View {
             case .yango: "Yango"
             }
         }
-        return labels.isEmpty ? "Non précisé" : labels.joined(separator: " · ")
+        return labels.isEmpty ? "Non précisé" : labels.joined(separator: ", ")
     }
 
-    private func row(_ label: String, _ value: String, _ step: SellFlowModel.Step, last: Bool = false) -> some View {
+    private func row(_ label: String, _ value: String, _ step: SellFlowModel.Step) -> some View {
         Button { model.edit(step) } label: {
             HStack(spacing: 8) {
-                Text(label).foregroundStyle(RF.C.textDim)
+                Text(label).foregroundStyle(RF.C.text)
                 Spacer(minLength: 12)
                 Text(value)
-                    .font(RF.F.body(12, .bold))
-                    .foregroundStyle(RF.C.text)
+                    .foregroundStyle(RF.C.textDim)
                     .multilineTextAlignment(.trailing)
-                Image(systemName: "chevron.right")
-                    .font(.system(size: 9, weight: .bold))
-                    .foregroundStyle(RF.C.textDim.opacity(0.7))
+                    .lineLimit(2)
+                chevron
             }
-            .font(RF.F.body(12))
-            .padding(.vertical, 8)
-            .overlay(alignment: .bottom) {
-                if !last { Rectangle().fill(RF.C.line).frame(height: 1) }
-            }
+            .font(RF.T.body)
             .contentShape(Rectangle())
         }
-        .buttonStyle(.plain)
         .accessibilityLabel("\(label) : \(value)")
         .accessibilityHint("Modifier")
     }

@@ -39,18 +39,6 @@ targets:
           UIColorName: LaunchBackground
         UISupportedInterfaceOrientations: [UIInterfaceOrientationPortrait]
         UIAppFonts:
-          - IBMPlexMono_400Regular.ttf
-          - IBMPlexMono_500Medium.ttf
-          - IBMPlexMono_600SemiBold.ttf
-          - Manrope_400Regular.ttf
-          - Manrope_500Medium.ttf
-          - Manrope_600SemiBold.ttf
-          - Manrope_700Bold.ttf
-          - Manrope_800ExtraBold.ttf
-          - Unbounded_400Regular.ttf
-          - Unbounded_600SemiBold.ttf
-          - Unbounded_700Bold.ttf
-          - Unbounded_800ExtraBold.ttf
           - Unbounded_900Black.ttf
         NSPhotoLibraryUsageDescription: ReFripe a besoin de tes photos pour publier tes articles.
         NSCameraUsageDescription: ReFripe a besoin de l'appareil photo pour photographier tes articles.

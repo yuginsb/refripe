@@ -52,8 +52,8 @@ struct OnboardingProgressDots: View {
         HStack(spacing: 6) {
             ForEach(0..<count, id: \.self) { i in
                 Capsule()
-                    .fill(i < current ? RF.C.money : (i == current ? RF.C.hibiscus : RF.C.line))
-                    .frame(width: 22, height: 4)
+                    .fill(i <= current ? RF.C.hibiscus : RF.C.line)
+                    .frame(width: 24, height: 3)
             }
         }
         .frame(maxWidth: .infinity)
@@ -71,11 +71,9 @@ struct OnboardingTagline: View {
 
     var body: some View {
         Text(text)
-            .font(RF.F.body(12))
+            .font(RF.T.subheadline)
             .foregroundStyle(RF.C.textDim)
-            .multilineTextAlignment(.center)
-            .lineSpacing(3)
-            .frame(maxWidth: .infinity)
+            .frame(maxWidth: .infinity, alignment: .leading)
             .fixedSize(horizontal: false, vertical: true)
     }
 }
@@ -88,29 +86,29 @@ struct CategoryChoiceCard: View {
     let action: () -> Void
 
     var body: some View {
-        let shape = RoundedRectangle(cornerRadius: RF.R.lg, style: .continuous)
+        let shape = RoundedRectangle(cornerRadius: RF.R.md, style: .continuous)
         Button(action: action) {
             VStack(spacing: 8) {
                 Image(systemName: gender.symbol)
-                    .font(.system(size: 26))
-                    .foregroundStyle(selected ? RF.C.hibiscus : RF.C.text)
-                    .frame(height: 30)
+                    .font(RF.T.title3.weight(.regular))
+                    .foregroundStyle(selected ? RF.C.hibiscus : RF.C.textDim)
+                    .frame(height: 28)
                 Text(gender.label)
-                    .font(RF.F.body(12, .bold))
-                    .foregroundStyle(RF.C.text)
+                    .font(RF.T.subheadline.weight(.semibold))
+                    .foregroundStyle(selected ? RF.C.hibiscus : RF.C.text)
             }
             .frame(maxWidth: .infinity)
-            .padding(.vertical, 22)
+            .padding(.vertical, 20)
             .padding(.horizontal, 10)
             .background(selected ? RF.C.hibiscus.opacity(0.08) : RF.C.card, in: shape)
-            .overlay(shape.strokeBorder(selected ? RF.C.hibiscus : RF.C.line, lineWidth: 1.5))
+            .overlay(shape.strokeBorder(selected ? RF.C.hibiscus.opacity(0.6) : RF.C.line, lineWidth: 1))
             .overlay(alignment: .topTrailing) {
                 if selected {
                     Image(systemName: "checkmark.circle.fill")
-                        .font(.system(size: 16))
+                        .font(RF.T.subheadline)
                         .foregroundStyle(RF.C.hibiscus)
                         .padding(8)
-                        .transition(.scale.combined(with: .opacity))
+                        .transition(.opacity)
                 }
             }
             .contentShape(shape)
@@ -123,7 +121,7 @@ struct CategoryChoiceCard: View {
     }
 }
 
-// MARK: - Choice chip (mockup `.size-chip` → ink when active, `.brand-chip` → marigold when active)
+// MARK: - Choice chip (subtle capsule, hibiscus tint when selected; `tone` kept for compatibility)
 
 struct ChoiceChip: View {
     enum Tone { case ink, marigold }
@@ -134,22 +132,19 @@ struct ChoiceChip: View {
     var accessibilityText: String? = nil
     let action: () -> Void
 
-    private var activeBg: Color { tone == .ink ? RF.C.ink1 : RF.C.marigold }
-    private var activeFg: Color { tone == .ink ? RF.C.paper : RF.C.ink0 }
-
     var body: some View {
         Button(action: action) {
             Text(title)
-                .font(RF.F.body(12, .bold))
+                .font(RF.T.subheadline.weight(selected ? .semibold : .regular))
                 .lineLimit(1)
-                .foregroundStyle(selected ? activeFg : RF.C.text)
-                .padding(.vertical, tone == .ink ? 8 : 9)
+                .foregroundStyle(selected ? RF.C.hibiscus : RF.C.text)
+                .padding(.vertical, 9)
                 .padding(.horizontal, 14)
-                .background(Capsule().fill(selected ? activeBg : RF.C.card))
-                .overlay(Capsule().strokeBorder(selected ? activeBg : RF.C.line, lineWidth: 1.5))
+                .background(Capsule().fill(selected ? RF.C.hibiscus.opacity(0.10) : RF.C.card))
+                .overlay(Capsule().strokeBorder(selected ? RF.C.hibiscus.opacity(0.5) : RF.C.line, lineWidth: 1))
                 .contentShape(Capsule())
         }
-        .buttonStyle(RFPressStyle(scale: 0.94))
+        .buttonStyle(RFPressStyle())
         .sensoryFeedback(.selection, trigger: selected)
         .accessibilityLabel(accessibilityText ?? title)
         .accessibilityAddTraits(selected ? .isSelected : [])
@@ -169,11 +164,10 @@ struct OnboardingActions: View {
         HStack(spacing: 12) {
             Button(action: skip) {
                 Text(skipTitle)
-                    .font(RF.F.body(12, .bold))
-                    .underline()
+                    .font(RF.T.body)
                     .foregroundStyle(RF.C.textDim)
-                    .padding(.horizontal, 6)
-                    .frame(minHeight: 44)
+                    .padding(.horizontal, 8)
+                    .frame(minHeight: 50)
             }
             .buttonStyle(.plain)
             RFButton(primaryTitle, isLoading: isLoading, action: primary)
@@ -197,22 +191,21 @@ struct OnboardingField<Content: View, Trailing: View>: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
             HStack(spacing: 6) {
-                Text(label.uppercased())
-                    .font(RF.F.body(10.5, .bold))
-                    .kerning(0.42)
+                Text(label)
+                    .font(RF.T.footnote.weight(.semibold))
                     .foregroundStyle(RF.C.textDim)
                 trailing
             }
             .accessibilityElement(children: .combine)
             content
-                .font(RF.F.body(13))
+                .font(RF.T.body)
                 .foregroundStyle(RF.C.text)
                 .tint(RF.C.hibiscus)
-                .padding(.vertical, 11)
-                .padding(.horizontal, 13)
-                .frame(minHeight: 44)
+                .padding(.vertical, 12)
+                .padding(.horizontal, 12)
+                .frame(minHeight: 50)
                 .background(RF.C.card, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
-                .overlay(RoundedRectangle(cornerRadius: 10, style: .continuous).strokeBorder(RF.C.line, lineWidth: 1.5))
+                .overlay(RoundedRectangle(cornerRadius: 10, style: .continuous).strokeBorder(RF.C.line, lineWidth: 1))
         }
     }
 }
@@ -223,18 +216,15 @@ extension OnboardingField where Trailing == EmptyView {
     }
 }
 
-/// Small pill next to a field label (mockup `.field-tag` / `.field-tag.ok`).
+/// Small tag next to a field label ("Facultatif", "Disponible").
 struct FieldTag: View {
     let text: String
     var ok: Bool = false
 
     var body: some View {
         Text(text)
-            .font(RF.F.body(9, .bold))
+            .font(RF.T.caption)
             .foregroundStyle(ok ? RF.C.moneyDeep : RF.C.textDim)
-            .padding(.vertical, 2)
-            .padding(.horizontal, 7)
-            .background(Capsule().fill(ok ? RF.C.money.opacity(0.14) : RF.C.paperDim))
     }
 }
 
@@ -253,7 +243,7 @@ struct SizePreferenceRows: View {
             ForEach(OnboardingSizeFields.types) { type in
                 VStack(alignment: .leading, spacing: 8) {
                     Text(type.label)
-                        .font(RF.F.body(11.5, .bold))
+                        .font(RF.T.subheadline.weight(.semibold))
                         .foregroundStyle(RF.C.text)
                         .accessibilityAddTraits(.isHeader)
                     OnboardingWrapLayout(spacing: 8, lineSpacing: 8) {

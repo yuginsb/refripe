@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// Round avatar (mockup `.avatar`): initial in Unbounded on marigold, or the profile photo when available.
+/// Round avatar (mockup `.avatar`): SF initial on marigold, or the profile photo when available.
 struct Avatar: View {
     let initial: String
     var url: URL?
@@ -56,7 +56,7 @@ struct Avatar_Previews: PreviewProvider {
             Avatar(name: "Awa_Style225")
             Avatar(name: "Karim", size: 56)
             HStack(spacing: 5) {
-                Text("Awa_Style225").font(RF.F.body(12.5, .bold))
+                Text("Awa_Style225").font(RF.T.subheadline.weight(.semibold))
                 VerifiedBadge()
             }
         }

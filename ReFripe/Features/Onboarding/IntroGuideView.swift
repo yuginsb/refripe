@@ -1,7 +1,7 @@
 import SwiftUI
 
 /// Welcome guide (mockup `screenIntroGuide` + `introGuideSteps`): 5 swipeable pages, one per tab,
-/// progress dots, a mini tab bar preview, "Passer" / "Suivant" / "C'est parti !".
+/// progress dots, a mini tab bar preview, "Passer" / "Suivant" / "Commencer".
 /// Shown at the end of onboarding and from the profile ("Revoir le guide").
 struct IntroGuideView: View {
     var onFinish: () -> Void = {}
@@ -18,29 +18,23 @@ struct IntroGuideView: View {
 
     private static let steps: [Step] = [
         Step(id: 0, symbol: "house", tabLabel: "Découvrir", title: "Découvrir",
-             body: "Swipe à droite pour ajouter un article à tes envies, à gauche pour passer. Le mode grille permet de tout parcourir et de filtrer par catégorie."),
-        Step(id: 1, symbol: "heart", tabLabel: "Envies", title: "Tes envies",
-             body: "Retrouve tous les articles likés au même endroit, avec une alerte automatique dès que leur prix baisse."),
-        Step(id: 2, symbol: "plus", tabLabel: "Vendre", title: "Vendre un article",
-             body: "Prends tes photos, remplis quelques infos — catégorie, taille, prix — et publie ton annonce en quelques minutes."),
-        Step(id: 3, symbol: "bubble.left", tabLabel: "Messages", title: "Messages",
-             body: "Discute directement avec les vendeuses et les acheteuses pour négocier un prix ou organiser la remise."),
-        Step(id: 4, symbol: "person", tabLabel: "Profil", title: "Profil & tableau de bord",
-             body: "Gère tes ventes et tes achats au même endroit : statistiques, commandes en cours, objectifs du mois."),
+             body: "Swipe à droite pour garder, à gauche pour passer."),
+        Step(id: 1, symbol: "heart", tabLabel: "Envies", title: "Envies",
+             body: "Tes coups de cœur, avec une alerte si le prix baisse."),
+        Step(id: 2, symbol: "plus.circle", tabLabel: "Vendre", title: "Vendre",
+             body: "Quelques photos, un prix, c'est en ligne."),
+        Step(id: 3, symbol: "tray", tabLabel: "Boîte", title: "Boîte",
+             body: "Messages, commandes et notifications au même endroit."),
+        Step(id: 4, symbol: "person", tabLabel: "Profil", title: "Profil",
+             body: "Ton dressing, tes avis et tes statistiques."),
     ]
 
     private var isLast: Bool { page == Self.steps.count - 1 }
 
     var body: some View {
         VStack(spacing: 0) {
-            Text("Bienvenue sur ReFripe")
-                .font(RF.F.display(15))
-                .foregroundStyle(RF.C.text)
-                .padding(.top, 14)
-                .padding(.bottom, 18)
-                .accessibilityAddTraits(.isHeader)
-
             OnboardingProgressDots(count: Self.steps.count, current: page)
+                .padding(.top, RF.S.lg)
 
             TabView(selection: $page) {
                 ForEach(Self.steps) { step in
@@ -53,12 +47,12 @@ struct IntroGuideView: View {
             navPreview
                 .padding(.horizontal, RF.S.gutter)
 
-            OnboardingActions(skip: finish, primaryTitle: isLast ? "C'est parti !" : "Suivant") {
+            OnboardingActions(skip: finish, primaryTitle: isLast ? "Commencer" : "Suivant") {
                 if isLast { finish() } else { withAnimation(.snappy) { page += 1 } }
             }
             .padding(.horizontal, RF.S.gutter)
-            .padding(.top, 22)
-            .padding(.bottom, 12)
+            .padding(.top, RF.S.xl)
+            .padding(.bottom, RF.S.md)
         }
         .rfScreenBackground()
         .sensoryFeedback(.selection, trigger: page)
@@ -68,29 +62,31 @@ struct IntroGuideView: View {
         VStack(spacing: 0) {
             Spacer(minLength: 12)
             Image(systemName: step.symbol)
-                .font(.system(size: 30, weight: .semibold))
-                .foregroundStyle(.white)
-                .frame(width: 72, height: 72)
-                .background(Circle().fill(RF.C.marigold))
-                .padding(.bottom, 18)
+                .font(.system(size: 44, weight: .regular))
+                .foregroundStyle(RF.C.hibiscus)
+                .frame(height: 56)
+                .padding(.bottom, RF.S.xl)
                 .accessibilityHidden(true)
             Text(step.title)
-                .font(RF.F.display(17))
+                .font(RF.T.title)
                 .foregroundStyle(RF.C.text)
                 .multilineTextAlignment(.center)
-                .padding(.bottom, 10)
+                .padding(.bottom, RF.S.sm)
                 .accessibilityAddTraits(.isHeader)
-            OnboardingTagline(step.body)
-                .padding(.horizontal, 8)
+            Text(step.body)
+                .font(RF.T.body)
+                .foregroundStyle(RF.C.textDim)
+                .multilineTextAlignment(.center)
+                .fixedSize(horizontal: false, vertical: true)
             Spacer(minLength: 12)
         }
-        .padding(.horizontal, RF.S.gutter)
+        .padding(.horizontal, RF.S.xxl)
         .accessibilityElement(children: .combine)
         .accessibilityLabel("\(step.title). \(step.body)")
         .accessibilityHint("Page \(step.id + 1) sur \(Self.steps.count)")
     }
 
-    /// Mini tab bar with the current tab highlighted (mockup `.intro-nav-preview`).
+    /// Mini tab bar with the current tab highlighted.
     private var navPreview: some View {
         HStack(spacing: 0) {
             ForEach(Self.steps) { step in
@@ -98,18 +94,16 @@ struct IntroGuideView: View {
                 Button {
                     withAnimation(.snappy) { page = step.id }
                 } label: {
-                    VStack(spacing: 5) {
-                        Image(systemName: step.symbol)
+                    VStack(spacing: 4) {
+                        Image(systemName: active ? step.symbol + ".fill" : step.symbol)
                             .font(.system(size: 18))
-                            .frame(height: 20)
+                            .frame(height: 22)
                         Text(step.tabLabel)
-                            .font(RF.F.body(9, .bold))
+                            .font(RF.T.caption)
                             .lineLimit(1)
                             .minimumScaleFactor(0.8)
                     }
                     .foregroundStyle(active ? RF.C.hibiscus : RF.C.textDim)
-                    .opacity(active ? 1 : 0.5)
-                    .scaleEffect(active ? 1.1 : 1)
                     .frame(maxWidth: .infinity)
                     .contentShape(Rectangle())
                 }
@@ -118,9 +112,8 @@ struct IntroGuideView: View {
                 .accessibilityAddTraits(active ? .isSelected : [])
             }
         }
-        .padding(.vertical, 14)
-        .padding(.horizontal, 6)
-        .background(RF.C.paperDim, in: RoundedRectangle(cornerRadius: RF.R.lg, style: .continuous))
+        .padding(.vertical, 10)
+        .overlay(alignment: .top) { Rectangle().fill(RF.C.line).frame(height: 0.5) }
         .animation(.easeOut(duration: 0.15), value: page)
     }
 

@@ -1,26 +1,23 @@
 import SwiftUI
 import UIKit
 
-// Small building blocks of the sell wizard, styled after the mockup's `.auth-*`, `.field`, `.brand-chip`,
-// `.size-chip`, `.category-card`, `.method-btn` classes.
+// Small building blocks of the sell wizard. v2: SF text styles, subtle selection (hibiscus tint), no caps.
 
-/// Centered helper paragraph (mockup `.auth-tagline`).
+/// One short line under the step title.
 struct SellTagline: View {
     let text: String
     init(_ text: String) { self.text = text }
 
     var body: some View {
         Text(text)
-            .font(RF.F.body(12))
+            .font(RF.T.subheadline)
             .foregroundStyle(RF.C.textDim)
-            .multilineTextAlignment(.center)
-            .lineSpacing(3)
-            .frame(maxWidth: .infinity)
-            .padding(.bottom, 22)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.bottom, RF.S.lg)
     }
 }
 
-/// Uppercase field label (mockup `.field label`), optional leading symbol and trailing counter.
+/// Field label in sentence case, optional leading symbol and trailing counter.
 struct SellFieldLabel: View {
     let text: String
     var symbol: String?
@@ -28,13 +25,11 @@ struct SellFieldLabel: View {
 
     var body: some View {
         HStack(spacing: 5) {
-            if let symbol { Image(systemName: symbol).font(.system(size: 11, weight: .semibold)) }
-            Text(text.uppercased())
-                .font(RF.F.body(10.5, .bold))
-                .kerning(0.42)
+            if let symbol { Image(systemName: symbol).imageScale(.small) }
+            Text(text).font(RF.T.footnote.weight(.semibold))
             Spacer(minLength: 8)
             if let counter {
-                Text(counter).font(RF.F.mono(10)).monospacedDigit()
+                Text(counter).font(RF.T.caption.monospacedDigit())
             }
         }
         .foregroundStyle(RF.C.textDim)
@@ -44,21 +39,22 @@ struct SellFieldLabel: View {
 }
 
 extension View {
-    /// Text input chrome (mockup `.field input` / `.field textarea`).
+    /// Simple text input chrome: white field, radius 10, hairline (hibiscus when focused).
     func sellField(focused: Bool = false) -> some View {
         let shape = RoundedRectangle(cornerRadius: 10, style: .continuous)
         return self
-            .font(RF.F.body(13))
+            .font(RF.T.body)
             .foregroundStyle(RF.C.text)
             .tint(RF.C.hibiscus)
-            .padding(.vertical, 11)
-            .padding(.horizontal, 13)
+            .padding(.vertical, 12)
+            .padding(.horizontal, 12)
             .background(RF.C.card, in: shape)
-            .overlay(shape.strokeBorder(focused ? RF.C.hibiscus.opacity(0.6) : RF.C.line, lineWidth: 1.5))
+            .overlay(shape.strokeBorder(focused ? RF.C.hibiscus.opacity(0.6) : RF.C.line, lineWidth: 1))
     }
 }
 
-/// Selectable pill. `.marigold` = mockup `.brand-chip.active`, `.ink` = `.size-chip.active`.
+/// Selectable pill (brand, size, colour). Both accents now share the same subtle hibiscus selection;
+/// `accent` is kept for source compatibility.
 struct SellPill: View {
     enum Accent { case marigold, ink }
 
@@ -69,8 +65,6 @@ struct SellPill: View {
     let action: () -> Void
 
     var body: some View {
-        let fill: Color = selected ? (accent == .marigold ? RF.C.marigold : RF.C.ink1) : RF.C.card
-        let fg: Color = selected ? (accent == .marigold ? RF.C.ink0 : RF.C.paper) : RF.C.text
         Button(action: action) {
             HStack(spacing: 7) {
                 if let swatch {
@@ -79,16 +73,18 @@ struct SellPill: View {
                         .frame(width: 14, height: 14)
                         .overlay(Circle().strokeBorder(RF.C.text.opacity(0.18), lineWidth: 1))
                 }
-                Text(title).font(RF.F.body(12, .bold)).lineLimit(1)
+                Text(title)
+                    .font(RF.T.subheadline.weight(selected ? .semibold : .regular))
+                    .lineLimit(1)
             }
-            .foregroundStyle(fg)
-            .padding(.vertical, accent == .marigold ? 9 : 8)
+            .foregroundStyle(selected ? RF.C.hibiscus : RF.C.text)
+            .padding(.vertical, 9)
             .padding(.horizontal, 14)
-            .background(Capsule().fill(fill))
-            .overlay(Capsule().strokeBorder(selected ? fill : RF.C.line, lineWidth: 1.5))
+            .background(Capsule().fill(selected ? RF.C.hibiscus.opacity(0.10) : RF.C.card))
+            .overlay(Capsule().strokeBorder(selected ? RF.C.hibiscus.opacity(0.5) : RF.C.line, lineWidth: 1))
             .contentShape(Capsule())
         }
-        .buttonStyle(RFPressStyle(scale: 0.95))
+        .buttonStyle(RFPressStyle())
         .sensoryFeedback(.selection, trigger: selected)
         .accessibilityLabel(title)
         .accessibilityAddTraits(selected ? .isSelected : [])
@@ -161,7 +157,7 @@ enum SellColorSwatch {
     }
 }
 
-/// Large selectable row (mockup `.method-btn` / `.selected-method`).
+/// Selectable row with a checkmark, meant for a `Form` section (delivery methods).
 struct SellMethodRow: View {
     let symbol: String
     let title: String
@@ -171,33 +167,27 @@ struct SellMethodRow: View {
     let action: () -> Void
 
     var body: some View {
-        let shape = RoundedRectangle(cornerRadius: RF.R.md, style: .continuous)
         Button(action: action) {
             HStack(spacing: 12) {
                 Image(systemName: symbol)
-                    .font(.system(size: 17, weight: .medium))
-                    .foregroundStyle(selected ? RF.C.hibiscus : RF.C.text)
+                    .foregroundStyle(RF.C.textDim)
                     .frame(width: 24)
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(title).font(RF.F.body(13, .bold)).foregroundStyle(RF.C.text)
-                    Text(subtitle).font(RF.F.body(11)).foregroundStyle(RF.C.textDim)
+                    Text(title).font(RF.T.body).foregroundStyle(RF.C.text)
+                    Text(subtitle).font(RF.T.footnote).foregroundStyle(RF.C.textDim)
                 }
                 .multilineTextAlignment(.leading)
                 Spacer(minLength: 8)
-                VStack(alignment: .trailing, spacing: 6) {
-                    Image(systemName: selected ? "checkmark.square.fill" : "square")
-                        .font(.system(size: 18))
-                        .foregroundStyle(selected ? RF.C.hibiscus : RF.C.textDim.opacity(0.6))
-                    Text(trailing).font(RF.F.mono(10.5, .semibold)).foregroundStyle(RF.C.textDim)
-                }
+                Text(trailing).font(RF.T.price(.subheadline, weight: .regular)).foregroundStyle(RF.C.textDim)
+                Image(systemName: "checkmark")
+                    .font(RF.T.body.weight(.semibold))
+                    .foregroundStyle(RF.C.hibiscus)
+                    .opacity(selected ? 1 : 0)
+                    .frame(width: 20)
             }
-            .padding(.vertical, 13)
-            .padding(.horizontal, 16)
-            .background(selected ? RF.C.hibiscus.opacity(0.06) : RF.C.card, in: shape)
-            .overlay(shape.strokeBorder(selected ? RF.C.hibiscus : RF.C.line, lineWidth: 1.5))
-            .contentShape(shape)
+            .contentShape(Rectangle())
         }
-        .buttonStyle(RFPressStyle(scale: 0.98))
+        .buttonStyle(.plain)
         .sensoryFeedback(.selection, trigger: selected)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("\(title), \(subtitle), \(trailing)")
@@ -245,7 +235,7 @@ struct SellCameraPicker: UIViewControllerRepresentable {
 
 // MARK: - Confetti
 
-/// Short confetti burst for the publish success screen (skipped with Reduce Motion).
+/// Short confetti burst. v2: no longer shown (decoration); kept for reference/compatibility.
 struct SellConfettiView: View {
     fileprivate struct Piece {
         let x: CGFloat, delay: Double, speed: CGFloat, width: CGFloat, height: CGFloat

@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// −/+ amount stepper (mockup `.offer-amount` + `.stepbtn`). Long-press repeats; VoiceOver adjustable.
+/// −/+ amount stepper: large tabular price between two round tinted buttons. Long-press repeats; VoiceOver adjustable.
 struct PriceStepper: View {
     @Binding var value: FCFA
     var step: FCFA
@@ -21,17 +21,16 @@ struct PriceStepper: View {
     private func increment() { value = min(range.upperBound, max(range.lowerBound, value + step)) }
 
     var body: some View {
-        HStack(spacing: compact ? 10 : 18) {
+        HStack(spacing: compact ? 8 : 16) {
             stepButton("minus", label: "Diminuer", enabled: canDecrement, perform: decrement)
             Text(Fmt.fcfa(value))
-                .font(RF.F.mono(compact ? 14 : 25, .semibold))
-                .monospacedDigit()
+                .font(compact ? RF.T.price(.body) : RF.T.price(.largeTitle, weight: .bold))
                 .foregroundStyle(RF.C.text)
                 .lineLimit(1)
                 .minimumScaleFactor(0.6)
                 .contentTransition(.numericText(value: Double(value)))
                 .animation(.snappy(duration: 0.2), value: value)
-                .frame(minWidth: compact ? 90 : 150)
+                .frame(minWidth: compact ? 96 : 170)
             stepButton("plus", label: "Augmenter", enabled: canIncrement, perform: increment)
         }
         .sensoryFeedback(.selection, trigger: value)
@@ -48,17 +47,16 @@ struct PriceStepper: View {
     }
 
     private func stepButton(_ symbol: String, label: String, enabled: Bool, perform: @escaping () -> Void) -> some View {
-        let side: CGFloat = compact ? 32 : 42
+        let side: CGFloat = compact ? 32 : 44
         return Button(action: perform) {
             Image(systemName: symbol)
-                .font(.system(size: compact ? 12 : 16, weight: .bold))
-                .foregroundStyle(RF.C.text)
+                .font(.system(size: compact ? 13 : 17, weight: .medium))
+                .foregroundStyle(RF.C.hibiscus)
                 .frame(width: side, height: side)
-                .background(Circle().fill(RF.C.card))
-                .overlay(Circle().strokeBorder(RF.C.line, lineWidth: 1.5))
+                .background(Circle().fill(RF.C.hibiscus.opacity(0.10)))
                 .contentShape(Circle())
         }
-        .buttonStyle(RFPressStyle(scale: 0.9))
+        .buttonStyle(RFPressStyle(scale: 0.92))
         .buttonRepeatBehavior(.enabled)
         .disabled(!enabled)
         .opacity(enabled ? 1 : 0.35)

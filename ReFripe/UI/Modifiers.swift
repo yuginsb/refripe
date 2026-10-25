@@ -8,8 +8,8 @@ extension View {
             .background { RF.C.paper.ignoresSafeArea() }
     }
 
-    /// White card, radius 14, hairline border (mockup `.card`). Content is clipped to the shape.
-    func rfCard(radius: CGFloat = RF.R.lg) -> some View {
+    /// White card, radius 12, hairline border, no shadow. Content is clipped to the shape.
+    func rfCard(radius: CGFloat = RF.R.md) -> some View {
         let shape = RoundedRectangle(cornerRadius: radius, style: .continuous)
         return self
             .background(RF.C.card, in: shape)
@@ -18,7 +18,8 @@ extension View {
     }
 }
 
-/// House motif: diamond lattice "taken from the pagne without copying any" (mockup `--motif`).
+/// House motif: diamond lattice (mockup `--motif`).
+/// v2: decoration only — no longer used by the UI kit; kept so remaining call sites compile. Avoid in new code.
 struct MotifPattern: View {
     var color: Color = RF.C.text.opacity(0.055)
     var spacing: CGFloat = 13

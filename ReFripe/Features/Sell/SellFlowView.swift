@@ -28,21 +28,19 @@ struct SellFlowView: View {
     // MARK: Wizard
 
     private var wizard: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 0) {
-                Text("Étape \(model.step.rawValue)/\(SellFlowModel.Step.allCases.count)")
-                    .font(RF.F.body(10, .bold))
-                    .kerning(0.5)
-                    .textCase(.uppercase)
-                    .foregroundStyle(RF.C.textDim)
-                    .padding(.bottom, 14)
-                    .accessibilityHidden(true)
+        Group {
+            if model.step.usesForm {
+                // Form steps (category, condition, delivery, review) scroll themselves.
                 stepContent
+            } else {
+                ScrollView {
+                    stepContent
+                        .padding(.horizontal, RF.S.gutter)
+                        .padding(.top, RF.S.lg)
+                        .padding(.bottom, RF.S.xl)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
             }
-            .padding(.horizontal, RF.S.gutter)
-            .padding(.top, 16)
-            .padding(.bottom, 24)
-            .frame(maxWidth: .infinity, alignment: .leading)
         }
         .id(model.step)
         .transition(.asymmetric(
@@ -57,14 +55,14 @@ struct SellFlowView: View {
         .toolbar {
             ToolbarItemGroup(placement: .keyboard) {
                 Spacer()
-                Button("OK") { hideKeyboard() }.font(RF.F.body(14, .bold))
+                Button("OK") { hideKeyboard() }.fontWeight(.semibold)
             }
         }
         .confirmationDialog("Abandonner cette annonce ?", isPresented: $confirmClose, titleVisibility: .visible) {
             Button("Abandonner l'annonce", role: .destructive) { close() }
             Button("Continuer à remplir", role: .cancel) {}
         } message: {
-            Text("Les photos et informations saisies seront perdues.")
+            Text("Tes photos et infos seront perdues.")
         }
     }
 
@@ -87,65 +85,59 @@ struct SellFlowView: View {
         ToolbarItem(placement: .topBarLeading) {
             if model.step.previous != nil {
                 Button { hideKeyboard(); model.back() } label: {
-                    Image(systemName: "chevron.left").font(.system(size: 15, weight: .semibold))
+                    Image(systemName: "chevron.left").fontWeight(.semibold)
                 }
                 .accessibilityLabel("Étape précédente")
             }
         }
         ToolbarItem(placement: .topBarTrailing) {
             Button { requestClose() } label: {
-                Image(systemName: "xmark").font(.system(size: 14, weight: .semibold))
+                Image(systemName: "xmark")
             }
             .accessibilityLabel("Fermer")
         }
     }
 
-    /// Mockup `.sell-progress`: 4 pt hibiscus bar under the title.
+    /// Thin native progress bar under the navigation bar.
     private var progressBar: some View {
         let fraction = Double(model.step.rawValue) / Double(SellFlowModel.Step.allCases.count)
-        return GeometryReader { geo in
-            Capsule().fill(RF.C.line)
-                .overlay(alignment: .leading) {
-                    Capsule().fill(RF.C.hibiscus).frame(width: geo.size.width * fraction)
-                }
-        }
-        .frame(height: 4)
-        .padding(.horizontal, RF.S.gutter)
-        .padding(.top, 4)
-        .padding(.bottom, 2)
-        .background(RF.C.paper)
-        .animation(.snappy, value: model.step)
-        .accessibilityElement()
-        .accessibilityLabel("Progression")
-        .accessibilityValue("Étape \(model.step.rawValue) sur \(SellFlowModel.Step.allCases.count) : \(model.step.title)")
+        return ProgressView(value: fraction)
+            .progressViewStyle(.linear)
+            .tint(RF.C.hibiscus)
+            .padding(.horizontal, RF.S.gutter)
+            .padding(.vertical, 6)
+            .background(RF.C.paper)
+            .animation(.snappy, value: model.step)
+            .accessibilityElement()
+            .accessibilityLabel("Progression")
+            .accessibilityValue("Étape \(model.step.rawValue) sur \(SellFlowModel.Step.allCases.count) : \(model.step.title)")
     }
 
     private var bottomBar: some View {
         VStack(spacing: 8) {
             if let hint = model.blockingHint {
                 Text(hint)
-                    .font(RF.F.body(11))
+                    .font(RF.T.footnote)
                     .foregroundStyle(RF.C.textDim)
                     .multilineTextAlignment(.center)
                     .transition(.opacity)
             }
-            RFButton(primaryTitle, symbol: model.step == .review ? "paperplane.fill" : nil,
-                     isLoading: model.isPublishing) {
+            RFButton(primaryTitle, isLoading: model.isPublishing) {
                 primaryAction()
             }
             .disabled(!model.canContinue(model.step))
         }
         .padding(.horizontal, RF.S.gutter)
-        .padding(.top, 10)
-        .padding(.bottom, 8)
+        .padding(.top, RF.S.md)
+        .padding(.bottom, RF.S.sm)
         .background(RF.C.paper)
-        .overlay(alignment: .top) { Rectangle().fill(RF.C.line).frame(height: 1) }
+        .overlay(alignment: .top) { Rectangle().fill(RF.C.line).frame(height: 0.5) }
         .animation(.easeOut(duration: 0.2), value: model.blockingHint)
     }
 
     private var primaryTitle: String {
-        if model.step == .review { return model.isPublishing ? "Publication…" : "Publier l'annonce" }
-        return model.returnToReview ? "Revenir à la relecture" : "Continuer"
+        if model.step == .review { return model.isPublishing ? "Publication…" : "Publier" }
+        return model.returnToReview ? "Revenir au récapitulatif" : "Continuer"
     }
 
     private func primaryAction() {
@@ -170,6 +162,16 @@ struct SellFlowView: View {
 
     private func hideKeyboard() {
         UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
+    }
+}
+
+private extension SellFlowModel.Step {
+    /// Steps rendered as a native inset-grouped `Form` instead of a scrolling stack.
+    var usesForm: Bool {
+        switch self {
+        case .category, .condition, .delivery, .review: true
+        default: false
+        }
     }
 }
 
