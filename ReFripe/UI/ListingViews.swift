@@ -41,7 +41,7 @@ struct ListingPhotoView: View {
     private var fallback: some View {
         GeometryReader { geo in
             Image(systemName: "photo")
-                .font(.system(size: max(12, min(38, geo.size.width * 0.32))))
+                .font(RFSymbol.font(for: geo.size.width * 0.32))
                 .foregroundStyle(RF.C.textDim.opacity(0.35))
                 .frame(width: geo.size.width, height: geo.size.height)
         }
@@ -49,6 +49,7 @@ struct ListingPhotoView: View {
 }
 
 /// Heart toggle bound to the global wishlist (`store.toggleLike`).
+/// The visible circle is `size`; the tap target is always at least 44 × 44 pt.
 struct HeartButton: View {
     let listingId: UUID
     var size: CGFloat
@@ -66,16 +67,17 @@ struct HeartButton: View {
             store.toggleLike(listingId)
         } label: {
             Image(systemName: liked ? "heart.fill" : "heart")
-                .font(.system(size: size * 0.5, weight: .regular))
+                .font(RFSymbol.font(for: size * 0.5))
                 .foregroundStyle(liked ? RF.C.hibiscus : RF.C.text)
                 .symbolEffect(.bounce, value: liked)
                 .frame(width: size, height: size)
-                .background(Circle().fill(Color.white.opacity(0.92)))
-                .contentShape(Circle())
+                .background(Circle().fill(RF.C.card.opacity(0.92)))
+                .frame(width: max(44, size), height: max(44, size))
+                .contentShape(Rectangle())
         }
         .buttonStyle(RFPressStyle(scale: 0.9))
         .sensoryFeedback(.impact(weight: .light), trigger: liked)
-        .accessibilityLabel(liked ? "Retirer des envies" : "Ajouter aux envies")
+        .accessibilityLabel(liked ? "Retirer des favoris" : "Ajouter aux favoris")
         .accessibilityAddTraits(liked ? .isSelected : [])
     }
 }
@@ -88,11 +90,11 @@ struct PriceDropBadge: View {
             .foregroundStyle(RF.C.moneyDeep)
             .padding(.vertical, 3)
             .padding(.horizontal, 7)
-            .background(Capsule().fill(Color.white.opacity(0.95)))
+            .background(Capsule().fill(RF.C.card.opacity(0.95)))
     }
 }
 
-/// Grid card: 4:5 photo with heart and at most one badge, then price, one-line title, location.
+/// Grid card: 4:5 photo with heart and at most one badge, then price, « taille · quartier », one-line title.
 /// No shadow, no frame. Tapping pushes `.product(id)` on the current tab unless `onTap` is provided.
 struct ListingCard: View {
     let listing: Listing
@@ -119,7 +121,8 @@ struct ListingCard: View {
         .contentShape(Rectangle())
         .onTapGesture(perform: openListing)
         .overlay(alignment: .topTrailing) {
-            HeartButton(listingId: listing.id).padding(8)
+            // 28-pt circle centred in a 44-pt tap target → the circle sits 8 pt from the corner.
+            HeartButton(listingId: listing.id)
         }
     }
 
@@ -128,13 +131,13 @@ struct ListingCard: View {
             Text(Fmt.fcfa(listing.price))
                 .font(RF.T.price(.subheadline))
                 .foregroundStyle(RF.C.text)
+            Text(listing.cardSizeDistrict)
+                .font(RF.T.footnote)
+                .foregroundStyle(RF.C.textDim)
+                .lineLimit(1)
             Text(listing.title)
                 .font(RF.T.subheadline)
                 .foregroundStyle(RF.C.text)
-                .lineLimit(1)
-            Text(listing.locationLabel)
-                .font(RF.T.footnote)
-                .foregroundStyle(RF.C.textDim)
                 .lineLimit(1)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -145,13 +148,26 @@ struct ListingCard: View {
     }
 
     private var accessibilityText: String {
-        var parts = [listing.title, Fmt.fcfa(listing.price), listing.locationLabel]
+        var parts = [listing.title, Fmt.fcfa(listing.price), "Taille \(listing.cardSize)", listing.locationLabel]
         if let drop = listing.priceDrop { parts.insert("Prix baissé de \(Fmt.fcfa(drop))", at: 2) }
         return parts.joined(separator: ", ")
     }
 
     private func openListing() {
         if let onTap { onTap() } else { router.push(.product(listing.id)) }
+    }
+}
+
+extension Listing {
+    /// Short size for cards: "M", "38", "42", "4 ans", "TU" (taille unique).
+    var cardSize: String {
+        let value = sizeValue
+        if sizeType == .unique || value.lowercased() == "taille unique" { return "TU" }
+        return value.isEmpty ? sizeLabel : value
+    }
+    /// "M · Cocody" — the line under the price on grid cards.
+    var cardSizeDistrict: String {
+        district.isEmpty ? cardSize : "\(cardSize) · \(district)"
     }
 }
 

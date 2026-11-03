@@ -1,7 +1,8 @@
 import SwiftUI
 
-/// "Swipe" mode of Découvrir: a stack of up to 3 cards,
-/// drag right = like (joins the wishlist), drag left = pass, with ✕ / ♥ buttons below.
+/// « Coup de cœur » (pushed from Accueil): a stack of up to 3 cards,
+/// drag right = like (joins Favoris), drag left = pass, with ✕ / ♥ buttons below.
+/// `onShowGrid` is called from the empty state to go back to the Accueil grid.
 struct DiscoverSwipeSection: View {
     let onShowGrid: () -> Void
 
@@ -35,10 +36,8 @@ struct DiscoverSwipeSection: View {
                 ScrollView {
                     ContentUnavailableView {
                         Label("Tu as tout vu", systemImage: "checkmark.circle")
-                    } description: {
-                        Text("Reviens plus tard ou parcours la grille.")
                     } actions: {
-                        Button("Voir la grille", action: onShowGrid)
+                        Button("Accueil", action: onShowGrid)
                             .buttonStyle(.borderedProminent)
                             .tint(RF.C.hibiscus)
                     }
@@ -192,7 +191,7 @@ struct DiscoverSwipeSection: View {
                     .frame(width: 56, height: 56)
                     .background(Circle().fill(RF.C.hibiscus))
             }
-            .accessibilityLabel("J'aime, ajouter aux envies")
+            .accessibilityLabel("J'aime, ajouter aux favoris")
         }
         .buttonStyle(RFPressStyle(scale: 0.9))
         .disabled(isFlying || deck.isEmpty)
@@ -302,7 +301,7 @@ private struct SwipeStamp: View {
             .foregroundStyle(color)
             .padding(.vertical, 6)
             .padding(.horizontal, 14)
-            .background(RoundedRectangle(cornerRadius: 8, style: .continuous).fill(Color.white.opacity(0.9)))
+            .background(RoundedRectangle(cornerRadius: 8, style: .continuous).fill(RF.C.card.opacity(0.9)))
             .overlay(RoundedRectangle(cornerRadius: 8, style: .continuous).strokeBorder(color, lineWidth: 2))
             .rotationEffect(.degrees(angle))
             .allowsHitTesting(false)
@@ -317,7 +316,8 @@ private struct SwipeHeartBurst: View {
 
     var body: some View {
         Image(systemName: "heart.fill")
-            .font(.system(size: 56))
+            .font(RF.T.largeTitle)
+            .imageScale(.large)
             .foregroundStyle(RF.C.hibiscus)
             .scaleEffect(phase == 0 ? 0.3 : (phase == 1 ? 1.2 : 1))
             .offset(y: phase == 0 ? 0 : (phase == 1 ? -24 : -90))
@@ -351,14 +351,14 @@ private struct SwipeCoachOverlay: View {
                         .foregroundStyle(RF.C.text)
                         .rotationEffect(.degrees(wave ? 7 : -7))
                         .accessibilityHidden(true)
-                    Text("Glisse la carte")
+                    Text("Swipe")
                         .font(RF.T.headline)
                         .foregroundStyle(RF.C.text)
                         .accessibilityAddTraits(.isHeader)
                 }
-                row(symbol: "arrow.left", text: "À gauche : tu passes")
-                row(symbol: "arrow.right", text: "À droite : dans tes envies")
-                RFButton("J'ai compris", action: onDismiss)
+                row(symbol: "arrow.left", text: "Passer")
+                row(symbol: "arrow.right", text: "Favori")
+                RFButton("Compris", action: onDismiss)
                     .padding(.top, RF.S.xs)
             }
             .padding(RF.S.lg)

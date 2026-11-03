@@ -2,8 +2,9 @@ import XCTest
 @testable import ReFripe
 
 /// Orders & escrow in the demo repository: creation, totals, payment simulation and status transitions.
-/// Seed orders (Awa signed in): 1 = Awa sells, AWAITING_SHIPMENT · 2 = Awa sells, SHIPPED ·
+/// Seed orders (Awa signed in): 1 = Awa sells to Fatou K., AWAITING_SHIPMENT · 2 = Awa sells to Karim, SHIPPED ·
 /// 3 = Awa buys, BUYER_VALIDATION · 4, 5 = Awa bought, COMPLETED.
+/// v3: payment starts with `startPayment`; DELIVERED needs the buyer's hand-off code (`confirmHandoff`).
 final class OrderTests: XCTestCase {
 
     // MARK: Delivery fees & totals
@@ -88,8 +89,9 @@ final class OrderTests: XCTestCase {
     }
 
     func testPaymentSimulationFundsEscrow() async throws {
-        let repo = DemoRepository()
+        let repo = DemoRepository(paymentDelay: 0.3, shipDelay: nil)
         let o = try await repo.createOrder(listingId: DemoIDs.listing(6), delivery: .relais, payment: .wave)
+        _ = try await repo.startPayment(orderId: o.id)
         let funded = await eventually { (try? await repo.order(id: o.id))?.status == .awaitingShipment }
         XCTAssertTrue(funded)
         let fresh = try await repo.order(id: o.id)
@@ -122,25 +124,41 @@ final class OrderTests: XCTestCase {
         XCTAssertEqual(o.status, .cancelled)
     }
 
-    func testHappyPathShippedDeliveredValidationCompleted() async throws {
-        let repo = DemoRepository()
-        var o = try await repo.advanceOrder(id: DemoIDs.order(1), to: .shipped)
+    func testHappyPathShippedHandoffValidationCompleted() async throws {
+        let state = makeDemoState()
+        var o = try await state.advanceOrder(id: DemoIDs.order(1), to: .shipped)
         XCTAssertEqual(o.status, .shipped)
-        o = try await repo.advanceOrder(id: o.id, to: .delivered)
-        XCTAssertEqual(o.status, .delivered)
-        o = try await repo.advanceOrder(id: o.id, to: .buyerValidation)
-        XCTAssertEqual(o.status, .buyerValidation)
-        o = try await repo.advanceOrder(id: o.id, to: .completed)
+        XCTAssertNil(o.handoffCode, "the seller never sees the hand-off code")
+
+        try await signIn(state, phone: TestPhones.fatouK)   // buyer of order 1
+        let code = try await state.order(id: o.id).handoffCode
+        XCTAssertEqual(code?.count, Catalog.handoffCodeLength)
+
+        try await signIn(state, phone: DemoIDs.awaPhone)
+        o = try await state.confirmHandoff(orderId: o.id, code: code ?? "")
+        XCTAssertEqual(o.status, .buyerValidation, "DELIVERED chains to BUYER_VALIDATION")
+
+        try await signIn(state, phone: TestPhones.fatouK)
+        o = try await state.advanceOrder(id: o.id, to: .completed)
         XCTAssertEqual(o.status, .completed)
         XCTAssertEqual(o.history.suffix(4).map(\.status), [.shipped, .delivered, .buyerValidation, .completed])
-        let listing = try await repo.listing(id: DemoIDs.listing(1))
+        let listing = try await state.listing(id: DemoIDs.listing(1))
         XCTAssertEqual(listing.status, .sold)
     }
 
-    func testShippedToDelivered() async throws {
-        let repo = DemoRepository()
-        let o = try await repo.advanceOrder(id: DemoIDs.order(2), to: .delivered)
-        XCTAssertEqual(o.status, .delivered)
+    func testSellerCannotMarkDeliveredButBuyerCan() async throws {
+        let state = makeDemoState()
+        // Awa sells order 2 (SHIPPED): she must type Karim's code instead.
+        await assertThrowsAsync(try await state.advanceOrder(id: DemoIDs.order(2), to: .delivered)) {
+            assertInvalidState($0, contains: "code de remise")
+        }
+        let unchanged = try await state.order(id: DemoIDs.order(2))
+        XCTAssertEqual(unchanged.status, .shipped)
+        // The buyer can still declare she received it.
+        try await signIn(state, phone: TestPhones.karim)
+        let o = try await state.advanceOrder(id: DemoIDs.order(2), to: .delivered)
+        XCTAssertEqual(o.status, .buyerValidation)
+        XCTAssertNotNil(o.escrowReleaseAt)
     }
 
     func testValidationToCompletedMarksListingSold() async throws {

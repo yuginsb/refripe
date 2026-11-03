@@ -1,7 +1,7 @@
 import Foundation
 
 /// URL → navigation. Handles the custom scheme (`refripe://chat/<id>`, `refripe://order/<id>`,
-/// `refripe://inbox/orders`, `refripe://notifications`…) and the public links built by `AppLinks`
+/// `refripe://inbox/orders`, `refripe://notifications`, `refripe://coupdecoeur`…) and the public links built by `AppLinks`
 /// (`https://refripe.app/a/<listing>`, `/u/<user>`).
 enum DeepLink: Equatable {
     case route(Route, AppTab)
@@ -37,9 +37,13 @@ enum DeepLink: Equatable {
         case "orders":
             self = .inbox(.orders)
         case "notifications":
-            self = .inbox(.notifications)
+            // v3: notifications are a pushed screen behind the bell of Accueil.
+            self = .route(.notifications, .discover)
+        case "coupdecoeur", "swipe":
+            self = .route(.coupDeCoeur, .discover)
         case "inbox":
             let segment = parts.count > 1 ? InboxSegment(rawValue: parts[1].lowercased()) : nil
+            if segment == .notifications { self = .route(.notifications, .discover); return }
             self = .inbox(segment ?? .messages)
         case "settings":
             self = .route(.settings, .profile)

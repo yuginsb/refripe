@@ -2,6 +2,14 @@
 
 Source : l'audit ergonomique + benchmark Vinted (doc « ReFripe — Ergonomie et nouvelle interface ») et la maquette cliquable « ReFripe — Nouveau design » (11 écrans). La v2 (`docs/DESIGN.md` : SF, `RF.T`, sobriété) reste la base visuelle : **garder les SF Symbols, la barre d'onglets native, les boutons hibiscus, `RF.T` / `RF.C`**.
 
+## v4 — thème (remplace les couleurs/polices ci-dessous)
+
+- **Clair / sombre** : tous les tokens `RF.C` sont dynamiques. Choix dans Réglages › Apparence et à l'inscription (Système · Clair · Sombre), stocké sous `@AppStorage("appearanceMode")`, appliqué par `.preferredColorScheme` à la racine.
+- **Couleurs** : fond blanc (`paper` #FFFFFF / #0F1013), surfaces #F4F5F7 / #1B1C21. Logo `Wordmark` : « Re » bleu #1F5FD6, « Fripe » orange #F26419. Actions principales orange (`accent` #CC4309), sélection bleue (`brandBlue`, `blueTint`). Plus de noir comme couleur d'action.
+- **Polices** : DM Sans (interface, proche de Modern Era utilisée par Hinge) et Newsreader (grands titres, proche de Tiempos). Échelle compacte façon Vinted : corps 15, secondaire 13, méta 12, titres d'écran 30. Wordmark en Unbounded.
+- **Textes** : quelques mots, ton humain (« Confirmation » plutôt que « Tout est OK, je confirme »). Pas de phrase d'explication sous les champs sauf nécessité.
+- Pas de hex ni de `Color.white/.black` dans les features (sauf photos et pastilles de couleur d'article).
+
 ## Décisions prises (par défaut, modifiables)
 
 - Onglets : **Accueil · Favoris · Vendre (+) · Messages · Profil**. (`Découvrir`→`Accueil`, `Envies`→`Favoris`, `Boîte`→`Messages`.)
@@ -9,7 +17,7 @@ Source : l'audit ergonomique + benchmark Vinted (doc « ReFripe — Ergonomie et
 - Notifications : derrière une cloche en haut d'Accueil (plus de segment Notifications).
 - Swipe = mode secondaire « Coup de cœur » ouvert depuis Accueil ; la **grille** est l'écran par défaut.
 - Commission ReFripe : non décidée → l'écran de vente affiche « Tu recevras X FCFA, avant commission ReFripe » ; aucun frais de protection côté acheteuse.
-- Texte : utiliser `RF.C.hibiscusText` (#C23A2E, contraste ≥ 4,5:1) pour tout **texte** rouge sur fond clair ; `RF.C.hibiscus` (#E1483A) reste pour les fonds de boutons.
+- Texte : `RF.C.accentText` pour le texte orange ; `RF.C.accent` pour les fonds de boutons (alias historiques `hibiscusText` / `hibiscus`).
 
 ## Contrat ajouté (Core, déjà écrit — ne pas renommer)
 

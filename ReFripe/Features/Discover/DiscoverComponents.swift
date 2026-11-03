@@ -70,7 +70,7 @@ struct ListingScarcityTag: View {
     private func label(_ text: String) -> some View {
         Text(text)
             .font(RF.T.caption.weight(.semibold))
-            .foregroundStyle(.white)
+            .foregroundStyle(RF.C.textOnInk)
             .padding(.vertical, 4)
             .padding(.horizontal, 8)
             .background(Capsule().fill(RF.C.ink0.opacity(0.6)))

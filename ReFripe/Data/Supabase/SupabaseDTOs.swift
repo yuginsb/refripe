@@ -4,20 +4,22 @@ import Foundation
 // Column lists are explicit: `profiles.phone` and `listings.min_offer` are not
 // readable by other users, so `select("*")` would fail or leak nothing useful.
 
-/// Builds public URLs for objects of the `listing-photos` bucket.
+/// Builds public URLs for objects of the `listing-photos` (and v3 `chat-photos`) buckets.
 struct StoragePaths: Sendable {
     static let bucket = "listing-photos"
+    /// v3: photos sent in conversations ("<uid>/<conversation>/<uuid>.jpg").
+    static let chatBucket = "chat-photos"
     let base: URL
 
     /// Accepts either a storage path ("<uid>/<listing>/0.jpg") or an absolute URL (seed data).
-    func publicURL(_ pathOrURL: String) -> URL? {
+    func publicURL(_ pathOrURL: String, bucket: String = StoragePaths.bucket) -> URL? {
         if pathOrURL.hasPrefix("http://") || pathOrURL.hasPrefix("https://") {
             return URL(string: pathOrURL)
         }
         var root = base.absoluteString
         while root.hasSuffix("/") { root.removeLast() }
         let encoded = pathOrURL.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? pathOrURL
-        return URL(string: "\(root)/storage/v1/object/public/\(Self.bucket)/\(encoded)")
+        return URL(string: "\(root)/storage/v1/object/public/\(bucket)/\(encoded)")
     }
 
     func photos(_ paths: [String]) -> [ListingPhoto] {
@@ -28,7 +30,7 @@ struct StoragePaths: Sendable {
 // MARK: Profiles
 
 struct ProfileRow: Decodable {
-    static let columns = "id,username,first_name,city,district,avatar_url,verified,rating,sales_count,response_time_minutes,created_at"
+    static let columns = "id,username,first_name,city,district,avatar_url,verified,rating,sales_count,response_time_minutes,created_at,review_count"
 
     let id: UUID
     let username: String
@@ -41,6 +43,7 @@ struct ProfileRow: Decodable {
     let salesCount: Int
     let responseTimeMinutes: Int?
     let createdAt: Date
+    let reviewCount: Int?          // v3 (absent from pre-v3 payloads)
 
     enum CodingKeys: String, CodingKey {
         case id, username, city, district, verified, rating
@@ -49,6 +52,7 @@ struct ProfileRow: Decodable {
         case salesCount = "sales_count"
         case responseTimeMinutes = "response_time_minutes"
         case createdAt = "created_at"
+        case reviewCount = "review_count"
     }
 
     var model: UserProfile {
@@ -63,7 +67,8 @@ struct ProfileRow: Decodable {
             rating: rating,
             salesCount: salesCount,
             memberSince: createdAt,
-            responseTimeMinutes: responseTimeMinutes
+            responseTimeMinutes: responseTimeMinutes,
+            reviewCount: reviewCount ?? 0
         )
     }
 }
@@ -130,7 +135,7 @@ struct PreferencesRow: Codable {
 
 struct ListingRow: Decodable {
     /// Columns of the public view `listings_public` (no min_offer).
-    static let publicColumns = "id,seller_id,title,description,price,old_price,size_type,size_label,gender,condition,brand,color,tags,city,district,photos,defect_comment,views_count,favorites_count,is_last_piece,negotiable,delivery_methods,status,created_at"
+    static let publicColumns = "id,seller_id,title,description,price,old_price,size_type,size_label,gender,condition,brand,color,tags,city,district,photos,defect_comment,views_count,favorites_count,is_last_piece,negotiable,delivery_methods,status,created_at,item_type,reserved_until,reserved_for"
     /// Columns readable by the seller on the `listings` table.
     static let ownColumns = publicColumns + ",min_offer"
 
@@ -159,9 +164,16 @@ struct ListingRow: Decodable {
     let deliveryMethods: [DeliveryMethod]
     let status: ListingStatus
     let createdAt: Date
+    // v3
+    let itemType: ItemType?
+    let reservedUntil: Date?
+    let reservedFor: UUID?
 
     enum CodingKeys: String, CodingKey {
         case id, title, description, price, gender, condition, brand, color, tags, city, district, photos, negotiable, status
+        case itemType = "item_type"
+        case reservedUntil = "reserved_until"
+        case reservedFor = "reserved_for"
         case sellerId = "seller_id"
         case oldPrice = "old_price"
         case sizeType = "size_type"
@@ -201,9 +213,15 @@ struct ListingRow: Decodable {
             minOffer: minOffer,
             deliveryMethods: deliveryMethods,
             status: status,
-            createdAt: createdAt
+            createdAt: createdAt,
+            itemType: itemType ?? .autre,
+            // The `listings` table keeps an expired reservation; the public view already hides it.
+            reservedUntil: activeReservation ? reservedUntil : nil,
+            reservedFor: activeReservation ? reservedFor : nil
         )
     }
+
+    private var activeReservation: Bool { (reservedUntil ?? .distantPast) > Date() }
 }
 
 struct ListingInsert: Encodable {
@@ -225,9 +243,11 @@ struct ListingInsert: Encodable {
     let negotiable: Bool
     let minOffer: FCFA?
     let deliveryMethods: [DeliveryMethod]
+    let itemType: ItemType
 
     enum CodingKeys: String, CodingKey {
         case id, title, description, price, gender, condition, brand, color, tags, photos, negotiable
+        case itemType = "item_type"
         case sellerId = "seller_id"
         case sizeType = "size_type"
         case sizeValue = "size_value"
@@ -342,7 +362,8 @@ struct OrderEventRow: Decodable {
 }
 
 struct OrderRow: Decodable {
-    static let columns = "id,listing_id,seller_id,buyer_id,listing_title,listing_photo,buyer_name,item_price,delivery_fee,delivery,payment,status,created_at,order_events(id,status,created_at)"
+    /// Never `handoff_code`: sellers have no SELECT privilege on it (buyers get it from `my_handoff_codes`).
+    static let columns = "id,listing_id,seller_id,buyer_id,listing_title,listing_photo,buyer_name,item_price,delivery_fee,delivery,payment,status,created_at,escrow_release_at,payment_reference,order_events(id,status,created_at)"
 
     let id: UUID
     let listingId: UUID
@@ -357,10 +378,14 @@ struct OrderRow: Decodable {
     let payment: PaymentMethod
     let status: OrderStatus
     let createdAt: Date
+    let escrowReleaseAt: Date?
+    let paymentReference: String?
     let orderEvents: [OrderEventRow]
 
     enum CodingKeys: String, CodingKey {
         case id, delivery, payment, status
+        case escrowReleaseAt = "escrow_release_at"
+        case paymentReference = "payment_reference"
         case listingId = "listing_id"
         case sellerId = "seller_id"
         case buyerId = "buyer_id"
@@ -373,7 +398,7 @@ struct OrderRow: Decodable {
         case orderEvents = "order_events"
     }
 
-    func model(_ storage: StoragePaths) -> Order {
+    func model(_ storage: StoragePaths, handoffCode: String? = nil) -> Order {
         Order(
             id: id,
             listingId: listingId,
@@ -388,7 +413,10 @@ struct OrderRow: Decodable {
             payment: payment,
             status: status,
             history: orderEvents.sorted { $0.id < $1.id }.map { OrderEvent(status: $0.status, at: $0.createdAt) },
-            createdAt: createdAt
+            createdAt: createdAt,
+            handoffCode: handoffCode,
+            escrowReleaseAt: escrowReleaseAt,
+            paymentReference: paymentReference
         )
     }
 }
@@ -421,23 +449,26 @@ struct ConversationRow: Decodable {
 }
 
 struct MessageRow: Decodable {
-    static let columns = "id,conversation_id,sender_id,text,created_at"
+    static let columns = "id,conversation_id,sender_id,text,created_at,photo_url"
 
     let id: UUID
     let conversationId: UUID
     let senderId: UUID
     let text: String
     let createdAt: Date
+    let photoUrl: String?          // v3: path in the `chat-photos` bucket
 
     enum CodingKeys: String, CodingKey {
         case id, text
         case conversationId = "conversation_id"
         case senderId = "sender_id"
         case createdAt = "created_at"
+        case photoUrl = "photo_url"
     }
 
-    var model: ChatMessage {
-        ChatMessage(id: id, conversationId: conversationId, senderId: senderId, text: text, sentAt: createdAt)
+    func model(_ storage: StoragePaths) -> ChatMessage {
+        ChatMessage(id: id, conversationId: conversationId, senderId: senderId, text: text, sentAt: createdAt,
+                    photo: photoUrl.flatMap { storage.publicURL($0, bucket: StoragePaths.chatBucket) }.map { ListingPhoto(url: $0) })
     }
 }
 
@@ -445,10 +476,12 @@ struct MessageInsert: Encodable {
     let conversationId: UUID
     let senderId: UUID
     let text: String
+    var photoUrl: String? = nil
     enum CodingKeys: String, CodingKey {
         case text
         case conversationId = "conversation_id"
         case senderId = "sender_id"
+        case photoUrl = "photo_url"
     }
 }
 
@@ -566,6 +599,95 @@ struct ConversationIdParams: Encodable {
     enum CodingKeys: String, CodingKey { case conversationId = "p_conversation_id" }
 }
 
+// MARK: - v3 rows & params
+
+struct ReviewRow: Decodable {
+    static let columns = "id,order_id,reviewer_id,reviewee_id,rating,comment,created_at"
+
+    let id: UUID
+    let orderId: UUID
+    let reviewerId: UUID
+    let revieweeId: UUID
+    let rating: Int
+    let comment: String
+    let createdAt: Date
+
+    enum CodingKeys: String, CodingKey {
+        case id, rating, comment
+        case orderId = "order_id"
+        case reviewerId = "reviewer_id"
+        case revieweeId = "reviewee_id"
+        case createdAt = "created_at"
+    }
+
+    var model: Review {
+        Review(id: id, orderId: orderId, reviewerId: reviewerId, revieweeId: revieweeId,
+               rating: rating, comment: comment, createdAt: createdAt)
+    }
+}
+
+struct HandoffCodeRow: Decodable {
+    let orderId: UUID
+    let handoffCode: String?
+    enum CodingKeys: String, CodingKey {
+        case orderId = "order_id"
+        case handoffCode = "handoff_code"
+    }
+}
+
+struct HandoffCodesParams: Encodable {
+    let orderId: UUID
+    enum CodingKeys: String, CodingKey { case orderId = "p_order_id" }
+}
+
+struct ConfirmHandoffParams: Encodable {
+    let orderId: UUID
+    let code: String
+    enum CodingKeys: String, CodingKey {
+        case orderId = "p_order_id"
+        case code = "p_code"
+    }
+}
+
+struct SubmitReviewParams: Encodable {
+    let orderId: UUID
+    let rating: Int
+    let comment: String
+    enum CodingKeys: String, CodingKey {
+        case orderId = "p_order_id"
+        case rating = "p_rating"
+        case comment = "p_comment"
+    }
+}
+
+struct ReportInsert: Encodable {
+    let reporterId: UUID
+    let listingId: UUID?
+    let reportedUserId: UUID?
+    let reason: ReportReason
+    let details: String
+    enum CodingKeys: String, CodingKey {
+        case reason, details
+        case reporterId = "reporter_id"
+        case listingId = "listing_id"
+        case reportedUserId = "reported_user_id"
+    }
+}
+
+struct BlockInsert: Encodable {
+    let blockerId: UUID
+    let blockedId: UUID
+    enum CodingKeys: String, CodingKey {
+        case blockerId = "blocker_id"
+        case blockedId = "blocked_id"
+    }
+}
+
+struct BlockedIdRow: Decodable {
+    let blockedId: UUID
+    enum CodingKeys: String, CodingKey { case blockedId = "blocked_id" }
+}
+
 // MARK: - Edge Functions
 
 struct PaymentInitBody: Encodable {
@@ -578,11 +700,24 @@ struct PaymentInitResponse: Decodable {
     let provider: String?
     let status: String
     let checkoutUrl: String?
+    // v3 (guided payment screen)
+    let ussdCode: String?
+    let maskedPhone: String?
+    let amount: Int?
     enum CodingKeys: String, CodingKey {
-        case provider, status
+        case provider, status, amount
         case paymentId = "payment_id"
         case checkoutUrl = "checkout_url"
+        case ussdCode = "ussd_code"
+        case maskedPhone = "masked_phone"
     }
+}
+
+/// `delete-account` takes no input.
+struct EmptyBody: Encodable {}
+
+struct DeleteAccountResponse: Decodable {
+    let ok: Bool?
 }
 
 struct FunctionErrorBody: Decodable {

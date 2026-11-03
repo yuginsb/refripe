@@ -4,13 +4,14 @@ import SwiftUI
 // One NavigationStack per tab. Push with `router.push(.product(id))` from anywhere.
 // "Vendre" is not a real tab: tapping it presents SellFlowView full screen.
 // Signup/onboarding is presented full screen by RootView when there is no session.
-// `.messages` is the « Boîte » tab (Messages · Commandes · Notifications); the case name is kept for compatibility.
+// v3 tabs: Accueil (`.discover`) · Favoris (`.wishlist`) · Vendre (`.sell`) · Messages (`.messages`) · Profil.
+// Case names are kept from v2 for compatibility; only labels/icons changed (see MainTabView).
 
 enum AppTab: Hashable, CaseIterable {
     case discover, wishlist, sell, messages, profile
 }
 
-/// Segments of the « Boîte » tab.
+/// Segments of the v2 « Boîte » tab (kept while the Messages screen still uses them).
 enum InboxSegment: String, CaseIterable, Identifiable, Hashable {
     case messages, orders, notifications
     var id: String { rawValue }
@@ -29,8 +30,9 @@ enum Route: Hashable {
     case chat(UUID)                 // conversation id
     case sellerProfile(UUID)        // user id
     case dashboard                  // Profil › Statistiques (seller dashboard)
-    case notifications
+    case notifications              // Accueil › cloche
     case settings                   // Profil › Réglages
+    case coupDeCoeur                // Accueil › « Coup de cœur » (swipe deck)
 }
 
 @MainActor
@@ -84,6 +86,7 @@ extension View {
             case .dashboard: DashboardView()
             case .notifications: NotificationsView()
             case .settings: SettingsView()
+            case .coupDeCoeur: CoupDeCoeurView()
             }
         }
     }

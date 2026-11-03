@@ -18,9 +18,6 @@ struct SignupAuthStack: View {
                     }
                 }
         }
-        // Light status bar over the ink brand screen; system light appearance (keyboard, menus) elsewhere.
-        // RF colors are fixed, so only system chrome follows this.
-        .preferredColorScheme(model.authPath.isEmpty ? .dark : .light)
     }
 }
 
@@ -45,10 +42,12 @@ struct SignupMethodScreen: View {
     @Bindable var model: OnboardingModel
     @Environment(AppStore.self) private var store
     @State private var currentNonce: String?
+    @Environment(\.colorScheme) private var colorScheme
+    @AppStorage(AppearanceMode.storageKey) private var appearance: AppearanceMode = .system
 
     var body: some View {
         ZStack {
-            RF.C.ink0.ignoresSafeArea()
+            RF.C.paper.ignoresSafeArea()
 
             VStack(spacing: 0) {
                 Spacer(minLength: 40)
@@ -58,17 +57,23 @@ struct SignupMethodScreen: View {
                 if store.isDemo {
                     Text("Démo : 07 07 07 07 07, code \(DemoIDs.otpCode)")
                         .font(RF.T.footnote.monospacedDigit())
-                        .foregroundStyle(RF.C.textOnInkDim)
+                        .foregroundStyle(RF.C.textDim)
                         .multilineTextAlignment(.center)
                         .padding(.top, RF.S.lg)
                 }
+                Picker("Apparence", selection: $appearance) {
+                    ForEach(AppearanceMode.allCases) { Text($0.label).tag($0) }
+                }
+                .pickerStyle(.segmented)
+                .padding(.top, RF.S.xl)
+                .accessibilityIdentifier("signup.appearance")
             }
             .padding(.horizontal, 20)
             .padding(.bottom, 12)
 
             if model.isAuthenticating {
                 RF.C.scrim.ignoresSafeArea()
-                ProgressView().controlSize(.large).tint(RF.C.textOnInk)
+                ProgressView().controlSize(.large).tint(RF.C.text)
                     .accessibilityLabel("Connexion en cours")
             }
         }
@@ -77,15 +82,13 @@ struct SignupMethodScreen: View {
 
     private var brand: some View {
         VStack(spacing: 12) {
-            (Text("Re").foregroundStyle(RF.C.textOnInk) + Text("Fripe").foregroundStyle(RF.C.marigold))
-                .font(RF.T.brand(44))
+            Wordmark(size: 40)
                 .lineLimit(1)
                 .minimumScaleFactor(0.6)
-                .accessibilityLabel("ReFripe")
                 .accessibilityAddTraits(.isHeader)
             Text("La fripe près de chez toi.")
                 .font(RF.T.body)
-                .foregroundStyle(RF.C.textOnInkDim)
+                .foregroundStyle(RF.C.textDim)
                 .multilineTextAlignment(.center)
         }
     }
@@ -100,7 +103,7 @@ struct SignupMethodScreen: View {
             } onCompletion: { result in
                 handleApple(result)
             }
-            .signInWithAppleButtonStyle(.white)
+            .signInWithAppleButtonStyle(colorScheme == .dark ? .white : .black)
             .frame(height: 50)
             .clipShape(RoundedRectangle(cornerRadius: RF.R.md, style: .continuous))
             .disabled(model.isAuthenticating)
@@ -125,7 +128,7 @@ struct SignupMethodScreen: View {
                   let tokenData = credential.identityToken,
                   let idToken = String(data: tokenData, encoding: .utf8),
                   let nonce = currentNonce else {
-                store.show("La connexion avec Apple a échoué. Réessaie.")
+                store.show("Échec avec Apple. Réessaie.")
                 Haptics.error()
                 return
             }
@@ -159,7 +162,7 @@ struct SignupMethodScreen: View {
     }
 }
 
-/// Discreet outlined method button on ink, "bientôt" (Google / Facebook are not wired on the backend yet).
+/// Discreet outlined method button, "bientôt" (Google / Facebook are not wired on the backend yet).
 private struct SoonMethodButton: View {
     let title: String
     @Environment(AppStore.self) private var store
@@ -167,16 +170,16 @@ private struct SoonMethodButton: View {
     var body: some View {
         Button {
             Haptics.warning()
-            store.show("Bientôt disponible. Utilise Apple ou ton numéro.")
+            store.show("Bientôt disponible.")
         } label: {
             VStack(spacing: 1) {
                 Text(title).font(RF.T.subheadline.weight(.semibold))
                 Text("Bientôt").font(RF.T.caption)
-                    .foregroundStyle(RF.C.textOnInkDim)
+                    .foregroundStyle(RF.C.textDim)
             }
-            .foregroundStyle(RF.C.textOnInk)
+            .foregroundStyle(RF.C.text)
             .frame(maxWidth: .infinity, minHeight: 50)
-            .overlay(RoundedRectangle(cornerRadius: RF.R.md, style: .continuous).strokeBorder(RF.C.lineOnInk, lineWidth: 1))
+            .overlay(RoundedRectangle(cornerRadius: RF.R.md, style: .continuous).strokeBorder(RF.C.line, lineWidth: 1))
             .contentShape(RoundedRectangle(cornerRadius: RF.R.md, style: .continuous))
         }
         .buttonStyle(RFPressStyle())
@@ -334,7 +337,7 @@ struct SignupPhoneScreen: View {
                 .contentTransition(.numericText(countsDown: true))
             }
             .font(RF.T.subheadline)
-            .foregroundStyle(RF.C.hibiscus)
+            .foregroundStyle(RF.C.hibiscusText)
             .padding(.top, RF.S.lg)
         }
     }
@@ -460,7 +463,7 @@ struct SignupProfileScreen: View {
                             .focused($focus, equals: .username)
                             .onSubmit { focus = .district }
                     }
-                    Text("3 caractères minimum : lettres, chiffres, « _ », « . ».")
+                    Text("3 caractères min.")
                         .font(RF.T.footnote)
                         .foregroundStyle(RF.C.textDim)
                 }
@@ -528,7 +531,7 @@ struct SignupProfileScreen: View {
             })
             .accessibilityElement(children: .combine)
         } else {
-            Text("Ton numéro te sera demandé avant ton premier paiement.")
+            Text("Numéro demandé au 1er paiement.")
                 .font(RF.T.footnote)
                 .foregroundStyle(RF.C.textDim)
         }

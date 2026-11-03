@@ -9,25 +9,20 @@ struct SellPhoto: Identifiable {
     var isChecking: Bool { analysis == nil }
 }
 
-/// State of the 10-step sell wizard (mockup `screenSell`, `SELL_STEPS`, `freshSellDraft`).
+/// State of the 4-step sell wizard (v3): Photos · L'article · Ton prix · Remise (+ relecture) → Publier.
+/// The draft is saved to disk on every step change and restored the next time « Vendre » opens.
 @MainActor
 @Observable
 final class SellFlowModel {
     enum Step: Int, CaseIterable, Identifiable {
-        case photos = 1, category, brand, size, condition, color, details, price, delivery, review
+        case photos = 1, article, price, review
         var id: Int { rawValue }
         var title: String {
             switch self {
             case .photos: "Photos"
-            case .category: "Catégorie"
-            case .brand: "Marque"
-            case .size: "Taille"
-            case .condition: "État"
-            case .color: "Couleur"
-            case .details: "Description"
-            case .price: "Prix"
-            case .delivery: "Livraison"
-            case .review: "Publier"
+            case .article: "L'article"
+            case .price: "Ton prix"
+            case .review: "Remise"
             }
         }
         var previous: Step? { Step(rawValue: rawValue - 1) }
@@ -37,8 +32,11 @@ final class SellFlowModel {
     static let titleMax = 60
     static let descriptionMax = 1_000
     static let defectMax = 300
+    static let brandMax = 40
     static let priceRange: ClosedRange<FCFA> = 250...1_000_000
     static let handDeliveryHint: FCFA = 2_000
+    /// Default private floor when the seller types a price (share of the price).
+    static let defaultMinOfferRatio = 0.7
 
     var step: Step = .photos
     /// Direction of the last move, for the slide transition.
@@ -50,6 +48,13 @@ final class SellFlowModel {
     var photos: [SellPhoto] = []
     var isPublishing = false
     var published: Listing?
+
+    /// When the draft was last written to disk (nil = nothing saved) → « Brouillon enregistré ».
+    var draftSavedAt: Date?
+    /// Last title we generated, so a title the seller typed herself is never overwritten.
+    var autoTitle: String?
+    /// « Similaires : 2 000 – 4 500 FCFA » on the price step (nil = not loaded / not enough data).
+    var similarPriceRange: ClosedRange<FCFA>?
 
     /// Routed to `store.show` by the view.
     @ObservationIgnored var notify: (String) -> Void = { _ in }
@@ -68,6 +73,7 @@ final class SellFlowModel {
 
     func advance() {
         guard canContinue(step) else { return }
+        if step == .article { applyAutoTitle() }
         if returnToReview {
             go(to: firstIncompleteStep ?? .review)
             if step == .review { returnToReview = false }
@@ -82,67 +88,79 @@ final class SellFlowModel {
     }
 
     var isDirty: Bool {
-        !photos.isEmpty || draft.gender != nil || draft.brand != nil || draft.condition != nil || draft.color != nil
-            || !draft.title.isEmpty || !draft.description.isEmpty || !draft.defectComment.isEmpty
+        !photos.isEmpty || draft.itemType != nil || draft.gender != nil || draft.condition != nil
+            || draft.price > 0 || !trimmed(draft.title).isEmpty || !trimmed(draft.description).isEmpty
+            || !trimmed(draft.defectComment).isEmpty || !(draft.brand ?? "").isEmpty || draft.color != nil
     }
 
+    /// Clears the in-memory form (not the disk: see `startOver`).
     func reset() {
         draft = ListingDraft()
         photos = []
         published = nil
         returnToReview = false
         movingForward = false
+        choseOneSize = false
+        autoTitle = nil
+        similarPriceRange = nil
         step = .photos
     }
 
-    // MARK: Validation (mockup `canContinue`)
+    /// « Recommencer »: empties the form and deletes the saved draft.
+    func startOver() {
+        SellDraftStore.clear()
+        draftSavedAt = nil
+        withAnimation(.snappy) { reset() }
+    }
+
+    // MARK: Validation
 
     func canContinue(_ s: Step) -> Bool {
         switch s {
         case .photos:
             photos.count >= Catalog.sellPhotoMin && photos.allSatisfy { !$0.isChecking } && flaggedPhotos.isEmpty
-        case .category: draft.gender != nil
-        case .brand:
-            draft.brand != nil && (draft.brand != SellFlowModel.otherBrand || !trimmed(draft.brandCustom).isEmpty)
-        case .size: draft.sizeType != nil && draft.sizeValue != nil
-        case .condition: draft.condition != nil
-        case .color: draft.color != nil
-        case .details: !trimmed(draft.title).isEmpty && draft.title.count <= Self.titleMax
+        case .article:
+            draft.itemType != nil && draft.gender != nil && draft.sizeType != nil && draft.sizeValue != nil
+                && draft.condition != nil
         case .price:
-            Self.priceRange.contains(draft.price) && (!draft.negotiable || (draft.minOffer > 0 && draft.minOffer < draft.price))
-        case .delivery: !draft.delivery.isEmpty
-        case .review: firstIncompleteStep == nil && !isPublishing
+            // v3: price starts empty (0 = invalid until typed); the private floor must stay under the price.
+            Self.priceRange.contains(draft.price)
+                && (!draft.negotiable || (draft.minOffer > 0 && draft.minOffer < draft.price))
+        case .review:
+            !draft.delivery.isEmpty && !trimmed(draft.title).isEmpty && draft.title.count <= Self.titleMax
+                && firstIncompleteStep == nil && !isPublishing
         }
     }
 
+    /// First step before the review that still blocks publishing.
     var firstIncompleteStep: Step? {
         Step.allCases.first { $0 != .review && !canContinue($0) }
     }
 
-    /// Why the bottom button is disabled (shown under it), if it is.
+    /// Why the bottom button is disabled (shown under it), if it is. Short on purpose.
     var blockingHint: String? {
         guard !canContinue(step) else { return nil }
         switch step {
         case .photos:
-            if photos.contains(where: \.isChecking) { return "Contrôle qualité en cours…" }
-            if !flaggedPhotos.isEmpty { return "Retire les photos signalées." }
-            return Catalog.sellPhotoMin > 1 ? "Ajoute au moins \(Catalog.sellPhotoMin) photos." : "Ajoute au moins une photo."
-        case .category: return "Choisis une catégorie."
-        case .brand: return draft.brand == SellFlowModel.otherBrand ? "Précise la marque." : "Choisis une marque."
-        case .size: return "Choisis une taille."
-        case .condition: return "Indique l'état de l'article."
-        case .color: return "Choisis la couleur dominante."
-        case .details:
-            return draft.title.count > Self.titleMax ? "Le titre est trop long." : "Donne un titre à ton annonce."
+            if photos.contains(where: \.isChecking) { return "Vérification…" }
+            if !flaggedPhotos.isEmpty { return "Retire les photos signalées" }
+            return "Ajoute une photo"
+        case .article:
+            if draft.itemType == nil { return "Choisis le type" }
+            if draft.gender == nil { return "Choisis pour qui" }
+            if draft.sizeValue == nil { return "Choisis la taille" }
+            return "Choisis l'état"
         case .price:
+            if draft.price == 0 { return "Indique un prix" }
             if !Self.priceRange.contains(draft.price) {
-                return "Le prix doit être compris entre \(Fmt.fcfa(Self.priceRange.lowerBound)) et \(Fmt.fcfa(Self.priceRange.upperBound))."
+                return "Entre \(Fmt.fcfa(Self.priceRange.lowerBound)) et \(Fmt.fcfa(Self.priceRange.upperBound))"
             }
-            return "L'offre minimum doit être inférieure au prix."
-        case .delivery: return "Choisis au moins un mode de remise."
+            return "Offre min. trop haute"
         case .review:
             if isPublishing { return nil }
-            return firstIncompleteStep.map { "À compléter : \($0.title.lowercased())." }
+            if let missing = firstIncompleteStep { return "À compléter : \(missing.title.lowercased())" }
+            if draft.delivery.isEmpty { return "Choisis une remise" }
+            return draft.title.count > Self.titleMax ? "Titre trop long" : "Ajoute un titre"
         }
     }
 
@@ -176,7 +194,7 @@ final class SellFlowModel {
 
     func importItems(_ items: [PhotosPickerItem]) {
         let accepted = Array(items.prefix(remainingPhotoSlots))
-        if accepted.count < items.count { notify("Maximum \(Catalog.sellPhotoMax) photos par annonce.") }
+        if accepted.count < items.count { notify("\(Catalog.sellPhotoMax) photos max.") }
         for item in accepted {
             let photo = SellPhoto()
             photos.append(photo)
@@ -230,47 +248,86 @@ final class SellFlowModel {
         }
     }
 
-    // MARK: Brand / size / title helpers
+    // MARK: Article helpers
 
-    static let otherBrand = "Autre"
+    /// Size grid for the chosen item type and « Pour »: shoes → pointures, kids → ages, else XS–XL / 36–44.
+    var resolvedSizeType: SizeType? {
+        guard let type = draft.itemType else { return nil }
+        let base = type.suggestedSizeType ?? .haut
+        if base == .chaussures || base == .unique { return base }
+        if draft.gender == .enfant || draft.gender == .bebe { return .enfant }
+        return base
+    }
 
-    /// Size systems that make sense for the chosen category.
-    var allowedSizeTypes: [SizeType] {
-        switch draft.gender {
-        case .femme?, .homme?: [.haut, .pantalon, .chaussures, .unique]
-        case .enfant?, .bebe?: [.enfant, .chaussures, .unique]
-        case nil: SizeType.allCases
-        }
+    func setItemType(_ type: ItemType) {
+        draft.itemType = type
+        syncSizeType()
     }
 
     func setGender(_ gender: Gender) {
         draft.gender = gender
-        if let type = draft.sizeType, !allowedSizeTypes.contains(type) {
-            draft.sizeType = nil
-            draft.sizeValue = nil
+        syncSizeType()
+    }
+
+    /// True when the seller picked « Taille unique » on a sized grid (kept across type / gender changes).
+    private(set) var choseOneSize = false
+
+    /// Keeps `draft.sizeType` in line with type / gender; resets the value when the grid changes.
+    private func syncSizeType() {
+        guard let target = resolvedSizeType else { return }
+        if choseOneSize && draft.sizeType == .unique && target != .chaussures { return }
+        choseOneSize = false
+        guard draft.sizeType != target else { return }
+        draft.sizeType = target
+        draft.sizeValue = target == .unique ? target.options.first : nil
+    }
+
+    func selectSize(_ value: String) {
+        guard let grid = resolvedSizeType else { return }
+        draft.sizeType = grid
+        draft.sizeValue = value
+        choseOneSize = false
+    }
+
+    /// « Taille unique » chip offered next to a sized grid (pagne-like items, accessories…).
+    func selectOneSize() {
+        draft.sizeType = .unique
+        draft.sizeValue = SizeType.unique.options.first
+        choseOneSize = true
+    }
+
+    var brandText: String {
+        get { draft.brand ?? "" }
+        set {
+            let value = String(newValue.prefix(Self.brandMax))
+            draft.brand = value.trimmingCharacters(in: .whitespaces).isEmpty ? nil : value
+            draft.brandCustom = ""
         }
     }
 
-    func setSizeType(_ type: SizeType) {
-        guard draft.sizeType != type else { return }
-        draft.sizeType = type
-        draft.sizeValue = type == .unique ? type.options.first : nil
+    /// « Robe wax », « Baskets Nike blanc »: type + brand + colour.
+    var suggestedTitle: String? {
+        guard let type = draft.itemType else { return nil }
+        let brand = trimmed(draft.resolvedBrand)
+        let parts = [type.label,
+                     brand == "Sans marque précise" ? "" : brand,
+                     draft.color?.lowercased() ?? ""].filter { !$0.isEmpty }
+        return String(parts.joined(separator: " ").prefix(Self.titleMax))
     }
 
-    /// « {marque} {catégorie} {couleur} », e.g. "Zara Femme noir".
-    var suggestedTitle: String? {
-        let brand = trimmed(draft.resolvedBrand)
-        let parts = [brand == "Sans marque précise" ? "" : brand,
-                     draft.gender?.label ?? "",
-                     draft.color?.lowercased() ?? ""].filter { !$0.isEmpty }
-        guard parts.count >= 2 else { return nil }
-        let title = String(parts.joined(separator: " ").prefix(Self.titleMax))
-        return title == trimmed(draft.title) ? nil : title
+    /// Fills the title with the suggestion unless the seller already wrote her own.
+    func applyAutoTitle() {
+        guard let suggestion = suggestedTitle else { return }
+        let current = trimmed(draft.title)
+        if current.isEmpty || current == autoTitle {
+            draft.title = suggestion
+            autoTitle = suggestion
+        }
     }
 
     var brandLabel: String {
         let b = trimmed(draft.resolvedBrand)
-        return b.isEmpty ? "Non précisée" : b
+        return b.isEmpty ? "—" : b
     }
 
     var sizeLabel: String {
@@ -278,14 +335,136 @@ final class SellFlowModel {
         return type.displayLabel(for: value)
     }
 
+    var articleLabel: String {
+        [draft.itemType?.label, draft.gender?.label].compactMap { $0 }.joined(separator: " · ")
+    }
+
     // MARK: Price helpers
 
-    var priceStep: FCFA { OfferRules.step(for: draft.price) }
+    var priceStep: FCFA { OfferRules.step(for: max(draft.price, 1)) }
 
-    /// Keeps the private floor strictly below the price (mockup `data-sell-price-step`).
-    func clampMinOffer() {
+    /// Sets the price typed by the seller and keeps the private floor valid (defaults to ~70 % of the price).
+    func setPrice(_ value: FCFA) {
+        draft.price = value
+        guard value > 0 else { return }
+        if draft.minOffer <= 0 || draft.minOffer >= value { resetMinOffer() }
+    }
+
+    func resetMinOffer() {
         let step = priceStep
-        if draft.minOffer >= draft.price { draft.minOffer = max(step, draft.price - step) }
+        guard draft.price > step else { draft.minOffer = 0; return }
+        let floor = OfferRules.round(Double(draft.price) * Self.defaultMinOfferRatio, step: step)
+        draft.minOffer = min(draft.price - step, max(step, floor))
+    }
+
+    /// Kept for source compatibility: same as before, keeps the floor strictly under the price.
+    func clampMinOffer() {
+        if draft.price > 0 && (draft.minOffer <= 0 || draft.minOffer >= draft.price) { resetMinOffer() }
+    }
+
+    var minOfferRange: ClosedRange<FCFA> {
+        let step = priceStep
+        return step...max(step, draft.price - step)
+    }
+
+    /// Price range of similar listings (same type, same « Pour »), rounded to 500.
+    func loadSimilarPrices(repo: any Repository) async {
+        guard let type = draft.itemType else { similarPriceRange = nil; return }
+        var filters = ListingFilters()
+        filters.itemTypes = [type]
+        filters.gender = draft.gender
+        var prices = ((try? await repo.feed(filters: filters, preferences: nil)) ?? []).map(\.price)
+        if prices.count < 2 {
+            filters.gender = nil
+            prices = ((try? await repo.feed(filters: filters, preferences: nil)) ?? []).map(\.price)
+        }
+        prices.sort()
+        guard prices.count >= 2 else { similarPriceRange = nil; return }
+        let low: FCFA, high: FCFA
+        if prices.count >= 4 {
+            low = prices[prices.count / 4]
+            high = prices[(prices.count * 3) / 4]
+        } else {
+            low = prices[0]
+            high = prices[prices.count - 1]
+        }
+        let lo = max(250, OfferRules.round(Double(low), step: 500))
+        let hi = max(lo, OfferRules.round(Double(high), step: 500))
+        similarPriceRange = lo...hi
+    }
+
+    // MARK: Draft persistence
+
+    /// Writes the draft (photos that passed the check included) — called on every step change and on close.
+    func saveDraft() {
+        guard published == nil else { return }
+        guard isDirty else {
+            SellDraftStore.clear()
+            draftSavedAt = nil
+            return
+        }
+        let snapshot = SellDraftSnapshot(
+            step: step.rawValue, itemType: draft.itemType, gender: draft.gender, sizeType: draft.sizeType,
+            sizeValue: draft.sizeValue, condition: draft.condition, brand: draft.brand, color: draft.color,
+            title: draft.title, description: draft.description, defectComment: draft.defectComment,
+            price: draft.price, negotiable: draft.negotiable, minOffer: draft.minOffer,
+            delivery: DeliveryMethod.allCases.filter { draft.delivery.contains($0) },
+            autoTitle: autoTitle, savedAt: .now)
+        let jpegs = photos.compactMap { photo -> Data? in
+            guard flag(for: photo) == nil else { return nil }
+            return photo.analysis?.jpeg
+        }
+        SellDraftStore.save(snapshot, photos: jpegs)
+        draftSavedAt = snapshot.savedAt
+    }
+
+    /// Restores the saved draft, if any (photos are re-checked in the background).
+    func restoreDraft() {
+        guard !isDirty, let saved = SellDraftStore.load() else { return }
+        let s = saved.snapshot
+        var d = ListingDraft()
+        d.itemType = s.itemType
+        d.gender = s.gender
+        d.sizeType = s.sizeType
+        d.sizeValue = s.sizeValue
+        d.condition = s.condition
+        d.brand = s.brand
+        d.color = s.color
+        d.title = s.title
+        d.description = s.description
+        d.defectComment = s.defectComment
+        d.price = s.price
+        d.negotiable = s.negotiable
+        d.minOffer = s.minOffer
+        d.delivery = Set(s.delivery)
+        draft = d
+        autoTitle = s.autoTitle
+        draftSavedAt = s.savedAt
+        movingForward = true
+        step = Step(rawValue: s.step) ?? .photos
+        for jpeg in saved.photos.prefix(Catalog.sellPhotoMax) {
+            let photo = SellPhoto()
+            photos.append(photo)
+            let id = photo.id
+            // Already accepted once: skip the screenshot check (re-encoded JPEG has no metadata).
+            Task { await check(id: id, data: jpeg, source: .camera) }
+        }
+        choseOneSize = d.sizeType == .unique && resolvedSizeType != .unique
+        // Without photos, start again from the photo step.
+        if photos.isEmpty { step = .photos }
+    }
+
+    /// UI tests: a bundled demo photo, quality flags ignored, so the walk-through can reach steps 2–4.
+    func addUITestPhoto(assetName: String = "listing-1") {
+        guard photos.isEmpty, let image = UIImage(named: assetName), let data = image.jpegData(compressionQuality: 0.9) else { return }
+        let photo = SellPhoto()
+        photos.append(photo)
+        let id = photo.id
+        Task {
+            guard var analysis = await SellPhotoQuality.analyze(data, source: .camera) else { return }
+            analysis.flag = nil
+            if let index = photos.firstIndex(where: { $0.id == id }) { photos[index].analysis = analysis }
+        }
     }
 
     // MARK: Publish
@@ -299,10 +478,15 @@ final class SellFlowModel {
         output.title = trimmed(draft.title)
         output.description = trimmed(draft.description)
         output.defectComment = trimmed(draft.defectComment)
-        output.brandCustom = trimmed(draft.brandCustom)
+        let brand = trimmed(draft.brand ?? "")
+        output.brand = brand.isEmpty ? nil : brand
+        output.brandCustom = ""
+        if !output.negotiable { output.minOffer = 0 }
         do {
             let listing = try await store.repo.publish(output)
             Haptics.success()
+            SellDraftStore.clear()
+            draftSavedAt = nil
             withAnimation(.spring(response: 0.45, dampingFraction: 0.85)) { published = listing }
         } catch {
             Haptics.error()

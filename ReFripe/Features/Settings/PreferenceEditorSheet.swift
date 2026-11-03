@@ -15,8 +15,8 @@ enum PreferenceEditorKind: String, Identifiable, Hashable, CaseIterable {
     /// One line under the editor.
     var hint: String {
         switch self {
-        case .categories: "Au moins une. Elles passent en premier dans Découvrir."
-        case .sizes: "Pour les alertes « nouveau dans ta taille »."
+        case .categories: "Au moins une."
+        case .sizes: "Pour tes alertes."
         case .brands: "Facultatif."
         }
     }

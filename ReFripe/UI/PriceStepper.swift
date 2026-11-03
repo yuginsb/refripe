@@ -50,7 +50,7 @@ struct PriceStepper: View {
         let side: CGFloat = compact ? 32 : 44
         return Button(action: perform) {
             Image(systemName: symbol)
-                .font(.system(size: compact ? 13 : 17, weight: .medium))
+                .font(compact ? RF.T.footnote.weight(.medium) : RF.T.body.weight(.medium))
                 .foregroundStyle(RF.C.hibiscus)
                 .frame(width: side, height: side)
                 .background(Circle().fill(RF.C.hibiscus.opacity(0.10)))

@@ -17,16 +17,16 @@ struct IntroGuideView: View {
     }
 
     private static let steps: [Step] = [
-        Step(id: 0, symbol: "house", tabLabel: "Découvrir", title: "Découvrir",
-             body: "Swipe à droite pour garder, à gauche pour passer."),
-        Step(id: 1, symbol: "heart", tabLabel: "Envies", title: "Envies",
-             body: "Tes coups de cœur, avec une alerte si le prix baisse."),
+        Step(id: 0, symbol: "house", tabLabel: "Accueil", title: "Accueil",
+             body: "Ta taille, près de chez toi."),
+        Step(id: 1, symbol: "heart", tabLabel: "Favoris", title: "Favoris",
+             body: "Tes coups de cœur."),
         Step(id: 2, symbol: "plus.circle", tabLabel: "Vendre", title: "Vendre",
-             body: "Quelques photos, un prix, c'est en ligne."),
-        Step(id: 3, symbol: "tray", tabLabel: "Boîte", title: "Boîte",
-             body: "Messages, commandes et notifications au même endroit."),
+             body: "Photos, prix, c'est en ligne."),
+        Step(id: 3, symbol: "bubble.left", tabLabel: "Messages", title: "Messages",
+             body: "Discute, négocie, suis tes commandes."),
         Step(id: 4, symbol: "person", tabLabel: "Profil", title: "Profil",
-             body: "Ton dressing, tes avis et tes statistiques."),
+             body: "Ton dressing et ton activité."),
     ]
 
     private var isLast: Bool { page == Self.steps.count - 1 }
@@ -62,7 +62,8 @@ struct IntroGuideView: View {
         VStack(spacing: 0) {
             Spacer(minLength: 12)
             Image(systemName: step.symbol)
-                .font(.system(size: 44, weight: .regular))
+                .font(RF.T.largeTitle.weight(.regular))
+                .imageScale(.large)
                 .foregroundStyle(RF.C.hibiscus)
                 .frame(height: 56)
                 .padding(.bottom, RF.S.xl)
@@ -96,14 +97,14 @@ struct IntroGuideView: View {
                 } label: {
                     VStack(spacing: 4) {
                         Image(systemName: active ? step.symbol + ".fill" : step.symbol)
-                            .font(.system(size: 18))
+                            .font(RF.T.body)
                             .frame(height: 22)
                         Text(step.tabLabel)
                             .font(RF.T.caption)
                             .lineLimit(1)
                             .minimumScaleFactor(0.8)
                     }
-                    .foregroundStyle(active ? RF.C.hibiscus : RF.C.textDim)
+                    .foregroundStyle(active ? RF.C.hibiscusText : RF.C.textDim)
                     .frame(maxWidth: .infinity)
                     .contentShape(Rectangle())
                 }

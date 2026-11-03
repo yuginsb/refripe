@@ -39,7 +39,7 @@ struct DashboardView: View {
             } else {
                 Section {
                     ContentUnavailableView("Pas encore de statistiques", systemImage: "chart.bar",
-                                           description: Text("Elles apparaissent après ta première annonce."))
+                                           description: Text("Après ta première annonce."))
                 }
             }
             recommendationsSection

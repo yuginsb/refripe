@@ -84,3 +84,7 @@ verify_jwt = true
 # Appelée par Wave / Orange Money : authentifiée par signature, pas par JWT.
 [functions.payment-webhook]
 verify_jwt = false
+
+# v3 : suppression de compte (JWT de l'utilisatrice requis).
+[functions.delete-account]
+verify_jwt = true

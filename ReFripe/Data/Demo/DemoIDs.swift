@@ -37,4 +37,14 @@ enum DemoIDs {
 
     // MARK: Notifications
     static func notification(_ n: Int) -> UUID { make(0xF0, n) }
+
+    // MARK: v3
+    /// Reviews left on past sales (seeded so Awa's 4.8 ★ has a matching review count).
+    static func review(_ n: Int) -> UUID { make(0x90, n) }
+    /// Past (archived) orders the seeded reviews refer to; not part of `orders(role:)`.
+    static func pastOrder(_ n: Int) -> UUID { make(0xC1, n) }
+    /// Hand-off code of seed order 2 (SHIPPED, Awa sells to Karim): only Karim sees it, Awa types it.
+    static let order2HandoffCode = "4821"
+    /// Hand-off code of seed order 3 (already handed off to Awa).
+    static let order3HandoffCode = "7315"
 }

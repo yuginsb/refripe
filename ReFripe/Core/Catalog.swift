@@ -45,6 +45,79 @@ extension SizeType {
     }
 }
 
+/// v3 — kind of garment (search "une robe", sell flow step 2).
+extension ItemType {
+    var label: String {
+        switch self {
+        case .robe: "Robe"
+        case .pagne: "Pagne"
+        case .ensemble: "Ensemble"
+        case .haut: "Haut"
+        case .chemise: "Chemise"
+        case .pantalon: "Pantalon"
+        case .jean: "Jean"
+        case .jupe: "Jupe"
+        case .chaussures: "Chaussures"
+        case .sac: "Sac"
+        case .accessoire: "Accessoire"
+        case .autre: "Autre"
+        }
+    }
+    /// Size grid suggested by the sell flow once the type is chosen (nil = let the seller pick).
+    var suggestedSizeType: SizeType? {
+        switch self {
+        case .robe, .ensemble, .haut, .chemise: .haut
+        case .pantalon, .jean, .jupe: .pantalon
+        case .chaussures: .chaussures
+        case .pagne, .sac, .accessoire: .unique
+        case .autre: nil
+        }
+    }
+}
+
+/// v3 — moderation ("Signaler").
+extension ReportReason {
+    var label: String {
+        switch self {
+        case .counterfeit: "Contrefaçon"
+        case .prohibited: "Article interdit"
+        case .misleading: "Annonce trompeuse"
+        case .offensive: "Contenu choquant ou insultant"
+        case .scam: "Arnaque ou paiement hors ReFripe"
+        case .other: "Autre"
+        }
+    }
+}
+
+/// v3 — size matching and the 2 h reservation, shared by the demo repository and the UI.
+extension Listing {
+    /// Raw size value ("M", "38", "42", "4 ans", "Taille unique") derived from `sizeLabel`
+    /// ("Taille M", "Pointure 42"…). This is what `ListingFilters.sizes` and the preferences contain.
+    var sizeValue: String {
+        let label = sizeLabel.trimmingCharacters(in: .whitespacesAndNewlines)
+        if sizeType != .unique {
+            for prefix in ["Taille ", "Pointure "] where label.lowercased().hasPrefix(prefix.lowercased()) {
+                return String(label.dropFirst(prefix.count)).trimmingCharacters(in: .whitespaces)
+            }
+        }
+        return label
+    }
+
+    /// True when the listing's size is one of `sizes` (case- and diacritic-insensitive). Empty set = any size.
+    func matchesSize(_ sizes: Set<String>) -> Bool {
+        guard !sizes.isEmpty else { return true }
+        let mine = sizeValue.folding(options: [.caseInsensitive, .diacriticInsensitive], locale: nil)
+        return sizes.contains { $0.trimmingCharacters(in: .whitespaces)
+            .folding(options: [.caseInsensitive, .diacriticInsensitive], locale: nil) == mine }
+    }
+
+    /// Reserved (accepted offer, 2 h) for another buyer than `user` at `date`.
+    func isReserved(forSomeoneOtherThan user: UUID?, at date: Date = .now) -> Bool {
+        guard let until = reservedUntil, until > date, let holder = reservedFor else { return false }
+        return holder != user
+    }
+}
+
 extension DeliveryMethod {
     var label: String {
         switch self { case .relais: "Point relais"; case .mainPropre: "Remise en main propre"; case .yango: "Livraison à domicile (Yango)" }
@@ -141,10 +214,25 @@ enum Catalog {
     static let brands = ["Nike", "Adidas", "Zara", "H&M", "Vintage", "Wax local", "Bazin", "Sans marque précise"]
     static let colors = ["Noir", "Blanc", "Rouge", "Bleu", "Vert", "Jaune", "Orange", "Marron", "Rose", "Multicolore"]
     static let cities = ["Abidjan", "Dakar"]
+    /// v3 — communes / quartiers per city (filter "Commune", "Près de moi", profile edit).
+    static let districts: [String: [String]] = [
+        "Abidjan": ["Cocody", "Plateau", "Marcory", "Yopougon", "Treichville", "Koumassi", "Adjamé", "Abobo", "Port-Bouët", "Bingerville"],
+        "Dakar": ["Plateau", "Almadies", "Médina", "Parcelles Assainies", "Ouakam", "Yoff", "Grand Yoff", "Point E"],
+    ]
+    static func districts(in city: String) -> [String] { districts[city] ?? [] }
     static let sellPhotoMin = 1
     static let sellPhotoMax = 8
     /// Escrow auto-release delay after delivery.
     static let escrowAutoReleaseHours = 72
+    /// v3 — quick budget chips "Moins de 2 000 / 5 000 / 10 000" (→ `ListingFilters.priceMax`).
+    static let budgetPresets: [FCFA] = [2_000, 5_000, 10_000]
+    /// v3 — an accepted offer reserves the item for that buyer during this many hours.
+    static let reservationHours = 2
+    static var reservationDuration: TimeInterval { TimeInterval(reservationHours * 3_600) }
+    /// v3 — hand-off code shown to the buyer once shipped.
+    static let handoffCodeLength = 4
+    /// v3 — the payment screen polls `order(id:)` at this interval until it leaves PAYMENT_PENDING.
+    static let paymentPollInterval: TimeInterval = 3
 }
 
 // MARK: - Negotiation rules (shared by buyer UI, demo seller bot and the Supabase RPC)
@@ -204,6 +292,14 @@ enum Fmt {
         if Calendar.current.isDateInYesterday(date) { return "Hier" }
         if s < 7 * 86_400 { return "Il y a \(Int(s / 86_400)) jours" }
         return date.formatted(.dateTime.day().month(.abbreviated).locale(Locale(identifier: "fr_FR")))
+    }
+
+    /// "14:05" (reservation deadline, receipts).
+    static func hourMinute(_ date: Date) -> String {
+        let f = DateFormatter()
+        f.locale = Locale(identifier: "fr_FR")
+        f.dateFormat = "HH:mm"
+        return f.string(from: date)
     }
 
     /// "8 mois", "1 an"

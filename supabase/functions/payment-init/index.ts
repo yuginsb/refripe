@@ -2,7 +2,12 @@
 // PAYMENT_PENDING appartenant à l'acheteuse authentifiée.
 //
 // POST { "order_id": "<uuid>" }   (JWT utilisateur requis : verify_jwt = true)
-// → 200 { payment_id, provider, status, checkout_url }
+// → 200 { payment_id, provider, status, checkout_url, ussd_code, masked_phone, amount, method }
+//
+// v3 (paiement guidé) : l'app ouvre `checkout_url` (Wave : wave_launch_url, Orange Money :
+// payment_url) avec UIApplication.open / SFSafariViewController, ou affiche `ussd_code`
+// (OM_USSD_CODE, optionnel), puis interroge la commande toutes les 3 s jusqu'à PAID.
+// `masked_phone` = numéro du compte masqué (« 07 07 •• •• 07 ») pour l'écran de confirmation.
 //
 // En sandbox (PAYMENT_MODE=sandbox, défaut), le paiement est confirmé
 // immédiatement : la commande passe PAYMENT_PENDING → PAID → AWAITING_SHIPMENT.
@@ -10,6 +15,22 @@
 import { errorResponse, json, optionalEnv, requireEnv } from "../_shared/http.ts";
 import { type PaymentMethod, providerForMethod } from "../_shared/payments.ts";
 import { adminClient, userClient } from "../_shared/supabase.ts";
+
+/** "+2250707070707" → "07 07 •• •• 07" ; "+221770000004" → "77 ••• •• 04". */
+function maskPhone(raw: string | null | undefined): string | null {
+  if (!raw) return null;
+  let digits = raw.replace(/\D/g, "");
+  if (digits.startsWith("00")) digits = digits.slice(2);
+  if (digits.startsWith("225") && digits.length === 13) digits = digits.slice(3);
+  else if (digits.startsWith("221") && digits.length === 12) digits = digits.slice(3);
+  if (digits.length === 10) {
+    return `${digits.slice(0, 2)} ${digits.slice(2, 4)} •• •• ${digits.slice(8, 10)}`;
+  }
+  if (digits.length === 9) {
+    return `${digits.slice(0, 2)} ••• •• ${digits.slice(7, 9)}`;
+  }
+  return digits.length > 4 ? `•• ${digits.slice(-2)}` : null;
+}
 
 interface OrderRow {
   id: string;
@@ -50,13 +71,25 @@ Deno.serve(async (req: Request): Promise<Response> => {
     if (orderError) throw orderError;
     if (!order || order.buyer_id !== userId) return errorResponse("Commande introuvable.", 404, "not_found");
 
+    const amount = order.item_price + order.delivery_fee;
+    const { data: profile } = await admin
+      .from("profiles")
+      .select("phone")
+      .eq("id", userId)
+      .maybeSingle<{ phone: string | null }>();
+    const extra = {
+      amount,
+      method: order.payment,
+      masked_phone: maskPhone(profile?.phone ?? userData.user.phone ?? null),
+      ussd_code: order.payment === "orange_money" ? (optionalEnv("OM_USSD_CODE") || null) : null,
+    };
+
     // Idempotence : commande déjà payée / annulée → on renvoie simplement l'état.
     if (order.status !== "PAYMENT_PENDING") {
-      return json({ payment_id: null, provider: null, status: order.status, checkout_url: null });
+      return json({ payment_id: null, provider: null, status: order.status, checkout_url: null, ...extra });
     }
 
     const provider = providerForMethod(order.payment);
-    const amount = order.item_price + order.delivery_fee;
 
     // Idempotence : une session déjà ouverte pour ce prestataire est réutilisée.
     const { data: existing } = await admin
@@ -67,7 +100,10 @@ Deno.serve(async (req: Request): Promise<Response> => {
       .eq("state", "pending")
       .maybeSingle<{ id: string; checkout_url: string | null }>();
     if (existing && !provider.autoConfirm) {
-      return json({ payment_id: existing.id, provider: provider.name, status: order.status, checkout_url: existing.checkout_url });
+      return json({
+        payment_id: existing.id, provider: provider.name, status: order.status,
+        checkout_url: existing.checkout_url, ...extra,
+      });
     }
 
     const functionsBase = `${requireEnv("SUPABASE_URL")}/functions/v1`;
@@ -115,7 +151,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
       status = String(data);
     }
 
-    return json({ payment_id: paymentId, provider: provider.name, status, checkout_url: session.checkoutUrl });
+    return json({ payment_id: paymentId, provider: provider.name, status, checkout_url: session.checkoutUrl, ...extra });
   } catch (e) {
     console.error("payment-init", e);
     return errorResponse("Le paiement n’a pas pu être initialisé. Réessaie dans un instant.", 502, "payment_init_failed");

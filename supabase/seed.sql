@@ -215,3 +215,14 @@ begin
   perform set_config('request.jwt.claim.sub', '', true);
 end;
 $$;
+
+-- v3 : type d'article des annonces de démonstration (migration 20261103000001_v3).
+update public.listings set item_type = case
+    when title ilike 'Robe%' or title ilike 'Boubou%' then 'robe'
+    when title ilike 'Chemise%' then 'chemise'
+    when title ilike 'Baskets%' then 'chaussures'
+    when title ilike 'Jean%' then 'jean'
+    when title ilike 'Sac%' then 'sac'
+    when title ilike 'Ensemble%' or title ilike 'Pyjama%' then 'ensemble'
+    else 'autre'
+  end::public.item_type;

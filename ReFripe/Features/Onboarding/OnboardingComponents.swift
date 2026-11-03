@@ -95,7 +95,7 @@ struct CategoryChoiceCard: View {
                     .frame(height: 28)
                 Text(gender.label)
                     .font(RF.T.subheadline.weight(.semibold))
-                    .foregroundStyle(selected ? RF.C.hibiscus : RF.C.text)
+                    .foregroundStyle(selected ? RF.C.hibiscusText : RF.C.text)
             }
             .frame(maxWidth: .infinity)
             .padding(.vertical, 20)
@@ -137,7 +137,7 @@ struct ChoiceChip: View {
             Text(title)
                 .font(RF.T.subheadline.weight(selected ? .semibold : .regular))
                 .lineLimit(1)
-                .foregroundStyle(selected ? RF.C.hibiscus : RF.C.text)
+                .foregroundStyle(selected ? RF.C.hibiscusText : RF.C.text)
                 .padding(.vertical, 9)
                 .padding(.horizontal, 14)
                 .background(Capsule().fill(selected ? RF.C.hibiscus.opacity(0.10) : RF.C.card))

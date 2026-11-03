@@ -2,7 +2,7 @@ import SwiftUI
 
 /// Full-width button: SF headline, height 50, radius 12.
 /// `.primary` = hibiscus fill (one per screen), `.secondary` = subtle tinted fill,
-/// `.ink` = dark fill (kept for compatibility, use sparingly), `.ghost` = hairline outline.
+/// `.ink` = brand-blue fill (name kept for compatibility), `.ghost` = hairline outline.
 struct RFButton: View {
     enum Style { case primary, secondary, ink, ghost }
 
@@ -25,10 +25,10 @@ struct RFButton: View {
 
     private var fgColor: Color {
         switch style {
-        case .primary: .white
-        case .secondary: RF.C.hibiscus
+        case .primary: RF.C.onAccent
+        case .secondary: RF.C.hibiscusText
         case .ghost: RF.C.text
-        case .ink: RF.C.paper
+        case .ink: RF.C.onAccent
         }
     }
 
@@ -36,7 +36,7 @@ struct RFButton: View {
         switch style {
         case .primary: RF.C.hibiscus
         case .secondary: RF.C.hibiscus.opacity(0.10)
-        case .ink: RF.C.ink1
+        case .ink: RF.C.brandBlue
         case .ghost: .clear
         }
     }

@@ -8,7 +8,7 @@ struct ToastView: View {
     var body: some View {
         Text(message)
             .font(RF.T.subheadline.weight(.medium))
-            .foregroundStyle(.white)
+            .foregroundStyle(RF.C.textOnInk)
             .multilineTextAlignment(.center)
             .padding(.vertical, 12)
             .padding(.horizontal, 18)

@@ -2,9 +2,14 @@ import SwiftUI
 
 /// Compose an offer or a counter-offer.
 /// The amount is bounded to [floor … price − step]; the seller's private floor is never displayed.
-/// Sending replaces this screen with the negotiation thread.
+/// Sending replaces this screen with the negotiation thread, or calls `onSent` when presented as a sheet
+/// (from the conversation, where offers show up as bubbles).
 struct OfferComposerView: View {
     let listingId: UUID
+    /// Sheet usage: called after a successful offer instead of pushing the thread.
+    var onSent: ((OfferThread) -> Void)?
+    /// Sheet usage: « Acheter au prix affiché » / « Voir la négociation » close the sheet through this.
+    var onClose: (() -> Void)?
 
     @Environment(AppStore.self) private var store
     @Environment(Router.self) private var router
@@ -16,6 +21,12 @@ struct OfferComposerView: View {
     @State private var loadError: Error?
     @State private var isSending = false
     @State private var limitReached = false
+
+    init(listingId: UUID, onSent: ((OfferThread) -> Void)? = nil, onClose: (() -> Void)? = nil) {
+        self.listingId = listingId
+        self.onSent = onSent
+        self.onClose = onClose
+    }
 
     /// The seller opened her own listing's negotiation (e.g. from a "new offer" notification):
     /// show the seller-side screen instead.
@@ -105,11 +116,15 @@ struct OfferComposerView: View {
         Task {
             defer { isSending = false }
             do {
-                _ = try await store.repo.makeOffer(listingId: l.id, amount: amount)
+                let sent = try await store.repo.makeOffer(listingId: l.id, amount: amount)
                 Haptics.success()
-                // Replace the composer with the thread.
-                router.pop()
-                router.push(.offerThread(l.id))
+                if let onSent {
+                    onSent(sent)
+                } else {
+                    // Replace the composer with the thread.
+                    router.pop()
+                    router.push(.offerThread(l.id))
+                }
                 await store.refreshBadges()
             } catch RepositoryError.offerLimitReached {
                 Haptics.warning()
@@ -176,14 +191,15 @@ struct OfferComposerView: View {
 
     /// One short line max under the amount.
     private func hint(sellerName: String) -> String? {
-        if offerNumber >= OfferRules.maxBuyerOffers { return "C'est ta dernière proposition." }
+        if offerNumber >= OfferRules.maxBuyerOffers { return "Dernière offre" }
         if isCounter { return nil }
-        return "\(sellerName) peut accepter, refuser ou contre-proposer."
+        return nil
     }
 
     private func buyAtListedPrice(_ l: Listing) -> some View {
-        RFButton("Acheter au prix affiché", style: .ghost) {
+        RFButton("Prix affiché", style: .ghost) {
             store.negotiatedPrices[l.id] = nil
+            onClose?()
             router.push(.checkout(l.id))
         }
         .accessibilityLabel("Acheter au prix affiché, \(Fmt.fcfa(l.price))")
@@ -195,21 +211,21 @@ struct OfferComposerView: View {
             switch blocker {
             case .ownListing:
                 blockedMessage("C'est ton annonce", symbol: "person.crop.circle")
-                RFButton("Statistiques", style: .secondary) { router.push(.dashboard) }
+                RFButton("Statistiques", style: .secondary) { onClose?(); router.push(.dashboard) }
             case .notNegotiable:
-                blockedMessage("Prix fixe", symbol: "lock", detail: "Pas d'offre sur cet article.")
+                blockedMessage("Prix fixe", symbol: "lock", detail: nil)
                 buyAtListedPrice(l)
             case .unavailable:
-                blockedMessage("Article indisponible", symbol: "clock", detail: "Réservé ou déjà vendu.")
+                blockedMessage("Indisponible", symbol: "clock")
             case .awaitingSeller:
-                blockedMessage("Offre en attente", symbol: "hourglass", detail: "Attends la réponse de la vendeuse.")
-                RFButton("Voir la négociation", style: .secondary) { replaceWithThread(l) }
+                blockedMessage("Offre en attente", symbol: "hourglass", detail: nil)
+                RFButton("Négociation", style: .secondary) { replaceWithThread(l) }
             case .accepted:
-                blockedMessage("Offre acceptée", symbol: "checkmark.seal", detail: "Tu peux acheter au prix négocié.")
+                blockedMessage("Offre acceptée", symbol: "checkmark.seal", detail: nil)
                 RFButton("Voir la négociation") { replaceWithThread(l) }
             case .limit:
                 blockedMessage("Limite atteinte", symbol: "nosign",
-                               detail: "\(OfferRules.maxBuyerOffers) offres déjà faites sur cet article.")
+                               detail: "3 offres utilisées")
                 buyAtListedPrice(l)
                 if thread != nil {
                     RFButton("Voir la négociation", style: .secondary) { replaceWithThread(l) }
@@ -228,6 +244,10 @@ struct OfferComposerView: View {
     }
 
     private func replaceWithThread(_ l: Listing) {
+        if let onClose {
+            onClose()   // the conversation behind the sheet already shows the negotiation
+            return
+        }
         router.pop()
         router.push(.offerThread(l.id))
     }

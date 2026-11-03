@@ -40,6 +40,12 @@ targets:
         UISupportedInterfaceOrientations: [UIInterfaceOrientationPortrait]
         UIAppFonts:
           - Unbounded_900Black.ttf
+          - DMSans_400Regular.ttf
+          - DMSans_500Medium.ttf
+          - DMSans_600SemiBold.ttf
+          - DMSans_700Bold.ttf
+          - Newsreader_500Medium.ttf
+          - Newsreader_600SemiBold.ttf
         NSPhotoLibraryUsageDescription: ReFripe a besoin de tes photos pour publier tes articles.
         NSCameraUsageDescription: ReFripe a besoin de l'appareil photo pour photographier tes articles.
         CFBundleURLTypes:
