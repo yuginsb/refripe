@@ -37,13 +37,12 @@ struct RootView: View {
 struct SplashView: View {
     var body: some View {
         ZStack {
-            RF.C.ink0.ignoresSafeArea()
-            (Text("Re").foregroundStyle(RF.C.textOnInk) + Text("Fripe").foregroundStyle(RF.C.marigold))
-                .font(RF.T.brand(34))
+            RF.C.paper.ignoresSafeArea()
+            Wordmark(size: 34)
             VStack {
                 Spacer()
                 ProgressView()
-                    .tint(RF.C.marigold)
+                    .tint(RF.C.brandOrange)
                     .padding(.bottom, 48)
             }
         }
@@ -53,7 +52,7 @@ struct SplashView: View {
 }
 
 // MARK: - Tabs
-// Découvrir · Envies · Vendre (+) · Boîte (Messages, Commandes, Notifications) · Profil
+// Accueil · Favoris · Vendre (+) · Messages · Profil (v3). Notifications live behind the bell of Accueil.
 
 struct MainTabView: View {
     @Environment(AppStore.self) private var store
@@ -63,11 +62,11 @@ struct MainTabView: View {
         @Bindable var router = router
         TabView(selection: tabSelection) {
             stack(.discover) { DiscoverView() }
-                .tabItem { Label("Découvrir", systemImage: "house") }
+                .tabItem { Label("Accueil", systemImage: "house") }
                 .tag(AppTab.discover)
 
             stack(.wishlist) { WishlistView() }
-                .tabItem { Label("Envies", systemImage: "heart") }
+                .tabItem { Label("Favoris", systemImage: "heart") }
                 .tag(AppTab.wishlist)
 
             // "Vendre" never becomes the selected tab: selecting it presents the sell flow.
@@ -82,8 +81,9 @@ struct MainTabView: View {
                 .tag(AppTab.sell)
                 .accessibilityLabel("Vendre un article")
 
+            // Root view owned by the Messages feature (InboxView = Messages screen with « À faire »).
             stack(.messages) { InboxView() }
-                .tabItem { Label("Boîte", systemImage: "tray") }
+                .tabItem { Label("Messages", systemImage: "bubble.left") }
                 .tag(AppTab.messages)
                 .badge(store.inboxBadge)
 

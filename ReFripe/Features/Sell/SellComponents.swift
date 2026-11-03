@@ -77,7 +77,7 @@ struct SellPill: View {
                     .font(RF.T.subheadline.weight(selected ? .semibold : .regular))
                     .lineLimit(1)
             }
-            .foregroundStyle(selected ? RF.C.hibiscus : RF.C.text)
+            .foregroundStyle(selected ? RF.C.hibiscusText : RF.C.text)
             .padding(.vertical, 9)
             .padding(.horizontal, 14)
             .background(Capsule().fill(selected ? RF.C.hibiscus.opacity(0.10) : RF.C.card))
@@ -181,7 +181,7 @@ struct SellMethodRow: View {
                 Text(trailing).font(RF.T.price(.subheadline, weight: .regular)).foregroundStyle(RF.C.textDim)
                 Image(systemName: "checkmark")
                     .font(RF.T.body.weight(.semibold))
-                    .foregroundStyle(RF.C.hibiscus)
+                    .foregroundStyle(RF.C.hibiscusText)
                     .opacity(selected ? 1 : 0)
                     .frame(width: 20)
             }

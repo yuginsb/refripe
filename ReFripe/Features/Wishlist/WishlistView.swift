@@ -1,7 +1,7 @@
 import SwiftUI
 
-/// "Mes envies" tab: grid of liked listings, price drops flagged by a small badge, sort menu,
-/// native empty state that sends back to Découvrir.
+/// Tab « Favoris »: grid of liked listings (size · district on cards), price drops flagged by a small
+/// badge, sort menu, native empty state that sends back to Accueil.
 struct WishlistView: View {
     @Environment(AppStore.self) private var store
     @Environment(Router.self) private var router
@@ -31,7 +31,7 @@ struct WishlistView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .rfScreenBackground()
-        .navigationTitle("Mes envies")
+        .navigationTitle("Favoris")
         .navigationBarTitleDisplayMode(.large)
         .toolbar { toolbarItems }
         .task(id: store.wishlist) { await load() }
@@ -70,11 +70,9 @@ struct WishlistView: View {
 
     private var emptyState: some View {
         ContentUnavailableView {
-            Label("Pas encore d'envies", systemImage: "heart")
-        } description: {
-            Text("Touche le cœur sur une annonce pour la garder ici.")
+            Label("Aucun favori", systemImage: "heart")
         } actions: {
-            Button("Découvrir") { router.selectedTab = .discover }
+            Button("Accueil") { router.selectedTab = .discover }
                 .buttonStyle(.borderedProminent)
                 .tint(RF.C.hibiscus)
         }
@@ -168,7 +166,7 @@ struct WishlistDropBadge: View {
     var body: some View {
         Text("−\(Fmt.fcfa(amount))")
             .font(RF.T.caption.weight(.semibold).monospacedDigit())
-            .foregroundStyle(.white)
+            .foregroundStyle(RF.C.card)
             .padding(.vertical, 3)
             .padding(.horizontal, 7)
             .background(Capsule().fill(RF.C.money))
@@ -184,7 +182,7 @@ struct WishlistCard: View {
     var body: some View {
         VStack(alignment: .leading, spacing: RF.S.sm) {
             ListingPhotoView(photo: listing.photos.first, listingId: listing.id)
-                .frame(height: 190)
+                .aspectRatio(0.8, contentMode: .fit)
                 .frame(maxWidth: .infinity)
                 .clipShape(RoundedRectangle(cornerRadius: RF.R.md, style: .continuous))
                 .overlay(alignment: .bottomLeading) { badge.padding(RF.S.sm) }
@@ -206,7 +204,7 @@ struct WishlistCard: View {
                     .font(RF.T.subheadline)
                     .foregroundStyle(RF.C.text)
                     .lineLimit(1)
-                Text("\(listing.sizeLabel) · \(listing.district)")
+                Text(listing.sizeDistrictLabel)
                     .font(RF.T.footnote)
                     .foregroundStyle(RF.C.textDim)
                     .lineLimit(1)
@@ -218,14 +216,14 @@ struct WishlistCard: View {
         .accessibilityLabel(accessibilityText)
         .accessibilityAddTraits(.isButton)
         .accessibilityAction { onTap() }
-        .overlay(alignment: .topTrailing) { HeartButton(listingId: listing.id).padding(RF.S.sm) }
+        .overlay(alignment: .topTrailing) { HeartButton(listingId: listing.id, size: 32).padding(6) }
     }
 
     @ViewBuilder private var badge: some View {
         if listing.status != .active {
             Text(listing.status == .sold ? "Vendu" : "Réservé")
                 .font(RF.T.caption.weight(.semibold))
-                .foregroundStyle(.white)
+                .foregroundStyle(RF.C.textOnInk)
                 .padding(.vertical, 3)
                 .padding(.horizontal, 7)
                 .background(Capsule().fill(RF.C.ink1))

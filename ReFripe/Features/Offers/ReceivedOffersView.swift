@@ -162,7 +162,7 @@ struct ReceivedOffersView: View {
                     ContentUnavailableView {
                         Label("Pas encore d'offre", systemImage: "arrow.left.arrow.right")
                     } description: {
-                        Text(l.negotiable ? "Les offres reçues apparaîtront ici." : "Article à prix fixe.")
+                        if !l.negotiable { Text("Prix fixe") }
                     }
                     .padding(.top, RF.S.xl)
                 } else {
@@ -188,7 +188,7 @@ struct ReceivedOffersView: View {
 
             if let floor = l.minOffer {
                 Label {
-                    Text("Ton plancher : \(Text(Fmt.fcfa(floor)).font(RF.T.price(.footnote))) (privé)")
+                    Text("Ton minimum : \(Text(Fmt.fcfa(floor)).font(RF.T.price(.footnote)))")
                 } icon: {
                     Image(systemName: "lock")
                 }
@@ -260,7 +260,7 @@ struct ReceivedOffersView: View {
             case .accepted: return ("Acceptée", RF.C.moneyDeep)
             case .refused: return ("Refusée", RF.C.textDim)
             case .expired: return ("Expirée", RF.C.textDim)
-            case .pending: return awaitingMe(t) ? ("À toi de répondre", RF.C.hibiscus) : ("En attente", RF.C.textDim)
+            case .pending: return awaitingMe(t) ? ("À toi de répondre", RF.C.hibiscusText) : ("En attente", RF.C.textDim)
             }
         }()
         let count = "\(t.buyerOfferCount)/\(OfferRules.maxBuyerOffers) offres"
@@ -274,11 +274,11 @@ struct ReceivedOffersView: View {
     private func outcome(_ t: OfferThread) -> some View {
         switch t.status {
         case .accepted:
-            Text("Paiement de \(Text(Fmt.fcfa(t.acceptedAmount ?? 0)).font(RF.T.price(.footnote))) attendu.")
+            Text("Paiement attendu · \(Text(Fmt.fcfa(t.acceptedAmount ?? 0)).font(RF.T.price(.footnote)))")
                 .font(RF.T.footnote)
                 .foregroundStyle(RF.C.moneyDeep)
         case .refused, .expired:
-            Text("Négociation close.")
+            Text("Négociation close")
                 .font(RF.T.footnote)
                 .foregroundStyle(RF.C.textDim)
         case .pending:
@@ -293,9 +293,9 @@ struct ReceivedOffersView: View {
         let range = t.buyerOfferCount < OfferRules.maxBuyerOffers ? counterRange(t, listing: l) : nil
         VStack(spacing: RF.S.sm) {
             if let floor = l.minOffer, lastAmount < floor {
-                Label("Sous ton plancher de \(Fmt.fcfa(floor))", systemImage: "exclamationmark.triangle")
+                Label("Sous ton minimum", systemImage: "exclamationmark.triangle")
                     .font(RF.T.footnote)
-                    .foregroundStyle(RF.C.hibiscus)
+                    .foregroundStyle(RF.C.hibiscusText)
                     .frame(maxWidth: .infinity, alignment: .leading)
             }
 
@@ -308,7 +308,7 @@ struct ReceivedOffersView: View {
                 .accessibilityLabel("Accepter \(Fmt.fcfa(lastAmount))")
                 HStack(spacing: RF.S.sm) {
                     if let range {
-                        RFButton("Contre-proposer", style: .secondary) {
+                        RFButton("Contre-offre", style: .secondary) {
                             if counterDrafts[t.id] == nil {
                                 let mid = OfferRules.round(Double(lastAmount + l.price) / 2, step: OfferRules.step(for: l.price))
                                 counterDrafts[t.id] = min(max(mid, range.lowerBound), range.upperBound)
@@ -321,8 +321,8 @@ struct ReceivedOffersView: View {
                 .disabled(busy)
                 if range == nil {
                     Text(t.buyerOfferCount >= OfferRules.maxBuyerOffers
-                         ? "Dernière offre de \(buyerName)."
-                         : "Plus de marge pour une contre-offre.")
+                         ? "Dernière offre"
+                         : "Pas de marge")
                         .font(RF.T.footnote)
                         .foregroundStyle(RF.C.textDim)
                         .multilineTextAlignment(.center)

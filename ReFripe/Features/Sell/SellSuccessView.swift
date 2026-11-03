@@ -25,7 +25,8 @@ struct SellSuccessView: View {
         ScrollView {
             VStack(spacing: 0) {
                 Image(systemName: "checkmark.circle.fill")
-                    .font(.system(size: 56))
+                    .font(RF.T.largeTitle)
+                    .imageScale(.large)
                     .foregroundStyle(RF.C.money)
                     .symbolEffect(.bounce, value: appeared)
                     .padding(.top, 40)
@@ -36,7 +37,7 @@ struct SellSuccessView: View {
                     .foregroundStyle(RF.C.text)
                     .padding(.top, RF.S.lg)
                     .accessibilityAddTraits(.isHeader)
-                Text("En ligne à \(listing.locationLabel).")
+                Text("En ligne · \(listing.locationLabel)")
                     .font(RF.T.subheadline)
                     .foregroundStyle(RF.C.textDim)
                     .multilineTextAlignment(.center)
@@ -52,14 +53,14 @@ struct SellSuccessView: View {
                               preview: SharePreview(listing.title, image: shareImage)) {
                         Label("Partager", systemImage: "square.and.arrow.up")
                             .font(RF.T.button)
-                            .foregroundStyle(RF.C.hibiscus)
+                            .foregroundStyle(RF.C.hibiscusText)
                             .frame(maxWidth: .infinity, minHeight: 50)
                             .background(RF.C.hibiscus.opacity(0.10),
                                         in: RoundedRectangle(cornerRadius: RF.R.md, style: .continuous))
                             .contentShape(RoundedRectangle(cornerRadius: RF.R.md, style: .continuous))
                     }
                     .buttonStyle(RFPressStyle())
-                    Button("Vendre un autre article") {
+                    Button("Vendre un autre") {
                         withAnimation(.snappy) { model.reset() }
                     }
                     .font(RF.T.subheadline)

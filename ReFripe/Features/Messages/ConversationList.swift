@@ -1,146 +1,8 @@
 import SwiftUI
 
-/// Boîte › Messages: conversations sorted by date, each tied to a listing (thumbnail), unread count,
-/// search, pull-to-refresh. Re-polls while visible (no realtime).
-@MainActor
-struct ConversationList: View {
-    @Environment(AppStore.self) private var store
-    @Environment(Router.self) private var router
-
-    @State private var conversations: [Conversation]?
-    @State private var profiles: [UUID: UserProfile] = [:]
-    @State private var listings: [UUID: Listing] = [:]
-    @State private var loadError: Error?
-    @State private var query = ""
-
-    var body: some View {
-        Group {
-            if let conversations {
-                list(conversations)
-            } else if let loadError {
-                ErrorStateView(error: loadError) { Task { await load() } }
-            } else {
-                LoadingView()
-            }
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .task {
-            await load()
-            while !Task.isCancelled {
-                try? await Task.sleep(for: .seconds(4))
-                guard !Task.isCancelled else { break }
-                await load()
-            }
-        }
-    }
-
-    // MARK: Data
-
-    private func load() async {
-        do {
-            let convs = try await store.repo.conversations()
-            let missingUsers = Set(convs.map(\.otherUserId)).subtracting(profiles.keys)
-            if !missingUsers.isEmpty {
-                let found = (try? await store.repo.profiles(ids: Array(missingUsers))) ?? [:]
-                profiles.merge(found) { _, new in new }
-                store.cache(found)
-            }
-            let missingListings = Set(convs.compactMap(\.listingId)).subtracting(listings.keys)
-            for id in missingListings {
-                let fetched = try? await store.repo.listing(id: id)
-                if let fetched { listings[id] = fetched }
-            }
-            if convs != conversations {
-                withAnimation(.snappy) { conversations = convs }
-            }
-            loadError = nil
-            await store.refreshBadges()
-        } catch {
-            if conversations == nil { loadError = error }
-        }
-    }
-
-    private func filtered(_ all: [Conversation]) -> [Conversation] {
-        let q = query.trimmingCharacters(in: .whitespaces)
-        guard !q.isEmpty else { return all }
-        return all.filter { c in
-            let name = profiles[c.otherUserId]?.username ?? ""
-            let title = c.listingId.flatMap { listings[$0]?.title } ?? ""
-            return [name, title, c.lastMessage].contains { $0.localizedStandardContains(q) }
-        }
-    }
-
-    // MARK: Views
-
-    private var searchField: some View {
-        HStack(spacing: 6) {
-            Image(systemName: "magnifyingglass")
-                .foregroundStyle(RF.C.textDim)
-                .accessibilityHidden(true)
-            TextField("Rechercher", text: $query)
-                .font(RF.T.body)
-                .foregroundStyle(RF.C.text)
-                .textInputAutocapitalization(.never)
-                .autocorrectionDisabled()
-                .submitLabel(.search)
-                .accessibilityLabel("Rechercher une conversation")
-            if !query.isEmpty {
-                Button { query = "" } label: {
-                    Image(systemName: "xmark.circle.fill").foregroundStyle(RF.C.textDim)
-                }
-                .buttonStyle(.plain)
-                .accessibilityLabel("Effacer la recherche")
-            }
-        }
-        .padding(.vertical, 8)
-        .padding(.horizontal, 10)
-        .background(RF.C.paperDim, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
-    }
-
-    private func list(_ all: [Conversation]) -> some View {
-        let shown = filtered(all)
-        return List {
-            if !all.isEmpty {
-                searchField
-                    .listRowInsets(EdgeInsets(top: 4, leading: RF.S.gutter, bottom: 8, trailing: RF.S.gutter))
-                    .listRowBackground(RF.C.paper)
-                    .listRowSeparator(.hidden)
-            }
-            ForEach(shown) { c in
-                ConversationListRow(conversation: c,
-                                    profile: profiles[c.otherUserId],
-                                    listing: c.listingId.flatMap { listings[$0] }) {
-                    router.push(.chat(c.id))
-                }
-                .listRowInsets(EdgeInsets())
-                .listRowBackground(RF.C.paper)
-                .listRowSeparatorTint(RF.C.line)
-                .alignmentGuide(.listRowSeparatorLeading) { _ in RF.S.gutter + 44 + 12 }
-            }
-        }
-        .listStyle(.plain)
-        .refreshable { await load() }
-        .overlay {
-            if all.isEmpty {
-                ContentUnavailableView {
-                    Label("Aucun message", systemImage: "bubble.left.and.bubble.right")
-                } description: {
-                    Text("Écris à une vendeuse depuis une annonce.")
-                } actions: {
-                    Button("Découvrir") { router.selectedTab = .discover }
-                        .buttonStyle(.borderedProminent)
-                        .tint(RF.C.hibiscus)
-                }
-            } else if shown.isEmpty {
-                ContentUnavailableView.search(text: query)
-            }
-        }
-    }
-}
-
 // MARK: - Reusable row
 
-/// Conversation row: avatar, username + verified, relative date, preview, unread count, listing thumbnail.
+/// Conversation row (Messages tab): avatar, username + verified, relative date, preview, unread count, listing thumbnail.
 struct ConversationListRow: View {
     let conversation: Conversation
     let profile: UserProfile?
@@ -163,7 +25,7 @@ struct ConversationListRow: View {
                         Spacer(minLength: 8)
                         Text(Fmt.relative(conversation.lastMessageAt))
                             .font(RF.T.footnote.monospacedDigit())
-                            .foregroundStyle(unread ? RF.C.hibiscus : RF.C.textDim)
+                            .foregroundStyle(unread ? RF.C.hibiscusText : RF.C.textDim)
                             .lineLimit(1)
                     }
                     HStack(spacing: 8) {
@@ -175,7 +37,7 @@ struct ConversationListRow: View {
                         if unread {
                             Text("\(conversation.unreadCount)")
                                 .font(RF.T.caption.weight(.semibold).monospacedDigit())
-                                .foregroundStyle(.white)
+                                .foregroundStyle(RF.C.card)
                                 .padding(.horizontal, 6)
                                 .frame(minWidth: 20, minHeight: 20)
                                 .background(Capsule().fill(RF.C.hibiscus))
@@ -222,8 +84,4 @@ private struct ConversationRowPressStyle: ButtonStyle {
         configuration.label
             .background(configuration.isPressed ? RF.C.paperDim : Color.clear)
     }
-}
-
-#Preview {
-    NavigationStack { ConversationList().navigationTitle("Boîte") }.previewEnvironment()
 }

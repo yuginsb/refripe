@@ -1,26 +1,33 @@
 import SwiftUI
 import UserNotifications
 
-/// Réglages (pushed from Profil): account, preferences, notifications, help, sign-out.
+/// Réglages (pushed from Profil): account, preferences, notifications, confidentiality (blocked members),
+/// help (guide, support, CGU, confidentialité), sign-out and account deletion.
 struct SettingsView: View {
     @Environment(AppStore.self) private var store
     @Environment(Router.self) private var router
     @Environment(\.scenePhase) private var scenePhase
 
-    @State private var editingProfile = false
     @State private var editing: PreferenceEditorKind?
     @State private var showGuide = false
     @State private var confirmSignOut = false
     @State private var isSigningOut = false
     @State private var pushStatus: UNAuthorizationStatus?
+    @State private var confirmDelete = false
+    @State private var confirmDeleteFinal = false
+    @State private var isDeleting = false
+    @AppStorage(AppearanceMode.storageKey) private var appearance: AppearanceMode = .system
 
     var body: some View {
         Form {
             account
             preferences
+            appearanceSection
             notifications
+            privacy
             help
             signOutSection
+            deleteSection
         }
         .formStyle(.grouped)
         .font(RF.T.body)
@@ -30,11 +37,6 @@ struct SettingsView: View {
         .task { pushStatus = await PushPermission.status() }
         .onChange(of: scenePhase) { _, phase in
             if phase == .active { Task { pushStatus = await PushPermission.status() } }
-        }
-        .sheet(isPresented: $editingProfile) {
-            ProfileEditSheet()
-                .environment(store)
-                .presentationDetents([.large])
         }
         .sheet(item: $editing) { kind in
             PreferenceEditorSheet(kind: kind)
@@ -49,8 +51,20 @@ struct SettingsView: View {
             Button("Se déconnecter", role: .destructive) { Task { await signOut() } }
             Button("Annuler", role: .cancel) {}
         } message: {
-            Text(store.isDemo ? "Démo : reconnecte-toi avec le 07 07 07 07 07, code 1234."
-                              : "Tes annonces et commandes restent sur ton compte.")
+            Text(store.isDemo ? "Démo : 07 07 07 07 07, code 1234."
+                              : "Tout reste sur ton compte.")
+        }
+        .confirmationDialog("Supprimer ton compte ?", isPresented: $confirmDelete, titleVisibility: .visible) {
+            Button("Continuer", role: .destructive) { confirmDeleteFinal = true }
+            Button("Annuler", role: .cancel) {}
+        } message: {
+            Text("Annonces retirées, profil effacé.")
+        }
+        .alert("Supprimer définitivement ?", isPresented: $confirmDeleteFinal) {
+            Button("Supprimer", role: .destructive) { Task { await deleteAccount() } }
+            Button("Annuler", role: .cancel) {}
+        } message: {
+            Text("C'est définitif.")
         }
     }
 
@@ -64,7 +78,6 @@ struct SettingsView: View {
                 LabeledContent("Ville", value: me.city)
                 LabeledContent("Quartier", value: me.district.isEmpty ? "–" : me.district)
             }
-            Button("Modifier le profil") { editingProfile = true }
         } header: {
             header("Compte")
         }
@@ -94,8 +107,18 @@ struct SettingsView: View {
             }
         } header: {
             header("Préférences")
-        } footer: {
-            Text("Elles trient Découvrir et tes alertes.")
+        }
+    }
+
+    private var appearanceSection: some View {
+        Section {
+            Picker(selection: $appearance) {
+                ForEach(AppearanceMode.allCases) { Text($0.label).tag($0) }
+            } label: {
+                Label("Apparence", systemImage: "circle.lefthalf.filled")
+                    .foregroundStyle(RF.C.text)
+            }
+            .accessibilityIdentifier("settings.appearance")
         }
     }
 
@@ -136,15 +159,51 @@ struct SettingsView: View {
         }
     }
 
+    private var privacy: some View {
+        Section {
+            NavigationLink {
+                BlockedMembersView()
+            } label: {
+                Label("Membres bloqués", systemImage: "hand.raised")
+                    .foregroundStyle(RF.C.text)
+            }
+            .accessibilityIdentifier("settings.blocked")
+        } header: {
+            header("Confidentialité")
+        }
+    }
+
     private var help: some View {
         Section {
             Button { showGuide = true } label: {
-                Label("Revoir le guide de bienvenue", systemImage: "questionmark.circle")
+                Label("Guide de bienvenue", systemImage: "questionmark.circle")
                     .foregroundStyle(RF.C.text)
+            }
+            SupportWhatsAppButton {
+                rowLabel("Support WhatsApp", symbol: "message", trailing: "arrow.up.right")
+            }
+            .accessibilityIdentifier("settings.support")
+            Link(destination: Legal.termsURL) {
+                rowLabel("Conditions d'utilisation", symbol: "doc.text", trailing: "arrow.up.right")
+            }
+            Link(destination: Legal.privacyURL) {
+                rowLabel("Confidentialité", symbol: "lock.shield", trailing: "arrow.up.right")
             }
         } header: {
             header("Aide")
         }
+    }
+
+    private func rowLabel(_ title: String, symbol: String, trailing: String) -> some View {
+        HStack {
+            Label(title, systemImage: symbol)
+                .foregroundStyle(RF.C.text)
+            Spacer()
+            Image(systemName: trailing)
+                .font(RF.T.footnote.weight(.semibold))
+                .foregroundStyle(RF.C.textDim.opacity(0.6))
+        }
+        .contentShape(Rectangle())
     }
 
     private var signOutSection: some View {
@@ -155,11 +214,28 @@ struct SettingsView: View {
             VStack(alignment: .leading, spacing: 4) {
                 Text("ReFripe \(Self.version)")
                 if store.isDemo {
-                    Text("Mode démo : données fictives, aucun paiement réel.")
+                    Text("Mode démo")
                 }
             }
             .font(RF.T.footnote.monospacedDigit())
             .padding(.top, 8)
+        }
+    }
+
+    private var deleteSection: some View {
+        Section {
+            Button(role: .destructive) { confirmDelete = true } label: {
+                HStack {
+                    Text("Supprimer mon compte")
+                        .foregroundStyle(RF.C.hibiscusText)
+                    if isDeleting {
+                        Spacer()
+                        ProgressView()
+                    }
+                }
+            }
+            .disabled(isDeleting || isSigningOut)
+            .accessibilityIdentifier("settings.deleteAccount")
         }
     }
 
@@ -182,12 +258,35 @@ struct SettingsView: View {
     private func signOut() async {
         isSigningOut = true
         defer { isSigningOut = false }
-        // AppStore.signOut doesn't touch navigation: reset every tab first.
+        resetNavigation()
+        await store.signOut()
+        Haptics.tap()
+    }
+
+    /// AppStore.signOut doesn't touch navigation: reset every tab first.
+    private func resetNavigation() {
         for tab in AppTab.allCases { router.popToRoot(tab) }
         router.selectedTab = .discover
         router.inboxSegment = .messages
-        await store.signOut()
-        Haptics.tap()
+    }
+
+    // MARK: Account deletion (App Store 5.1.1(v))
+
+    private func deleteAccount() async {
+        guard !isDeleting else { return }
+        isDeleting = true
+        defer { isDeleting = false }
+        do {
+            try await store.repo.deleteAccount()
+            SellDraftStore.clear()
+            resetNavigation()
+            await store.signOut()
+            Haptics.success()
+            store.show("Ton compte a été supprimé")
+        } catch {
+            Haptics.error()
+            store.show(error)
+        }
     }
 }
 

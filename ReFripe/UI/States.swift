@@ -82,7 +82,7 @@ struct States_Previews: PreviewProvider {
     static var previews: some View {
         ScrollView {
             EmptyStateView(symbol: "heart", title: "Pas encore d'envies",
-                           message: "Touche le cœur d'un article pour le retrouver ici.",
+                           message: "Touche ♡ pour garder un article.",
                            actionTitle: "Découvrir") {}
             ErrorStateView(error: RepositoryError.network("délai dépassé")) {}
             LoadingView("Chargement…").frame(height: 120)

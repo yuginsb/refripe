@@ -152,7 +152,7 @@ private struct OnboardingPreferencesStack: View {
                         .foregroundStyle(RF.C.textDim)
                 }
             }
-            .confirmationDialog("Te déconnecter et utiliser un autre compte ?", isPresented: $confirmSwitchAccount, titleVisibility: .visible) {
+            .confirmationDialog("Changer de compte ?", isPresented: $confirmSwitchAccount, titleVisibility: .visible) {
                 Button("Changer de compte", role: .destructive) {
                     Task {
                         await store.signOut()
@@ -174,7 +174,7 @@ private struct OnboardingPreferencesStack: View {
     }
 
     private var sizesStep: some View {
-        OnboardingStepScaffold(step: 1, tagline: "Facultatif. Pour des nouveautés à ta taille.") {
+        OnboardingStepScaffold(step: 1, tagline: "Facultatif.") {
             SizePreferenceRows(sizes: $model.sizes)
         } actions: {
             OnboardingActions(skip: { model.preferencePath.append(.brands) }, primaryTitle: "Continuer") {

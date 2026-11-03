@@ -1,7 +1,7 @@
 import SwiftUI
 
-/// Public seller profile: header (avatar, verified, rating, sales, response time, city),
-/// « Écrire » → conversation, grid of the seller's active listings.
+/// Public seller profile: header (avatar, verified, rating (n avis) → reviews, sales, response time, city),
+/// « Écrire » → conversation, grid of the seller's active listings; ⋯ menu Signaler / Bloquer.
 struct SellerProfileView: View {
     let userId: UUID
 
@@ -12,6 +12,9 @@ struct SellerProfileView: View {
     @State private var listings: [Listing] = []
     @State private var loadError: Error?
     @State private var isOpeningChat = false
+    @State private var showReviews = false
+    @State private var reporting = false
+    @State private var confirmBlock = false
 
     private var isMe: Bool { store.me?.id == userId }
     private let columns = [GridItem(.flexible(), spacing: 12), GridItem(.flexible(), spacing: 12)]
@@ -38,7 +41,39 @@ struct SellerProfileView: View {
                     }
                     .accessibilityLabel("Partager ce profil")
                 }
+                if !isMe {
+                    ToolbarItem(placement: .topBarTrailing) {
+                        Menu {
+                            Button { reporting = true } label: {
+                                Label("Signaler", systemImage: "flag")
+                            }
+                            Button(role: .destructive) { confirmBlock = true } label: {
+                                Label("Bloquer", systemImage: "hand.raised")
+                            }
+                        } label: {
+                            Image(systemName: "ellipsis.circle")
+                        }
+                        .accessibilityLabel("Plus d'options")
+                    }
+                }
             }
+        }
+        .navigationDestination(isPresented: $showReviews) {
+            ReviewsListView(userId: userId)
+        }
+        .sheet(isPresented: $reporting) {
+            ReportReasonSheet(subject: "ce membre") { reason, details in
+                try await store.repo.report(listingId: nil, userId: userId, reason: reason, details: details)
+            }
+            .environment(store)
+            .presentationDetents([.large])
+        }
+        .confirmationDialog("Bloquer \(profile?.username ?? "ce membre") ?", isPresented: $confirmBlock,
+                            titleVisibility: .visible) {
+            Button("Bloquer", role: .destructive) { Task { await block() } }
+            Button("Annuler", role: .cancel) {}
+        } message: {
+            Text("Elle ne pourra plus t'écrire.")
         }
         .task { await load() }
     }
@@ -47,7 +82,7 @@ struct SellerProfileView: View {
         ScrollView {
             VStack(spacing: 24) {
                 VStack(spacing: 16) {
-                    ProfileHeroView(profile: profile)
+                    ProfileHeroView(profile: profile) { showReviews = true }
                     if !isMe {
                         RFButton("Écrire à \(profile.firstName.isEmpty ? profile.username : profile.firstName)",
                                  symbol: "bubble.left", style: .primary, isLoading: isOpeningChat) {
@@ -96,6 +131,17 @@ struct SellerProfileView: View {
             loadError = nil
         } catch {
             if profile == nil { loadError = error } else { store.show(error) }
+        }
+    }
+
+    private func block() async {
+        do {
+            try await store.repo.block(userId: userId)
+            Haptics.success()
+            store.show("Membre bloqué")
+            router.pop()
+        } catch {
+            store.show(error)
         }
     }
 

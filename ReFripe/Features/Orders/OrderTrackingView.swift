@@ -1,8 +1,11 @@
 import SwiftUI
 
-/// Order tracking, same screen for buyer and seller (role = `order.sellerId == store.me?.id`):
-/// listing, status + one line, timeline, escrow note, amounts, actions by role and status.
-/// No realtime: re-polls while the order can still change.
+/// Suivi de commande (v3), same screen for buyer and seller (role = `order.sellerId == me`):
+/// green escrow banner with a live countdown, listing, 4-step stepper Payé · Expédié · Remis · Terminé,
+/// hand-off card (relais / Yango / main propre) with the buyer's 4-digit code — shown big to the BUYER,
+/// typed by the SELLER (`confirmHandoff`) — and actions pinned at the bottom. A buyer opening an unpaid
+/// order gets the payment flow (`PaymentPendingView`). After completion the buyer rates the seller.
+/// The seller can never mark an order DELIVERED herself. Re-polls while the order can still change.
 @MainActor
 struct OrderTrackingView: View {
     let orderId: UUID
@@ -17,11 +20,30 @@ struct OrderTrackingView: View {
     @State private var pendingConfirm: TrackingAction?
     @State private var isOpeningChat = false
     @State private var successTick = 0
+    /// nil until the first load; true while a buyer pays an unpaid order from here.
+    @State private var paymentFlow: Bool?
+    @State private var codeInput = ""
+    @State private var isConfirmingCode = false
+    @State private var hasReviewed = true
+    @State private var showReview = false
+    @FocusState private var codeFocused: Bool
 
     var body: some View {
         Group {
             if let order {
-                content(order)
+                if paymentFlow == true {
+                    PaymentPendingView(order: order) { id in
+                        if id == orderId {
+                            withAnimation(.snappy) { paymentFlow = false }
+                            Task { await refresh() }
+                        } else {
+                            router.pop()
+                            router.push(.order(id))
+                        }
+                    }
+                } else {
+                    content(order)
+                }
             } else if let loadError {
                 ErrorStateView(error: loadError) { Task { await load() } }
             } else {
@@ -30,8 +52,22 @@ struct OrderTrackingView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .rfScreenBackground()
-        .navigationTitle(order.map { "Commande \(Self.shortNumber($0.id))" } ?? "Commande")
+        .navigationTitle(paymentFlow == true ? "Paiement" : (order.map { "Commande \($0.shortNumber)" } ?? "Commande"))
         .navigationBarTitleDisplayMode(.inline)
+        .toolbar(paymentFlow == true ? .hidden : .automatic, for: .tabBar)
+        .toolbar {
+            if paymentFlow != true, order != nil {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button {
+                        if let order { Task { await contact(order) } }
+                    } label: {
+                        if isOpeningChat { ProgressView() } else { Image(systemName: "bubble.left") }
+                    }
+                    .frame(minWidth: 44, minHeight: 44)
+                    .accessibilityLabel(role == .buyer ? "Écrire à la vendeuse" : "Écrire à l'acheteuse")
+                }
+            }
+        }
         .sensoryFeedback(.success, trigger: successTick)
         .confirmationDialog(pendingConfirm?.confirmTitle ?? "",
                             isPresented: confirmBinding,
@@ -40,15 +76,24 @@ struct OrderTrackingView: View {
             Button(action.confirmButton, role: action.isDestructive ? .destructive : nil) {
                 Task { await perform(action) }
             }
-            Button("Annuler", role: .cancel) {}
+            Button("Retour", role: .cancel) {}
         } message: { action in
-            Text(action.confirmMessage)
+            if let m = action.confirmMessage(seller: sellerName) { Text(m) }
+        }
+        .sheet(isPresented: $showReview) {
+            if let order {
+                ReviewSheet(order: order, sellerName: sellerName) {
+                    hasReviewed = true
+                }
+                .environment(store)
+            }
         }
         .task {
             await load()
             while !Task.isCancelled {
                 try? await Task.sleep(for: .seconds(2))
                 guard !Task.isCancelled else { break }
+                if paymentFlow == true { continue }                     // PaymentPendingView polls itself
                 if let o = order, Self.isSettled(o.status) { continue }
                 await refresh()
             }
@@ -66,12 +111,6 @@ struct OrderTrackingView: View {
 
     private static func isSettled(_ s: OrderStatus) -> Bool { [.completed, .cancelled, .refunded].contains(s) }
 
-    /// "#1" for demo ids, "#3FA2B9" for random UUIDs.
-    static func shortNumber(_ id: UUID) -> String {
-        let tail = id.uuidString.suffix(6).drop(while: { $0 == "0" })
-        return "#" + (tail.isEmpty ? "0" : String(tail))
-    }
-
     private var confirmBinding: Binding<Bool> {
         Binding(get: { pendingConfirm != nil }, set: { if !$0 { pendingConfirm = nil } })
     }
@@ -82,8 +121,12 @@ struct OrderTrackingView: View {
         loadError = nil
         do {
             let o = try await store.repo.order(id: orderId)
+            if paymentFlow == nil {
+                paymentFlow = o.status == .paymentPending && o.buyerId == store.me?.id
+            }
             order = o
             sellerProfile = await store.profile(o.sellerId)
+            await checkReview(o)
         } catch {
             if order == nil { loadError = error } else { store.show(error) }
         }
@@ -92,11 +135,19 @@ struct OrderTrackingView: View {
     private func refresh() async {
         guard let fresh = try? await store.repo.order(id: orderId) else { return }
         let previous = order?.status
-        if fresh != order { order = fresh }
+        if fresh != order { withAnimation(.snappy) { order = fresh } }
         if let previous, previous != fresh.status {
-            if [.paid, .completed].contains(fresh.status) { successTick += 1 }
+            if [.paid, .delivered, .completed].contains(fresh.status) { successTick += 1 }
+            await checkReview(fresh)
             await store.refreshBadges()
         }
+    }
+
+    /// Buyer + completed: has she already rated this order?
+    private func checkReview(_ o: Order) async {
+        guard o.status == .completed, let me = store.me?.id, o.buyerId == me else { return }
+        let reviews = (try? await store.repo.reviews(userId: o.sellerId)) ?? []
+        hasReviewed = reviews.contains { $0.orderId == o.id && $0.reviewerId == me }
     }
 
     private func perform(_ action: TrackingAction) async {
@@ -107,8 +158,8 @@ struct OrderTrackingView: View {
             switch action {
             case .ship, .simulateShip:
                 current = try await store.repo.advanceOrder(id: current.id, to: .shipped)
-            case .simulateDeliver:
-                current = try await store.repo.advanceOrder(id: current.id, to: .delivered)
+            case .simulateHandoff:
+                current = try await store.repo.confirmHandoff(orderId: current.id, code: current.handoffCode ?? "")
             case .cancel:
                 current = try await store.repo.advanceOrder(id: current.id, to: .cancelled)
             case .confirmReceipt:
@@ -118,17 +169,42 @@ struct OrderTrackingView: View {
                 current = try await store.repo.advanceOrder(id: current.id, to: .completed)
             case .dispute:
                 current = try await store.repo.advanceOrder(id: current.id, to: .disputed)
-            case .requestReturn:
-                current = try await store.repo.advanceOrder(id: current.id, to: .returnPending)
+            case .review:
+                showReview = true
+                return
             }
             withAnimation(.snappy) { order = current }
             if action.isPositive { successTick += 1 } else { Haptics.warning() }
             store.show(action.doneMessage)
             await store.refreshBadges()
+            if action == .confirmReceipt && current.status == .completed {
+                hasReviewed = false
+                try? await Task.sleep(for: .milliseconds(600))
+                showReview = true
+            }
         } catch {
             Haptics.error()
             store.show(error)
             await refresh()
+        }
+    }
+
+    private func submitCode(_ order: Order) async {
+        let code = codeInput.filter(\.isNumber)
+        guard code.count == Catalog.handoffCodeLength, !isConfirmingCode else { return }
+        isConfirmingCode = true
+        defer { isConfirmingCode = false }
+        do {
+            let updated = try await store.repo.confirmHandoff(orderId: order.id, code: code)
+            withAnimation(.snappy) { self.order = updated }
+            codeInput = ""
+            codeFocused = false
+            successTick += 1
+            store.show("Remise validée")
+            await store.refreshBadges()
+        } catch {
+            Haptics.error()
+            store.show(error)
         }
     }
 
@@ -144,51 +220,77 @@ struct OrderTrackingView: View {
 
     private func content(_ order: Order) -> some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 24) {
+            VStack(alignment: .leading, spacing: RF.S.lg) {
+                escrowBanner(order)
+
+                if let info = order.status.alternativeInfo {
+                    Label(info.title, systemImage: info.symbol)
+                        .font(RF.T.headline)
+                        .foregroundStyle(order.status.tone == .alert ? RF.C.hibiscusText : RF.C.text)
+                        .padding(RF.S.lg)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .rfCard(radius: RF.R.md)
+                }
+
                 contextCard(order)
 
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(headline(order))
-                        .font(RF.T.title3)
-                        .foregroundStyle(RF.C.text)
-                    Text(statusLine(order))
-                        .font(RF.T.subheadline)
-                        .foregroundStyle(RF.C.textDim)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-                .accessibilityElement(children: .combine)
-
-                OrderTimeline(order: order)
-                    .padding(16)
+                OrderStepper(order: order)
+                    .padding(RF.S.lg)
                     .rfCard(radius: RF.R.md)
 
-                if !order.status.isAlternative && order.status != .completed {
-                    escrowNote
+                if !order.status.isAlternative && order.status != .paymentPending {
+                    handoffCard(order)
                 }
 
                 amounts(order)
             }
             .padding(RF.S.gutter)
-            .padding(.bottom, 16)
+            .padding(.bottom, RF.S.lg)
             .animation(.snappy, value: order.status)
         }
+        .scrollDismissesKeyboard(.interactively)
         .refreshable { await refresh() }
-        // Actions pinned above the tab bar so the next step is always visible.
         .safeAreaInset(edge: .bottom, spacing: 0) {
-            VStack(spacing: 10) {
-                actions(order)
-                RFButton(role == .buyer ? "Écrire à la vendeuse" : "Écrire à l'acheteuse",
-                         symbol: "bubble.left", style: .ghost, isLoading: isOpeningChat) {
-                    Task { await contact(order) }
-                }
+            let list = availableActions(order)
+            if !list.isEmpty {
+                actions(list)
+                    .padding(.horizontal, RF.S.gutter)
+                    .padding(.vertical, 10)
+                    .background(RF.C.paper)
+                    .overlay(alignment: .top) { Rectangle().fill(RF.C.line).frame(height: 0.5) }
             }
-            .padding(.horizontal, RF.S.gutter)
-            .padding(.top, 10)
-            .padding(.bottom, 10)
-            .background(RF.C.paper)
-            .overlay(alignment: .top) { Divider().overlay(RF.C.line) }
         }
     }
+
+    // MARK: Escrow banner
+
+    @ViewBuilder private func escrowBanner(_ order: Order) -> some View {
+        let held: [OrderStatus] = [.paid, .awaitingShipment, .shipped, .delivered, .buyerValidation, .disputed, .returnPending]
+        if held.contains(order.status) {
+            TimelineView(.periodic(from: .now, by: 30)) { context in
+                let left = order.escrowReleaseAt.flatMap { EscrowCountdown.text(until: $0, now: context.date) }
+                let countdownApplies = order.awaitsBuyerConfirmation && left != nil
+                let text: String = {
+                    if role == .buyer {
+                        return countdownApplies ? "Argent bloqué · \(left ?? "")" : "Argent bloqué"
+                    }
+                    return countdownApplies ? "Versement dans \(left ?? "")" : "Paiement sécurisé"
+                }()
+                Label(text, systemImage: "lock.fill")
+                    .font(RF.T.subheadline.weight(.semibold).monospacedDigit())
+                    .foregroundStyle(RF.C.moneyDeep)
+                    .padding(.vertical, 12)
+                    .padding(.horizontal, RF.S.lg)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(RF.C.money.opacity(0.12), in: RoundedRectangle(cornerRadius: RF.R.md, style: .continuous))
+                    .accessibilityLabel(role == .buyer && countdownApplies
+                                        ? "Argent bloqué jusqu'à ta confirmation, versé à \(sellerName) dans \(left ?? "")"
+                                        : text)
+            }
+        }
+    }
+
+    // MARK: Listing
 
     private func contextCard(_ order: Order) -> some View {
         Button {
@@ -204,13 +306,12 @@ struct OrderTrackingView: View {
                         .foregroundStyle(RF.C.text)
                         .lineLimit(2)
                         .multilineTextAlignment(.leading)
-                    Text(role == .buyer ? "Chez \(sellerName)" : "Vente à \(order.buyerName)")
+                    Text(role == .buyer ? sellerName : order.buyerName)
                         .font(RF.T.footnote)
                         .foregroundStyle(RF.C.textDim)
-                    Text("\(order.delivery.label) · \(Fmt.relative(order.createdAt))")
-                        .font(RF.T.footnote)
-                        .foregroundStyle(RF.C.textDim)
-                        .lineLimit(1)
+                    Text(Fmt.fcfa(order.total))
+                        .font(RF.T.price(.footnote))
+                        .foregroundStyle(RF.C.text)
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
                 Image(systemName: "chevron.right")
@@ -222,83 +323,143 @@ struct OrderTrackingView: View {
             .contentShape(RoundedRectangle(cornerRadius: RF.R.md, style: .continuous))
         }
         .buttonStyle(.plain)
-        .accessibilityLabel("\(order.listingTitle), \(order.delivery.label)")
+        .accessibilityLabel("\(order.listingTitle), \(Fmt.fcfa(order.total))")
         .accessibilityHint("Ouvre l'annonce")
     }
 
-    private func headline(_ order: Order) -> String {
-        switch order.status {
-        case .cancelled: "Commande annulée"
-        case .refunded: "Commande remboursée"
-        default: order.status.label
+    // MARK: Hand-off
+
+    private func handoffCard(_ order: Order) -> some View {
+        VStack(alignment: .leading, spacing: RF.S.md) {
+            HStack(spacing: RF.S.md) {
+                Image(systemName: order.delivery.symbol)
+                    .font(RF.T.body)
+                    .foregroundStyle(RF.C.text)
+                    .frame(width: 28)
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(order.delivery.txTitle)
+                        .font(RF.T.headline)
+                        .foregroundStyle(RF.C.text)
+                    Text(placeLine(order.delivery))
+                        .font(RF.T.footnote)
+                        .foregroundStyle(RF.C.textDim)
+                }
+                Spacer(minLength: 0)
+                if [.delivered, .buyerValidation, .completed].contains(order.status) {
+                    Label("Remis", systemImage: "checkmark.circle.fill")
+                        .font(RF.T.footnote.weight(.semibold))
+                        .foregroundStyle(RF.C.moneyDeep)
+                }
+            }
+
+            if order.status == .shipped || order.awaitsShipping {
+                Rectangle().fill(RF.C.line).frame(height: 0.5)
+                if role == .buyer {
+                    buyerCode(order)
+                } else if order.status == .shipped {
+                    sellerCodeInput(order)
+                }
+            }
+        }
+        .padding(RF.S.lg)
+        .rfCard(radius: RF.R.md)
+    }
+
+    /// Placeholders until the relay / courier data exists in the contract.
+    private func placeLine(_ d: DeliveryMethod) -> String {
+        switch d {
+        case .relais: "[Point relais] · [Adresse]"
+        case .yango: "Coursier Yango"
+        case .mainPropre: "Lieu à convenir"
         }
     }
 
-    /// One short line under the status, per role.
-    private func statusLine(_ order: Order) -> String {
-        let buyer = role == .buyer
-        switch order.status {
-        case .paymentPending:
-            return buyer ? "Valide le paiement dans \(order.payment.label)." : "En attente du paiement de l'acheteuse."
-        case .paid, .awaitingShipment:
-            return buyer ? "\(sellerName) prépare ton colis." : "Expédie le colis puis marque-le comme expédié."
-        case .shipped:
-            return buyer ? "Ton colis est en route." : "Le colis est en route."
-        case .delivered, .buyerValidation:
-            return buyer ? "Confirme la réception pour libérer les fonds." : "En attente de la confirmation de l'acheteuse."
-        case .completed:
-            return buyer ? "Fonds versés à \(sellerName)." : "Fonds versés sur ton compte \(order.payment.label)."
-        case .cancelled:
-            return "Le paiement est remboursé à l'acheteuse."
-        case .disputed:
-            return "Fonds bloqués pendant la médiation, réponse sous 48 h."
-        case .returnPending:
-            return "Fonds bloqués jusqu'au retour de l'article."
-        case .refunded:
-            return "Fonds recrédités à l'acheteuse."
+    @ViewBuilder private func buyerCode(_ order: Order) -> some View {
+        if order.status == .shipped, let code = order.handoffCode {
+            VStack(spacing: RF.S.xs) {
+                Text("Code de retrait")
+                    .font(RF.T.footnote.weight(.semibold))
+                    .foregroundStyle(RF.C.textDim)
+                Text(code)
+                    .font(RF.T.number(.largeTitle, weight: .bold))
+                    .kerning(8)
+                    .foregroundStyle(RF.C.text)
+                    .textSelection(.enabled)
+                    .accessibilityLabel("Code \(code.map(String.init).joined(separator: " "))")
+                Text(codeHint(order.delivery))
+                    .font(RF.T.footnote)
+                    .foregroundStyle(RF.C.textDim)
+            }
+            .frame(maxWidth: .infinity)
+        } else {
+            Label("Code à l'expédition", systemImage: "number")
+                .font(RF.T.footnote)
+                .foregroundStyle(RF.C.textDim)
         }
     }
 
-    private var escrowNote: some View {
-        Label {
-            Text("Fonds en séquestre jusqu'à la confirmation, ou \(Catalog.escrowAutoReleaseHours) h après la livraison.")
-        } icon: {
-            Image(systemName: "lock.fill").foregroundStyle(RF.C.moneyDeep)
+    private func codeHint(_ d: DeliveryMethod) -> String {
+        switch d {
+        case .relais: "Au point relais, sur place"
+        case .yango: "Au livreur, sur place"
+        case .mainPropre: "À la vendeuse, sur place"
         }
-        .font(RF.T.footnote)
-        .foregroundStyle(RF.C.textDim)
     }
+
+    private func sellerCodeInput(_ order: Order) -> some View {
+        let ready = codeInput.filter(\.isNumber).count == Catalog.handoffCodeLength
+        return VStack(alignment: .leading, spacing: RF.S.sm) {
+            Text("Code de l'acheteuse")
+                .font(RF.T.footnote.weight(.semibold))
+                .foregroundStyle(RF.C.textDim)
+            HStack(spacing: RF.S.sm) {
+                TextField("0000", text: $codeInput)
+                    .font(RF.T.number(.title2, weight: .semibold))
+                    .kerning(6)
+                    .keyboardType(.numberPad)
+                    .textContentType(.oneTimeCode)
+                    .focused($codeFocused)
+                    .padding(.horizontal, RF.S.md)
+                    .frame(minHeight: 50)
+                    .background(RF.C.paperDim, in: RoundedRectangle(cornerRadius: RF.R.md, style: .continuous))
+                    .onChange(of: codeInput) {
+                        let digits = String(codeInput.filter(\.isNumber).prefix(Catalog.handoffCodeLength))
+                        if digits != codeInput { codeInput = digits }
+                    }
+                    .accessibilityLabel("Code de l'acheteuse")
+                RFButton("Valider", isLoading: isConfirmingCode) {
+                    Task { await submitCode(order) }
+                }
+                .frame(width: 120)
+                .disabled(!ready)
+            }
+        }
+    }
+
+    // MARK: Amounts
 
     private func amounts(_ order: Order) -> some View {
         VStack(spacing: 10) {
             amountRow("Article", Fmt.fcfa(order.itemPrice))
-            amountRow("Livraison", order.deliveryFee > 0 ? Fmt.fcfa(order.deliveryFee) : "Gratuite")
-            Divider().overlay(RF.C.line)
+            amountRow("Remise", order.deliveryFee > 0 ? Fmt.fcfa(order.deliveryFee) : "Gratuit")
+            Rectangle().fill(RF.C.line).frame(height: 0.5)
             HStack(alignment: .firstTextBaseline) {
-                Text("Total")
-                    .font(RF.T.headline)
-                    .foregroundStyle(RF.C.text)
+                Text("Total").font(RF.T.headline).foregroundStyle(RF.C.text)
                 Spacer()
-                Text(Fmt.fcfa(order.total))
-                    .font(RF.T.price(.headline))
-                    .foregroundStyle(RF.C.text)
+                Text(Fmt.fcfa(order.total)).font(RF.T.price(.headline)).foregroundStyle(RF.C.text)
             }
             .accessibilityElement(children: .combine)
             amountRow("Paiement", order.payment.label)
         }
-        .padding(16)
+        .padding(RF.S.lg)
         .rfCard(radius: RF.R.md)
     }
 
     private func amountRow(_ label: String, _ value: String) -> some View {
         HStack(alignment: .firstTextBaseline) {
-            Text(label)
-                .font(RF.T.subheadline)
-                .foregroundStyle(RF.C.textDim)
+            Text(label).font(RF.T.subheadline).foregroundStyle(RF.C.textDim)
             Spacer(minLength: 12)
-            Text(value)
-                .font(RF.T.price(.subheadline, weight: .regular))
-                .foregroundStyle(RF.C.text)
+            Text(value).font(RF.T.price(.subheadline, weight: .regular)).foregroundStyle(RF.C.text)
         }
         .accessibilityElement(children: .combine)
     }
@@ -308,42 +469,46 @@ struct OrderTrackingView: View {
     private func availableActions(_ order: Order) -> [TrackingAction] {
         var list: [TrackingAction] = []
         switch (role, order.status) {
-        case (.seller, .awaitingShipment):
+        case (.seller, .paid), (.seller, .awaitingShipment):
             list = [.ship, .cancel]
-        case (.seller, .paymentPending), (.seller, .paid):
-            list = [.cancel]
-        case (.buyer, .paymentPending), (.buyer, .paid):
+        case (.buyer, .paid):
             list = [.cancel]
         case (.buyer, .awaitingShipment):
             list = [.cancel]
-            if store.isDemo { list.insert(.simulateShip, at: 0) }
+            if store.isDemo { list.append(.simulateShip) }
         case (.buyer, .shipped):
             list = [.dispute]
+            if store.isDemo && order.handoffCode != nil { list.append(.simulateHandoff) }
         case (.buyer, .delivered), (.buyer, .buyerValidation):
-            list = [.confirmReceipt, .dispute, .requestReturn]
+            list = [.confirmReceipt, .dispute]
+        case (.buyer, .completed):
+            if !hasReviewed { list = [.review] }
         default:
             break
         }
-        if store.isDemo && order.status == .shipped { list.insert(.simulateDeliver, at: 0) }
         return list
     }
 
-    @ViewBuilder private func actions(_ order: Order) -> some View {
-        let all = availableActions(order)
-        let list = all.filter { !$0.isDemo } + all.filter(\.isDemo)   // demo helpers last
-        if !list.isEmpty {
-            VStack(spacing: 12) {
-                ForEach(list, id: \.self) { action in
-                    if action.isDemo {
-                        TrackingDemoButton(title: action.title, isLoading: working == action) { trigger(action) }
-                    } else {
-                        RFButton(action.title, style: action == list.first(where: { !$0.isDemo }) && action.isPositive ? .primary : .secondary,
-                                 isLoading: working == action) { trigger(action) }
-                    }
+    private func actions(_ list: [TrackingAction]) -> some View {
+        let main = list.filter { !$0.isDemo }
+        let demo = list.filter(\.isDemo)
+        return VStack(spacing: 8) {
+            if main.count == 2 {
+                HStack(spacing: RF.S.sm) {
+                    ForEach(main, id: \.self) { button($0, primary: $0 == main.first && $0.isPositive) }
                 }
+            } else {
+                ForEach(main, id: \.self) { button($0, primary: $0.isPositive) }
             }
-            .disabled(working != nil)
+            ForEach(demo, id: \.self) { action in
+                TrackingDemoButton(title: action.title, isLoading: working == action) { trigger(action) }
+            }
         }
+        .disabled(working != nil)
+    }
+
+    private func button(_ action: TrackingAction, primary: Bool) -> some View {
+        RFButton(action.title, style: primary ? .primary : .ghost, isLoading: working == action) { trigger(action) }
     }
 
     private func trigger(_ action: TrackingAction) {
@@ -354,59 +519,58 @@ struct OrderTrackingView: View {
 // MARK: - Actions model
 
 private enum TrackingAction: Hashable {
-    case ship, cancel, confirmReceipt, dispute, requestReturn, simulateShip, simulateDeliver
+    case ship, cancel, confirmReceipt, dispute, review, simulateShip, simulateHandoff
 
     var title: String {
         switch self {
-        case .ship: "Marquer comme expédiée"
-        case .cancel: "Annuler la commande"
-        case .confirmReceipt: "Confirmer la réception"
-        case .dispute: "Signaler un problème"
-        case .requestReturn: "Demander un retour"
-        case .simulateShip: "Simuler l'expédition (démo)"
-        case .simulateDeliver: "Simuler la livraison (démo)"
+        case .ship: "Expédié"
+        case .cancel: "Annuler"
+        case .confirmReceipt: "Confirmer"
+        case .dispute: "Signaler"
+        case .review: "Noter"
+        case .simulateShip: "Simuler l'envoi (démo)"
+        case .simulateHandoff: "Simuler la remise (démo)"
         }
     }
-    var isDemo: Bool { self == .simulateShip || self == .simulateDeliver }
-    var isPositive: Bool { [.ship, .confirmReceipt, .simulateShip, .simulateDeliver].contains(self) }
+    var isDemo: Bool { self == .simulateShip || self == .simulateHandoff }
+    var isPositive: Bool { [.ship, .confirmReceipt, .review, .simulateShip, .simulateHandoff].contains(self) }
     var isDestructive: Bool { self == .cancel || self == .dispute }
-    var needsConfirmation: Bool { [.cancel, .confirmReceipt, .dispute, .requestReturn].contains(self) }
+    var needsConfirmation: Bool { [.ship, .cancel, .confirmReceipt, .dispute].contains(self) }
 
     var confirmTitle: String {
         switch self {
-        case .cancel: "Annuler cette commande ?"
-        case .confirmReceipt: "Tu as bien reçu l'article ?"
+        case .ship: "Colis expédié ?"
+        case .cancel: "Annuler la commande ?"
+        case .confirmReceipt: "Tout est OK ?"
         case .dispute: "Signaler un problème ?"
-        case .requestReturn: "Demander un retour ?"
         default: ""
         }
     }
-    var confirmMessage: String {
+    func confirmMessage(seller: String) -> String? {
         switch self {
-        case .cancel: "L'article est remis en vente et l'acheteuse remboursée."
-        case .confirmReceipt: "Les fonds seront versés à la vendeuse."
-        case .dispute: "Les fonds restent bloqués pendant la médiation, réponse sous 48 h."
-        case .requestReturn: "Les fonds restent bloqués jusqu'au retour de l'article."
-        default: ""
+        case .confirmReceipt: "L'argent sera versé à \(seller)."
+        case .dispute: "L'argent reste bloqué."
+        case .cancel: "Remboursement intégral."
+        default: nil
         }
     }
     var confirmButton: String {
         switch self {
+        case .ship: "Expédié"
         case .cancel: "Annuler la commande"
         case .confirmReceipt: "Confirmer"
-        case .dispute: "Ouvrir un litige"
-        case .requestReturn: "Demander le retour"
+        case .dispute: "Signaler"
         default: title
         }
     }
     var doneMessage: String {
         switch self {
-        case .ship, .simulateShip: "Commande expédiée"
-        case .simulateDeliver: "Colis arrivé au point de retrait"
-        case .cancel: "Commande annulée"
-        case .confirmReceipt: "Réception confirmée"
+        case .ship, .simulateShip: "Expédiée"
+        case .simulateHandoff: "Remise validée"
+        case .cancel: "Annulée"
+        case .confirmReceipt: "Merci"
         case .dispute: "Litige ouvert"
-        case .requestReturn: "Demande de retour envoyée"
+        case .review: ""
         }
     }
 }
@@ -425,7 +589,7 @@ private struct TrackingDemoButton: View {
             }
             .font(RF.T.footnote.weight(.semibold))
             .foregroundStyle(RF.C.textDim)
-            .frame(maxWidth: .infinity, minHeight: 32)
+            .frame(maxWidth: .infinity, minHeight: 44)
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
@@ -433,114 +597,72 @@ private struct TrackingDemoButton: View {
     }
 }
 
-// MARK: - Reusable: timeline
+// MARK: - Stepper
 
-/// Vertical happy-path timeline: done = filled check, current = hibiscus ring, pending = hairline.
-/// For alternative outcomes, every step reached before the divergence is shown as done.
-struct OrderTimeline: View {
+/// Horizontal 4-step progress: Payé · Expédié · Remis · Terminé.
+struct OrderStepper: View {
     let order: Order
 
-    private enum StepState { case done, current, pending }
-
-    private var steps: [OrderStatus] { OrderStatus.happyPath }
-
-    private func state(at i: Int) -> StepState {
-        let path = steps
-        if order.status.isAlternative {
-            let reached = order.history.compactMap { path.firstIndex(of: $0.status) }.max() ?? 1
-            return i <= reached ? .done : .pending
-        }
-        let idx = path.firstIndex(of: order.status) ?? 0
-        if i < idx { return .done }
-        if i == idx { return order.status == .completed ? .done : .current }
-        return .pending
-    }
-
-    /// Short step names (the full `OrderStatus.label` is used for the screen headline).
-    static func shortLabel(_ status: OrderStatus) -> String {
-        switch status {
-        case .paymentPending: "Paiement"
-        case .paid: "Payée"
-        case .awaitingShipment: "Préparation"
-        case .shipped: "Expédiée"
-        case .delivered: "Livrée"
-        case .buyerValidation: "Confirmation"
-        case .completed: "Terminée"
-        default: status.label
-        }
-    }
-
     var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            ForEach(Array(steps.enumerated()), id: \.offset) { i, status in
-                row(status, state: state(at: i), next: i + 1 < steps.count ? state(at: i + 1) : nil)
-            }
-        }
-    }
-
-    private func row(_ status: OrderStatus, state: StepState, next: StepState?) -> some View {
-        let date = order.history.last(where: { $0.status == status })?.at
-        return HStack(alignment: .firstTextBaseline, spacing: 12) {
-            Text(Self.shortLabel(status))
-                .font(state == .current ? RF.T.subheadline.weight(.semibold) : RF.T.subheadline)
-                .foregroundStyle(state == .pending ? RF.C.textDim : RF.C.text)
-            Spacer(minLength: 8)
-            if let date, state != .pending {
-                Text(Fmt.relative(date))
-                    .font(RF.T.footnote.monospacedDigit())
-                    .foregroundStyle(RF.C.textDim)
-            }
-        }
-        .padding(.leading, 28)
-        .padding(.bottom, next == nil ? 0 : 20)
-        .background(alignment: .topLeading) {
-            ZStack(alignment: .top) {
-                if next != nil {
-                    Rectangle()
-                        .fill(next == .pending ? RF.C.line : RF.C.text)
-                        .frame(width: 2)
-                        .padding(.top, 16)
-                        .padding(.bottom, -4)
+        let done = OrderStep.doneCount(for: order)
+        let current = order.status.isAlternative ? nil : (done < OrderStep.allCases.count ? done : nil)
+        HStack(alignment: .top, spacing: 0) {
+            ForEach(OrderStep.allCases, id: \.self) { step in
+                let i = step.rawValue
+                VStack(spacing: 6) {
+                    HStack(spacing: 0) {
+                        connector(visible: i > 0, filled: i <= done)
+                        dot(done: i < done, current: i == current)
+                        connector(visible: i < OrderStep.allCases.count - 1, filled: i + 1 <= done)
+                    }
+                    Text(step.title)
+                        .font(i == current ? RF.T.caption.weight(.semibold) : RF.T.caption)
+                        .foregroundStyle(i < done || i == current ? RF.C.text : RF.C.textDim)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.8)
+                    if let date = step.date(in: order), i < done {
+                        Text(Fmt.relative(date))
+                            .font(RF.T.caption.monospacedDigit())
+                            .foregroundStyle(RF.C.textDim)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.7)
+                    }
                 }
-                dot(state).padding(.top, 2)
+                .frame(maxWidth: .infinity)
+                .accessibilityElement(children: .ignore)
+                .accessibilityLabel("\(step.title), \(i < done ? "fait" : (i == current ? "en cours" : "à venir"))")
             }
-            .frame(width: 16)
         }
-        .accessibilityElement(children: .combine)
-        .accessibilityLabel(accessibility(status, state: state, date: date))
     }
 
-    private func dot(_ state: StepState) -> some View {
+    private func connector(visible: Bool, filled: Bool) -> some View {
+        Rectangle()
+            .fill(visible ? (filled ? RF.C.text : RF.C.line) : Color.clear)
+            .frame(height: 2)
+            .frame(maxWidth: .infinity)
+    }
+
+    private func dot(done: Bool, current: Bool) -> some View {
         ZStack {
-            switch state {
-            case .done:
+            if done {
                 Circle().fill(RF.C.text)
                 Image(systemName: "checkmark")
-                    .font(.system(size: 8, weight: .bold))
-                    .foregroundStyle(.white)
-            case .current:
+                    .font(RF.T.caption.weight(.bold))
+                    .imageScale(.small)
+                    .foregroundStyle(RF.C.card)
+            } else if current {
                 Circle().fill(RF.C.card)
                 Circle().strokeBorder(RF.C.hibiscus, lineWidth: 4)
-            case .pending:
+            } else {
                 Circle().fill(RF.C.card)
                 Circle().strokeBorder(RF.C.line, lineWidth: 2)
             }
         }
-        .frame(width: 16, height: 16)
-    }
-
-    private func accessibility(_ status: OrderStatus, state: StepState, date: Date?) -> String {
-        let s: String
-        switch state {
-        case .done: s = "terminé"
-        case .current: s = "en cours"
-        case .pending: s = "à venir"
-        }
-        return [status.label, s, date.map { Fmt.relative($0) }].compactMap { $0 }.joined(separator: ", ")
+        .frame(width: 20, height: 20)
     }
 }
 
-// MARK: - Reusable: order row (Boîte › Commandes)
+// MARK: - Reusable: order row (Mes achats / Mes ventes)
 
 /// Compact order row for lists: photo, title, counterpart + date, total and `StatusPill`.
 /// Tapping pushes `.order(id)` unless `onTap` is provided. No background: embed it in a List / card.
@@ -590,6 +712,7 @@ struct OrderListRow: View {
                 }
                 .fixedSize()
             }
+            .frame(minHeight: 44)
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
@@ -612,30 +735,4 @@ struct OrderListRow: View {
 
 #Preview("Terminée") {
     NavigationStack { OrderTrackingView(orderId: DemoIDs.order(4)) }.previewEnvironment()
-}
-
-#Preview("OrderListRow") {
-    VStack(spacing: 0) {
-        OrderListRowPreviewLoader()
-    }
-    .padding(16)
-    .rfScreenBackground()
-    .previewEnvironment()
-}
-
-private struct OrderListRowPreviewLoader: View {
-    @Environment(AppStore.self) private var store
-    @State private var orders: [Order] = []
-
-    var body: some View {
-        VStack(spacing: 0) {
-            ForEach(orders) { OrderListRow(order: $0) }
-        }
-        .task {
-            try? await Task.sleep(for: .milliseconds(300))
-            let sales = (try? await store.repo.orders(role: .seller)) ?? []
-            let buys = (try? await store.repo.orders(role: .buyer)) ?? []
-            orders = sales + buys
-        }
-    }
 }

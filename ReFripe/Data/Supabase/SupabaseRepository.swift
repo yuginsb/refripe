@@ -1,8 +1,5 @@
 import Foundation
 import Supabase
-#if canImport(UIKit)
-import UIKit
-#endif
 
 /// Real backend: Supabase (Postgres + RLS + RPC, Storage, Edge Functions).
 /// Business rules live in SQL (supabase/migrations); this class only maps rows to the contract types.
@@ -115,9 +112,24 @@ final class SupabaseRepository: Repository, @unchecked Sendable {
 
     func feed(filters: ListingFilters, preferences: UserPreferences?) async throws -> [Listing] {
         try await run {
+            let me = await client.auth.currentUser?.id
             var query = client.from("listings_public")
                 .select(ListingRow.publicColumns)
                 .eq("status", value: ListingStatus.active.rawValue)
+            // v3: my own listings are not in my feed (blocked members are filtered by the view).
+            if let me {
+                query = query.neq("seller_id", value: me)
+            }
+            if !filters.itemTypes.isEmpty {
+                query = query.in("item_type", values: filters.itemTypes.map(\.rawValue).sorted())
+            }
+            if !filters.sizes.isEmpty {
+                // `size_value` holds the raw size ("M", "38", "4 ans"), like ListingFilters.sizes.
+                query = query.in("size_value", values: filters.sizes.sorted())
+            }
+            if !filters.districts.isEmpty {
+                query = query.in("district", values: filters.districts.sorted())
+            }
             if let gender = filters.gender {
                 query = query.eq("gender", value: gender.rawValue)
             }
@@ -348,7 +360,8 @@ final class SupabaseRepository: Repository, @unchecked Sendable {
                     defectComment: defect.isEmpty ? nil : defect,
                     negotiable: draft.negotiable,
                     minOffer: draft.negotiable && draft.minOffer > 0 && draft.minOffer < draft.price ? draft.minOffer : nil,
-                    deliveryMethods: DeliveryMethod.allCases.filter { draft.delivery.contains($0) }
+                    deliveryMethods: DeliveryMethod.allCases.filter { draft.delivery.contains($0) },
+                    itemType: draft.itemType ?? .autre
                 )
                 let rows: [ListingRow] = try await client.from("listings")
                     .insert(insert, returning: .representation)
@@ -430,31 +443,11 @@ final class SupabaseRepository: Repository, @unchecked Sendable {
 
     func createOrder(listingId: UUID, delivery: DeliveryMethod, payment: PaymentMethod) async throws -> Order {
         try await run {
+            // v3: the order is created PAYMENT_PENDING; the guided payment screen then calls
+            // `startPayment` (payment-init) and polls `order(id:)`. Unpaid orders are cancelled by cron after 30 min.
             let orderId: UUID = try await client
                 .rpc("create_order", params: CreateOrderParams(listingId: listingId, delivery: delivery, payment: payment))
                 .execute().value
-
-            let response: PaymentInitResponse
-            do {
-                response = try await client.functions.invoke(
-                    "payment-init",
-                    options: FunctionInvokeOptions(body: PaymentInitBody(orderId: orderId))
-                )
-            } catch {
-                // Payment could not start: release the item instead of leaving it reserved.
-                _ = try? await client
-                    .rpc("advance_order", params: AdvanceOrderParams(orderId: orderId, status: .cancelled))
-                    .execute()
-                throw error
-            }
-
-            #if canImport(UIKit)
-            // Live mode: hand over to the Wave / Orange Money checkout (nil in sandbox).
-            if let raw = response.checkoutUrl, let url = URL(string: raw) {
-                await MainActor.run { UIApplication.shared.open(url) }
-            }
-            #endif
-
             return try await fetchOrder(orderId)
         }
     }
@@ -467,7 +460,7 @@ final class SupabaseRepository: Repository, @unchecked Sendable {
                 .eq(role == .buyer ? "buyer_id" : "seller_id", value: uid)
                 .order("created_at", ascending: false)
                 .execute().value
-            return rows.map { $0.model(storage) }
+            return await withHandoffCodes(rows, me: uid)
         }
     }
 
@@ -505,7 +498,7 @@ final class SupabaseRepository: Repository, @unchecked Sendable {
                 .order("created_at", ascending: true)
                 .limit(500)
                 .execute().value
-            return rows.map(\.model)
+            return rows.map { $0.model(storage) }
         }
     }
 
@@ -520,7 +513,7 @@ final class SupabaseRepository: Repository, @unchecked Sendable {
                 .select(MessageRow.columns)
                 .execute().value
             guard let row = rows.first else { throw RepositoryError.notFound }
-            return row.model
+            return row.model(storage)
         }
     }
 
@@ -589,6 +582,148 @@ final class SupabaseRepository: Repository, @unchecked Sendable {
         }
     }
 
+    // MARK: - v3
+
+    func startPayment(orderId: UUID) async throws -> PaymentSession {
+        try await run {
+            let response: PaymentInitResponse = try await client.functions.invoke(
+                "payment-init",
+                options: FunctionInvokeOptions(body: PaymentInitBody(orderId: orderId))
+            )
+            let order = try await fetchOrder(orderId)
+            // Sandbox: no checkout URL, the order is already PAID — the polling screen moves on by itself.
+            return PaymentSession(
+                orderId: order.id,
+                method: order.payment,
+                amount: response.amount ?? order.total,
+                checkoutURL: response.checkoutUrl.flatMap { URL(string: $0) },
+                ussdCode: response.ussdCode,
+                maskedPhone: response.maskedPhone
+            )
+        }
+    }
+
+    func confirmHandoff(orderId: UUID, code: String) async throws -> Order {
+        try await run {
+            let result: String = try await client
+                .rpc("confirm_handoff", params: ConfirmHandoffParams(orderId: orderId, code: code.filter(\.isNumber)))
+                .execute().value
+            switch result {
+            case "ok": return try await fetchOrder(orderId)
+            case "locked":
+                throw RepositoryError.invalidState("Trop d'essais. Contacte le support ReFripe pour valider la remise.")
+            default:
+                throw RepositoryError.invalidState("Code incorrect. Demande à l'acheteuse son code à \(Catalog.handoffCodeLength) chiffres.")
+            }
+        }
+    }
+
+    func submitReview(orderId: UUID, rating: Int, comment: String) async throws -> Review {
+        try await run {
+            let row: ReviewRow = try await client
+                .rpc("submit_review", params: SubmitReviewParams(
+                    orderId: orderId, rating: rating,
+                    comment: comment.trimmingCharacters(in: .whitespacesAndNewlines)))
+                .execute().value
+            return row.model
+        }
+    }
+
+    func reviews(userId: UUID) async throws -> [Review] {
+        try await run {
+            let rows: [ReviewRow] = try await client.from("reviews")
+                .select(ReviewRow.columns)
+                .eq("reviewee_id", value: userId)
+                .order("created_at", ascending: false)
+                .limit(100)
+                .execute().value
+            return rows.map(\.model)
+        }
+    }
+
+    func sendPhoto(_ jpeg: Data, conversationId: UUID) async throws -> ChatMessage {
+        guard !jpeg.isEmpty else { throw RepositoryError.invalidState("Photo vide.") }
+        return try await run {
+            let uid = try await requireUser()
+            // Storage RLS: the first folder must be auth.uid() (lowercase).
+            let path = "\(uid.uuidString.lowercased())/\(conversationId.uuidString.lowercased())/\(UUID().uuidString.lowercased()).jpg"
+            _ = try await client.storage.from(StoragePaths.chatBucket).upload(
+                path,
+                data: jpeg,
+                options: FileOptions(cacheControl: "31536000", contentType: "image/jpeg", upsert: false)
+            )
+            do {
+                let rows: [MessageRow] = try await client.from("messages")
+                    .insert(MessageInsert(conversationId: conversationId, senderId: uid, text: "", photoUrl: path),
+                            returning: .representation)
+                    .select(MessageRow.columns)
+                    .execute().value
+                guard let row = rows.first else { throw RepositoryError.notFound }
+                return row.model(storage)
+            } catch {
+                _ = try? await client.storage.from(StoragePaths.chatBucket).remove(paths: [path])
+                throw error
+            }
+        }
+    }
+
+    func report(listingId: UUID?, userId: UUID?, reason: ReportReason, details: String) async throws {
+        guard listingId != nil || userId != nil else { throw RepositoryError.invalidState("Que veux-tu signaler ?") }
+        try await run {
+            let uid = try await requireUser()
+            try await client.from("reports")
+                .insert(ReportInsert(reporterId: uid, listingId: listingId, reportedUserId: userId, reason: reason,
+                                     details: String(details.trimmingCharacters(in: .whitespacesAndNewlines).prefix(1000))),
+                        returning: .minimal)
+                .execute()
+        }
+    }
+
+    func block(userId: UUID) async throws {
+        try await run {
+            let uid = try await requireUser()
+            guard uid != userId else { throw RepositoryError.invalidState("Tu ne peux pas te bloquer toi-même.") }
+            try await client.from("blocks")
+                .upsert(BlockInsert(blockerId: uid, blockedId: userId),
+                        onConflict: "blocker_id,blocked_id", returning: .minimal, ignoreDuplicates: true)
+                .execute()
+        }
+    }
+
+    func unblock(userId: UUID) async throws {
+        try await run {
+            let uid = try await requireUser()
+            try await client.from("blocks")
+                .delete(returning: .minimal)
+                .eq("blocker_id", value: uid)
+                .eq("blocked_id", value: userId)
+                .execute()
+        }
+    }
+
+    func blockedUserIds() async throws -> Set<UUID> {
+        try await run {
+            let uid = try await requireUser()
+            let rows: [BlockedIdRow] = try await client.from("blocks")
+                .select("blocked_id")
+                .eq("blocker_id", value: uid)
+                .execute().value
+            return Set(rows.map(\.blockedId))
+        }
+    }
+
+    func deleteAccount() async throws {
+        try await run {
+            _ = try await requireUser()
+            // Edge Function: RPC delete_account (rules + anonymisation) → Storage cleanup → auth user deletion.
+            let _: DeleteAccountResponse = try await client.functions.invoke(
+                "delete-account",
+                options: FunctionInvokeOptions(body: EmptyBody())
+            )
+            try? await client.auth.signOut()
+        }
+    }
+
     // MARK: - Helpers
 
     private func requireUser() async throws -> UUID {
@@ -628,7 +763,32 @@ final class SupabaseRepository: Repository, @unchecked Sendable {
             .limit(1)
             .execute().value
         guard let row = rows.first else { throw RepositoryError.notFound }
-        return row.model(storage)
+        let me = await client.auth.currentUser?.id
+        return await withHandoffCodes([row], me: me).first ?? row.model(storage)
+    }
+
+    /// Orders where I am the buyer and a hand-off code may exist get it from the buyer-only RPC
+    /// (`orders.handoff_code` is not readable through the table). Failures leave the code nil.
+    private func withHandoffCodes(_ rows: [OrderRow], me: UUID?) async -> [Order] {
+        let withCode: Set<OrderStatus> = [.shipped, .delivered, .buyerValidation, .completed, .disputed, .returnPending]
+        let needsCode = rows.filter { $0.buyerId == me && withCode.contains($0.status) }
+        var codes: [UUID: String] = [:]
+        if !needsCode.isEmpty {
+            var fetched: [HandoffCodeRow] = []
+            do {
+                if needsCode.count == 1, let only = needsCode.first {
+                    fetched = try await client.rpc("my_handoff_codes", params: HandoffCodesParams(orderId: only.id)).execute().value
+                } else {
+                    fetched = try await client.rpc("my_handoff_codes").execute().value
+                }
+            } catch {
+                fetched = []
+            }
+            for row in fetched {
+                if let code = row.handoffCode { codes[row.orderId] = code }
+            }
+        }
+        return rows.map { $0.model(storage, handoffCode: codes[$0.id]) }
     }
 
     /// Runs a backend call and converts SDK errors into `RepositoryError`.

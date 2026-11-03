@@ -24,6 +24,12 @@ enum SizeType: String, Codable, CaseIterable, Identifiable, Hashable {
     var id: String { rawValue }
 }
 
+/// Kind of garment — drives search ("une robe", "un pagne") and the sell flow. (v3)
+enum ItemType: String, Codable, CaseIterable, Identifiable, Hashable {
+    case robe, pagne, ensemble, haut, chemise, pantalon, jean, jupe, chaussures, sac, accessoire, autre
+    var id: String { rawValue }
+}
+
 enum DeliveryMethod: String, Codable, CaseIterable, Identifiable, Hashable {
     case relais
     case mainPropre = "main_propre"
@@ -75,6 +81,11 @@ struct Listing: Identifiable, Codable, Hashable {
     var deliveryMethods: [DeliveryMethod]
     var status: ListingStatus
     var createdAt: Date
+    // v3
+    var itemType: ItemType = .autre
+    /// Set when the seller accepted an offer: only `reservedFor` can buy until this date (2 h).
+    var reservedUntil: Date? = nil
+    var reservedFor: UUID? = nil
 
     var locationLabel: String { "\(district), \(city)" }
     var priceDrop: FCFA? { oldPrice.map { $0 - price }.flatMap { $0 > 0 ? $0 : nil } }
@@ -92,6 +103,7 @@ struct UserProfile: Identifiable, Codable, Hashable {
     var salesCount: Int
     var memberSince: Date
     var responseTimeMinutes: Int?
+    var reviewCount: Int = 0       // v3
 
     var initial: String { String(username.prefix(1)).uppercased() }
     var locationLabel: String { "\(city), \(district)" }
@@ -127,6 +139,12 @@ struct ListingFilters: Hashable {
     var brands: Set<String> = []
     var negotiableOnly: Bool = false
     var sort: ListingSort = .recent
+    // v3
+    var itemTypes: Set<ItemType> = []
+    /// Size labels as stored on listings' `sizeValue` side (e.g. "M", "38", "42"); empty = all sizes.
+    var sizes: Set<String> = []
+    /// Districts ("Cocody", "Plateau"…); empty = whole city.
+    var districts: Set<String> = []
 
     /// Number of non-default advanced filters (badge on the "Filtres" chip). Gender/query excluded.
     var activeCount: Int {
@@ -136,6 +154,9 @@ struct ListingFilters: Hashable {
         if !brands.isEmpty { n += 1 }
         if negotiableOnly { n += 1 }
         if sort != .recent { n += 1 }
+        if !itemTypes.isEmpty { n += 1 }
+        if !sizes.isEmpty { n += 1 }
+        if !districts.isEmpty { n += 1 }
         return n
     }
 }
@@ -210,6 +231,13 @@ struct Order: Identifiable, Codable, Hashable {
     var status: OrderStatus
     var history: [OrderEvent]
     var createdAt: Date
+    // v3
+    /// 4-digit code shown ONLY to the buyer once shipped; the courier / relay / seller enters it to mark the hand-off.
+    var handoffCode: String? = nil
+    /// When escrow is released to the seller if the buyer does nothing (72 h after hand-off).
+    var escrowReleaseAt: Date? = nil
+    /// Provider reference once paid (receipt).
+    var paymentReference: String? = nil
 
     var total: FCFA { itemPrice + deliveryFee }
 }
@@ -233,6 +261,7 @@ struct ChatMessage: Identifiable, Codable, Hashable {
     var senderId: UUID
     var text: String
     var sentAt: Date
+    var photo: ListingPhoto? = nil   // v3: photo message
 }
 
 // MARK: Notifications
@@ -240,6 +269,8 @@ struct ChatMessage: Identifiable, Codable, Hashable {
 enum NotificationKind: String, Codable, Hashable {
     case counterOffer = "counter_offer", priceDrop = "price_drop", newInSize = "new_in_size"
     case message, streak, orderUpdate = "order_update"
+    // v3
+    case offerReceived = "offer_received", offerAccepted = "offer_accepted", offerRefused = "offer_refused", newSale = "new_sale"
 }
 
 struct AppNotification: Identifiable, Codable, Hashable {
@@ -290,12 +321,40 @@ struct ListingDraft: Hashable {
     var color: String?
     var title: String = ""
     var description: String = ""
-    var price: FCFA = 5_000
-    var negotiable: Bool = false
-    var minOffer: FCFA = 4_000
+    var itemType: ItemType?        // v3
+    var price: FCFA = 0            // v3: empty until the seller types it
+    var negotiable: Bool = true    // v3: open to offers by default
+    var minOffer: FCFA = 0
     var delivery: Set<DeliveryMethod> = [.relais]
 
     var resolvedBrand: String { brand == "Autre" ? brandCustom : (brand ?? "") }
+}
+
+// MARK: v3 — payment session, reviews, moderation
+
+/// Returned when a payment starts: where to send the buyer (Wave app / checkout page) or which USSD code to dial.
+struct PaymentSession: Hashable {
+    var orderId: UUID
+    var method: PaymentMethod
+    var amount: FCFA
+    var checkoutURL: URL?
+    var ussdCode: String?
+    var maskedPhone: String?        // "07 07 •• •• 07"
+}
+
+struct Review: Identifiable, Codable, Hashable {
+    let id: UUID
+    var orderId: UUID
+    var reviewerId: UUID
+    var revieweeId: UUID
+    var rating: Int                 // 1…5
+    var comment: String
+    var createdAt: Date
+}
+
+enum ReportReason: String, Codable, CaseIterable, Identifiable, Hashable {
+    case counterfeit, prohibited, misleading, offensive, scam, other
+    var id: String { rawValue }
 }
 
 enum PhotoFlag: String, CaseIterable, Hashable {

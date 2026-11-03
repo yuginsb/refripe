@@ -2,17 +2,18 @@ import SwiftUI
 import UIKit
 import UserNotifications
 
-/// `.notifications` route: the same list as Boîte › Notifications, as a pushed screen.
+/// `.notifications` route (v3): pushed from the bell of Accueil. Tab bar hidden.
 struct NotificationsView: View {
     var body: some View {
         NotificationsList()
             .rfScreenBackground()
             .navigationTitle("Notifications")
             .navigationBarTitleDisplayMode(.inline)
+            .toolbar(.hidden, for: .tabBar)
     }
 }
 
-/// Boîte › Notifications: grouped list (Aujourd'hui / Plus tôt), unread dot, marked read on open,
+/// Notifications list (also embeddable, e.g. by the v2 Boîte segment): grouped list (Aujourd'hui / Plus tôt), unread dot, marked read on open,
 /// deep links on tap, and a one-line row asking for push permission when it isn't granted.
 struct NotificationsList: View {
     @Environment(AppStore.self) private var store
@@ -59,8 +60,7 @@ struct NotificationsList: View {
         .refreshable { await load() }
         .overlay {
             if items.isEmpty {
-                ContentUnavailableView("Rien de neuf", systemImage: "bell",
-                                       description: Text("Baisses de prix, offres et messages arrivent ici."))
+                ContentUnavailableView("Rien de neuf", systemImage: "bell")
             }
         }
     }
@@ -104,17 +104,32 @@ struct NotificationsList: View {
 
     private func handleTap(_ n: AppNotification) {
         if let i = items.firstIndex(where: { $0.id == n.id }) { items[i].read = true }
+        // Offers live in the conversation (v3): prefer the chat when the notification carries one.
         switch n.kind {
         case .counterOffer:
-            if let id = n.listingId { router.push(.offerThread(id)) } else { fallback(n) }
-        case .orderUpdate:
+            if let id = n.conversationId { router.push(.chat(id)) }
+            else if let id = n.listingId { router.push(.offerThread(id)) }
+            else { fallback(n) }
+        case .offerReceived:
+            if let id = n.conversationId { router.push(.chat(id)) }
+            else if let id = n.listingId { router.push(.receivedOffers(id)) }
+            else { fallback(n) }
+        case .offerAccepted:
+            if let id = n.conversationId { router.push(.chat(id)) }
+            else if let id = n.listingId { router.push(.checkout(id)) }
+            else { fallback(n) }
+        case .offerRefused:
+            if let id = n.listingId { router.push(.product(id)) }
+            else if let id = n.conversationId { router.push(.chat(id)) }
+            else { fallback(n) }
+        case .newSale, .orderUpdate:
             if let id = n.orderId { router.push(.order(id)) } else { fallback(n) }
         case .message:
             if let id = n.conversationId { router.push(.chat(id)) } else { fallback(n) }
         case .streak:
             open(tab: .discover)
         case .priceDrop, .newInSize:
-            fallback(n)
+            if let id = n.listingId { router.push(.product(id)) } else { fallback(n) }
         }
     }
 
@@ -236,6 +251,10 @@ struct NotificationStyle {
         case .message: symbol = "bubble.left"
         case .streak: symbol = "flame"
         case .orderUpdate: symbol = "shippingbox"
+        case .offerReceived: symbol = "tag.circle"
+        case .offerAccepted: symbol = "checkmark.circle"
+        case .offerRefused: symbol = "xmark.circle"
+        case .newSale: symbol = "banknote"
         }
     }
 }
@@ -256,7 +275,7 @@ struct PushPermissionRow: View {
                 .font(RF.T.body)
                 .foregroundStyle(RF.C.text)
                 .frame(width: 24)
-            Text(denied ? "Alertes désactivées" : "Active les alertes")
+            Text(denied ? "Alertes coupées" : "Alertes")
                 .font(RF.T.subheadline.weight(.semibold))
                 .foregroundStyle(RF.C.text)
             Spacer(minLength: 8)

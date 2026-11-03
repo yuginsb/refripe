@@ -1,58 +1,56 @@
 import SwiftUI
 
-/// "Filtres" sheet of the grid: native Form (sections, steppers, toggle, picker) with chips for
-/// conditions and brands. Edits the grid's filters live: the grid reloads behind the sheet and the
-/// main button shows the up-to-date result count.
+/// « Filtres » sheet of Accueil: Type d'article, Taille, Budget, Commune, État, Ouvert aux offres, Trier par.
+/// Edits the feed's filters live: the grid reloads behind the sheet and the main button shows the
+/// up-to-date count (« Afficher N articles »).
 struct DiscoverFilterSheet: View {
     @Binding var filters: ListingFilters
     let resultCount: Int
     let isLoading: Bool
+    var city: String = "Abidjan"
 
     @Environment(\.dismiss) private var dismiss
-
-    private let priceStep: FCFA = 500
 
     var body: some View {
         NavigationStack {
             Form {
-                Section("Prix") {
-                    Stepper(value: $filters.priceMin, in: 0...filters.priceMax, step: priceStep) {
-                        LabeledContent("Minimum") {
-                            Text(Fmt.fcfa(filters.priceMin)).font(RF.T.price(.body, weight: .regular))
+                Section("Type") {
+                    chips(ItemType.allCases, label: { $0.filterLabel }, keyPath: \.itemTypes)
+                }
+
+                Section("Taille") {
+                    chips(DiscoverFilterOptions.letterSizes, label: { $0 }, keyPath: \.sizes)
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text("Pointures")
+                            .font(RF.T.footnote)
+                            .foregroundStyle(RF.C.textDim)
+                        chips(DiscoverFilterOptions.shoeSizes, label: { $0 }, keyPath: \.sizes)
+                    }
+                }
+
+                Section("Budget") {
+                    DiscoverWrapLayout {
+                        ForEach(DiscoverFilterOptions.budgets, id: \.self) { max in
+                            Chip("Moins de \(Fmt.number(max))", selected: isBudget(max)) { setBudget(max) }
+                        }
+                        Chip("Tous les prix", selected: isBudget(ListingFilters.catalogMaxPrice)) {
+                            setBudget(ListingFilters.catalogMaxPrice)
                         }
                     }
-                    Stepper(value: $filters.priceMax, in: filters.priceMin...ListingFilters.catalogMaxPrice, step: priceStep) {
-                        LabeledContent("Maximum") {
-                            Text(Fmt.fcfa(filters.priceMax)).font(RF.T.price(.body, weight: .regular))
-                        }
-                    }
+                    .padding(.vertical, 4)
+                }
+
+                Section("Commune") {
+                    chips(districtOptions, label: { $0 }, keyPath: \.districts)
                 }
 
                 Section("État") {
-                    DiscoverWrapLayout {
-                        ForEach(ItemCondition.allCases) { c in
-                            Chip(c.label, selected: filters.conditions.contains(c)) {
-                                toggle(c, in: \.conditions)
-                            }
-                        }
-                    }
-                    .padding(.vertical, 4)
-                }
-
-                Section("Marque") {
-                    DiscoverWrapLayout {
-                        ForEach(Catalog.brands, id: \.self) { b in
-                            Chip(b, selected: filters.brands.contains(b)) {
-                                toggle(b, in: \.brands)
-                            }
-                        }
-                    }
-                    .padding(.vertical, 4)
+                    chips(ItemCondition.allCases, label: { $0.label }, keyPath: \.conditions)
                 }
 
                 Section {
                     Toggle("Ouvert aux offres", isOn: $filters.negotiableOnly)
-                    Picker("Trier par", selection: $filters.sort) {
+                    Picker("Tri", selection: $filters.sort) {
                         ForEach(ListingSort.allCases) { s in
                             Text(s.discoverLabel).tag(s)
                         }
@@ -84,6 +82,27 @@ struct DiscoverFilterSheet: View {
         .presentationDragIndicator(.visible)
     }
 
+    // MARK: Pieces
+
+    private func chips<T: Hashable>(_ options: [T], label: @escaping (T) -> String,
+                                    keyPath: WritableKeyPath<ListingFilters, Set<T>>) -> some View {
+        DiscoverWrapLayout {
+            ForEach(options, id: \.self) { option in
+                Chip(label(option), selected: filters[keyPath: keyPath].contains(option)) {
+                    toggle(option, in: keyPath)
+                }
+            }
+        }
+        .padding(.vertical, 4)
+    }
+
+    /// The user's city districts, plus any district already selected elsewhere (e.g. « Près de moi »).
+    private var districtOptions: [String] {
+        var list = DiscoverFilterOptions.districts(city: city)
+        for d in filters.districts.sorted() where !list.contains(d) { list.insert(d, at: 0) }
+        return list
+    }
+
     private var footer: some View {
         RFButton(resultTitle, isLoading: isLoading) { dismiss() }
             .padding(EdgeInsets(top: RF.S.md, leading: RF.S.gutter, bottom: RF.S.md, trailing: RF.S.gutter))
@@ -91,7 +110,18 @@ struct DiscoverFilterSheet: View {
     }
 
     private var resultTitle: String {
-        resultCount == 0 ? "Aucun résultat" : "Afficher \(resultCount) résultat\(resultCount > 1 ? "s" : "")"
+        resultCount == 0 ? "Aucun article" : "Afficher \(Fmt.number(resultCount)) article\(resultCount > 1 ? "s" : "")"
+    }
+
+    // MARK: Budget
+
+    private func isBudget(_ max: FCFA) -> Bool {
+        filters.priceMin == 0 && filters.priceMax == max
+    }
+
+    private func setBudget(_ max: FCFA) {
+        filters.priceMin = 0
+        filters.priceMax = max
     }
 
     private func toggle<T: Hashable>(_ value: T, in keyPath: WritableKeyPath<ListingFilters, Set<T>>) {
@@ -104,7 +134,7 @@ struct DiscoverFilterSheet: View {
 }
 
 extension ListingSort {
-    /// Labels of the "Trier par" picker.
+    /// Labels of the « Trier par » picker.
     var discoverLabel: String {
         switch self {
         case .recent: "Plus récents"

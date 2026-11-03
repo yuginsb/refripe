@@ -1,13 +1,19 @@
 import SwiftUI
 import UIKit
 
-/// "Vendre" — 10-step listing wizard presented full screen by `MainTabView` (`router.isSellPresented`).
-/// Mockup `screenSell` + `sellStep*`; quality control of photos happens on-device before step 2.
+/// "Vendre" — 4-step listing wizard presented full screen by `MainTabView` (`router.isSellPresented`):
+/// Photos · L'article · Ton prix · Remise (+ relecture). Photos are checked on-device before step 2.
+/// The draft is saved on every step change / close and restored here next time (« Brouillon enregistré »).
+///
+/// UI tests: launch argument `-uiTestingSellPhoto` starts from an empty form with one bundled demo photo.
 struct SellFlowView: View {
     @Environment(AppStore.self) private var store
     @Environment(Router.self) private var router
     @State private var model = SellFlowModel()
-    @State private var confirmClose = false
+    @State private var confirmStartOver = false
+    @State private var didRestore = false
+
+    static let uiTestPhotoArgument = "-uiTestingSellPhoto"
 
     var body: some View {
         NavigationStack {
@@ -22,7 +28,18 @@ struct SellFlowView: View {
             .rfScreenBackground()
         }
         .tint(RF.C.hibiscus)
-        .onAppear { model.notify = { store.show($0) } }
+        .onAppear {
+            model.notify = { store.show($0) }
+            guard !didRestore else { return }
+            didRestore = true
+            if ProcessInfo.processInfo.arguments.contains(Self.uiTestPhotoArgument) {
+                SellDraftStore.clear()
+                model.addUITestPhoto()
+            } else {
+                model.restoreDraft()
+            }
+        }
+        .onChange(of: model.step) { _, _ in model.saveDraft() }
     }
 
     // MARK: Wizard
@@ -58,25 +75,17 @@ struct SellFlowView: View {
                 Button("OK") { hideKeyboard() }.fontWeight(.semibold)
             }
         }
-        .confirmationDialog("Abandonner cette annonce ?", isPresented: $confirmClose, titleVisibility: .visible) {
-            Button("Abandonner l'annonce", role: .destructive) { close() }
-            Button("Continuer à remplir", role: .cancel) {}
-        } message: {
-            Text("Tes photos et infos seront perdues.")
+        .confirmationDialog("Recommencer ?", isPresented: $confirmStartOver, titleVisibility: .visible) {
+            Button("Effacer le brouillon", role: .destructive) { model.startOver() }
+            Button("Annuler", role: .cancel) {}
         }
     }
 
     @ViewBuilder private var stepContent: some View {
         switch model.step {
         case .photos: SellPhotosStep(model: model)
-        case .category: SellCategoryStep(model: model)
-        case .brand: SellBrandStep(model: model)
-        case .size: SellSizeStep(model: model)
-        case .condition: SellConditionStep(model: model)
-        case .color: SellColorStep(model: model)
-        case .details: SellDetailsStep(model: model)
+        case .article: SellArticleStep(model: model)
         case .price: SellPriceStep(model: model)
-        case .delivery: SellDeliveryStep(model: model)
         case .review: SellReviewStep(model: model)
         }
     }
@@ -98,19 +107,38 @@ struct SellFlowView: View {
         }
     }
 
-    /// Thin native progress bar under the navigation bar.
+    /// Thin native progress bar under the navigation bar, then « Brouillon enregistré · Recommencer ».
     private var progressBar: some View {
         let fraction = Double(model.step.rawValue) / Double(SellFlowModel.Step.allCases.count)
-        return ProgressView(value: fraction)
-            .progressViewStyle(.linear)
-            .tint(RF.C.hibiscus)
-            .padding(.horizontal, RF.S.gutter)
-            .padding(.vertical, 6)
-            .background(RF.C.paper)
-            .animation(.snappy, value: model.step)
-            .accessibilityElement()
-            .accessibilityLabel("Progression")
-            .accessibilityValue("Étape \(model.step.rawValue) sur \(SellFlowModel.Step.allCases.count) : \(model.step.title)")
+        return VStack(spacing: 4) {
+            ProgressView(value: fraction)
+                .progressViewStyle(.linear)
+                .tint(RF.C.hibiscus)
+                .animation(.snappy, value: model.step)
+                .accessibilityElement()
+                .accessibilityLabel("Progression")
+                .accessibilityValue("Étape \(model.step.rawValue) sur \(SellFlowModel.Step.allCases.count) : \(model.step.title)")
+            if model.draftSavedAt != nil {
+                HStack {
+                    Label("Brouillon enregistré", systemImage: "checkmark.circle")
+                        .font(RF.T.caption)
+                        .foregroundStyle(RF.C.textDim)
+                        .accessibilityIdentifier("sell.draftSaved")
+                    Spacer()
+                    Button("Recommencer") { confirmStartOver = true }
+                        .font(RF.T.caption.weight(.semibold))
+                        .foregroundStyle(RF.C.hibiscusText)
+                        .frame(minHeight: 32)
+                        .contentShape(Rectangle())
+                        .accessibilityIdentifier("sell.startOver")
+                }
+                .transition(.opacity)
+            }
+        }
+        .padding(.horizontal, RF.S.gutter)
+        .padding(.vertical, 6)
+        .background(RF.C.paper)
+        .animation(.easeOut(duration: 0.2), value: model.draftSavedAt != nil)
     }
 
     private var bottomBar: some View {
@@ -126,6 +154,7 @@ struct SellFlowView: View {
                 primaryAction()
             }
             .disabled(!model.canContinue(model.step))
+            .accessibilityIdentifier("sell.primary")
         }
         .padding(.horizontal, RF.S.gutter)
         .padding(.top, RF.S.md)
@@ -137,7 +166,7 @@ struct SellFlowView: View {
 
     private var primaryTitle: String {
         if model.step == .review { return model.isPublishing ? "Publication…" : "Publier" }
-        return model.returnToReview ? "Revenir au récapitulatif" : "Continuer"
+        return model.returnToReview ? "Relecture" : "Continuer"
     }
 
     private func primaryAction() {
@@ -151,9 +180,14 @@ struct SellFlowView: View {
 
     // MARK: Closing
 
+    /// Closing never loses work: the draft is saved and offered again next time.
     private func requestClose() {
         hideKeyboard()
-        if model.isDirty && model.published == nil { confirmClose = true } else { close() }
+        if model.published == nil {
+            model.saveDraft()
+            if model.draftSavedAt != nil { store.show("Brouillon enregistré") }
+        }
+        close()
     }
 
     private func close() {
@@ -169,7 +203,7 @@ private extension SellFlowModel.Step {
     /// Steps rendered as a native inset-grouped `Form` instead of a scrolling stack.
     var usesForm: Bool {
         switch self {
-        case .category, .condition, .delivery, .review: true
+        case .review: true
         default: false
         }
     }

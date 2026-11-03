@@ -27,18 +27,20 @@ struct Chip: View {
                 if let badge, badge > 0 {
                     Text("\(badge)")
                         .font(RF.T.caption.weight(.semibold).monospacedDigit())
-                        .foregroundStyle(.white)
+                        .foregroundStyle(RF.C.onAccent)
                         .padding(.horizontal, 5)
                         .frame(minWidth: 18, minHeight: 18)
                         .background(Capsule().fill(RF.C.hibiscus))
                 }
             }
-            .foregroundStyle(selected ? RF.C.hibiscus : RF.C.text)
+            .foregroundStyle(selected ? RF.C.brandBlue : RF.C.text)
             .padding(.vertical, 7)
             .padding(.horizontal, 12)
-            .background(Capsule().fill(selected ? RF.C.hibiscus.opacity(0.10) : RF.C.card))
-            .overlay(Capsule().strokeBorder(selected ? RF.C.hibiscus.opacity(0.35) : RF.C.line, lineWidth: 1))
-            .contentShape(Capsule())
+            .background(Capsule().fill(selected ? RF.C.blueTint : RF.C.card))
+            .overlay(Capsule().strokeBorder(selected ? RF.C.brandBlue.opacity(0.45) : RF.C.line, lineWidth: 1))
+            // Visual capsule stays compact; the tap target is at least 44 pt high.
+            .frame(minHeight: 44)
+            .contentShape(Rectangle())
         }
         .buttonStyle(RFPressStyle())
         .sensoryFeedback(.selection, trigger: selected)
@@ -56,7 +58,7 @@ struct StatusPill: View {
         case .progress: (RF.C.text.opacity(0.06), RF.C.textDim)
         case .done: (RF.C.money.opacity(0.10), RF.C.moneyDeep)
         case .cancelled: (RF.C.text.opacity(0.06), RF.C.textDim)
-        case .alert: (RF.C.hibiscus.opacity(0.10), Color(hex: 0xA8382C))
+        case .alert: (RF.C.hibiscus.opacity(0.10), RF.C.hibiscusText)
         }
     }
 

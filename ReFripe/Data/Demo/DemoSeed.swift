@@ -13,6 +13,7 @@ struct DemoSeed {
     var conversations: [DemoConversation]
     var messages: [UUID: [ChatMessage]]
     var notifications: [UUID: [AppNotification]]
+    var reviews: [Review]
     var stats: SellerStats
     var recommendations: [SellerRecommendation]
 
@@ -37,18 +38,20 @@ struct DemoSeed {
 
         // MARK: Profiles (mockup `sellers` + the buyer of order 1)
         func user(_ id: UUID, _ username: String, _ first: String, _ city: String, _ district: String,
-                  verified: Bool, rating: Double, sales: Int, months: Int, response: Int?) -> UserProfile {
+                  verified: Bool, rating: Double, sales: Int, months: Int, response: Int?, reviews: Int) -> UserProfile {
             UserProfile(id: id, username: username, firstName: first, city: city, district: district,
                         avatarURL: nil, verified: verified, rating: rating, salesCount: sales,
-                        memberSince: monthsAgo(months), responseTimeMinutes: response)
+                        memberSince: monthsAgo(months), responseTimeMinutes: response, reviewCount: reviews)
         }
+        // Awa's rating/count match the 10 seeded reviews below (8 × 5 ★ + 2 × 4 ★ = 4.8).
+        // Other members only carry aggregate counts (their individual reviews are not seeded).
         let people = [
-            user(DemoIDs.awa, "Awa_Style225", "Awa", "Abidjan", "Cocody", verified: true, rating: 4.8, sales: 127, months: 8, response: 10),
-            user(DemoIDs.karim, "Karim_Fripe", "Karim", "Abidjan", "Plateau", verified: false, rating: 4.4, sales: 31, months: 2, response: 45),
-            user(DemoIDs.sneak, "SneakDak", "Ibrahim", "Abidjan", "Yopougon", verified: true, rating: 4.9, sales: 340, months: 12, response: 15),
-            user(DemoIDs.fatou, "Fatou_Elegance", "Fatou", "Dakar", "Plateau", verified: true, rating: 5.0, sales: 58, months: 5, response: 20),
-            user(DemoIDs.second, "SecondLook.sn", "Ndèye", "Dakar", "Almadies", verified: true, rating: 4.7, sales: 212, months: 11, response: 30),
-            user(DemoIDs.fatouK, "Fatou_K", "Fatou", "Abidjan", "Riviera", verified: false, rating: 4.6, sales: 3, months: 3, response: 60),
+            user(DemoIDs.awa, "Awa_Style225", "Awa", "Abidjan", "Cocody", verified: true, rating: 4.8, sales: 127, months: 8, response: 10, reviews: 10),
+            user(DemoIDs.karim, "Karim_Fripe", "Karim", "Abidjan", "Plateau", verified: false, rating: 4.4, sales: 31, months: 2, response: 45, reviews: 9),
+            user(DemoIDs.sneak, "SneakDak", "Ibrahim", "Abidjan", "Yopougon", verified: true, rating: 4.9, sales: 340, months: 12, response: 15, reviews: 86),
+            user(DemoIDs.fatou, "Fatou_Elegance", "Fatou", "Dakar", "Plateau", verified: true, rating: 5.0, sales: 58, months: 5, response: 20, reviews: 14),
+            user(DemoIDs.second, "SecondLook.sn", "Ndèye", "Dakar", "Almadies", verified: true, rating: 4.7, sales: 212, months: 11, response: 30, reviews: 41),
+            user(DemoIDs.fatouK, "Fatou_K", "Fatou", "Abidjan", "Riviera", verified: false, rating: 4.6, sales: 3, months: 3, response: 60, reviews: 2),
         ]
         let profiles = Dictionary(uniqueKeysWithValues: people.map { ($0.id, $0) })
 
@@ -67,61 +70,61 @@ struct DemoSeed {
                      size: SizeType, _ sizeLabel: String, district: String, city: String, seller: UUID,
                      cond: ItemCondition, tags: [String], brand: String, color: String, views: Int,
                      lastPiece: Bool = false, negotiable: Bool, minOffer: FCFA? = nil, gender: Gender,
-                     delivery: [DeliveryMethod], hoursAgo: Double) -> Listing {
+                     delivery: [DeliveryMethod], hoursAgo: Double, type: ItemType) -> Listing {
             Listing(id: DemoIDs.listing(n), sellerId: seller, title: title, description: desc, price: price,
                     oldPrice: old, sizeType: size, sizeLabel: sizeLabel, gender: gender, condition: cond,
                     brand: brand, color: color, tags: tags, city: city, district: district,
                     photos: [ListingPhoto(assetName: "listing-\(n)")], defectComment: nil, views: views,
                     favoritesCount: max(3, views / 9), isLastPiece: lastPiece, negotiable: negotiable,
                     minOffer: negotiable ? minOffer : nil, deliveryMethods: delivery, status: .active,
-                    createdAt: ago(hours: hoursAgo))
+                    createdAt: ago(hours: hoursAgo), itemType: type)
         }
         let listings: [Listing] = [
             listing(1, "Robe wax imprimé, motif Ankara",
                     "Robe en pagne wax authentique, coupe cintrée, portée 3 fois seulement. Fermeture éclair dos en bon état. Idéale pour une cérémonie ou une sortie.",
                     price: 4_500, size: .haut, "Taille M", district: "Cocody", city: "Abidjan", seller: DemoIDs.awa,
                     cond: .veryGood, tags: ["Wax", "Cérémonie", "Coton"], brand: "Wax local", color: "Multicolore", views: 132,
-                    negotiable: true, minOffer: 3_500, gender: .femme, delivery: [.relais, .mainPropre], hoursAgo: 2),
+                    negotiable: true, minOffer: 3_500, gender: .femme, delivery: [.relais, .mainPropre], hoursAgo: 2, type: .robe),
             listing(2, "Chemise vintage à carreaux",
                     "Chemise en flanelle, léger bouloché sur une manche mais aucune tache. Parfaite pour un look décontracté.",
                     price: 2_000, size: .haut, "Taille L", district: "Plateau", city: "Abidjan", seller: DemoIDs.karim,
                     cond: .good, tags: ["Vintage", "Homme"], brand: "Vintage", color: "Bleu", views: 54,
-                    negotiable: false, gender: .homme, delivery: [.mainPropre], hoursAgo: 5),
+                    negotiable: false, gender: .homme, delivery: [.mainPropre], hoursAgo: 5, type: .chemise),
             listing(3, "Baskets Nike Air",
                     "Semelle encore marquée, quelques traces d'usure sur le talon, cuir nettoyé récemment.",
                     price: 8_000, size: .chaussures, "Pointure 42", district: "Yopougon", city: "Abidjan", seller: DemoIDs.sneak,
                     cond: .good, tags: ["Sport", "Nike"], brand: "Nike", color: "Blanc", views: 301, lastPiece: true,
-                    negotiable: true, minOffer: 6_000, gender: .homme, delivery: [.relais, .mainPropre, .yango], hoursAgo: 9),
+                    negotiable: true, minOffer: 6_000, gender: .homme, delivery: [.relais, .mainPropre, .yango], hoursAgo: 9, type: .chaussures),
             listing(4, "Boubou traditionnel brodé",
                     "Boubou brodé main, porté une seule fois pour un mariage. Tissu bazin riche.",
                     price: 10_000, old: 12_000, size: .unique, "Taille unique", district: "Plateau", city: "Dakar", seller: DemoIDs.fatou,
                     cond: .excellent, tags: ["Bazin", "Mariage"], brand: "Bazin", color: "Blanc", views: 214,
-                    negotiable: true, minOffer: 8_000, gender: .femme, delivery: [.relais, .yango], hoursAgo: 20),
+                    negotiable: true, minOffer: 8_000, gender: .femme, delivery: [.relais, .yango], hoursAgo: 20, type: .robe),
             listing(5, "Jean mom fit taille haute",
                     "Denim épais, coupe mom fit tendance, taille haute confortable.",
                     price: 3_000, size: .pantalon, "Taille 38", district: "Marcory", city: "Abidjan", seller: DemoIDs.awa,
                     cond: .veryGood, tags: ["Denim", "Femme"], brand: "Sans marque précise", color: "Bleu", views: 76,
-                    negotiable: false, gender: .femme, delivery: [.relais, .mainPropre], hoursAgo: 28),
+                    negotiable: false, gender: .femme, delivery: [.relais, .mainPropre], hoursAgo: 28, type: .jean),
             listing(6, "Sac à main cuir vintage",
                     "Cuir véritable, patine du temps qui donne du caractère, fermoir en bon état.",
                     price: 6_500, size: .unique, "Taille unique", district: "Almadies", city: "Dakar", seller: DemoIDs.second,
                     cond: .good, tags: ["Cuir", "Accessoire"], brand: "Vintage", color: "Marron", views: 98,
-                    negotiable: true, minOffer: 5_000, gender: .femme, delivery: [.relais, .mainPropre, .yango], hoursAgo: 34),
+                    negotiable: true, minOffer: 5_000, gender: .femme, delivery: [.relais, .mainPropre, .yango], hoursAgo: 34, type: .sac),
             listing(7, "Robe en wax pour fille, 4 ans",
                     "Petite robe en pagne wax, portée pour deux baptêmes. Coupe évasée, confortable pour jouer. Aucune tache, couleurs encore vives.",
                     price: 2_500, size: .enfant, "4 ans", district: "Cocody", city: "Abidjan", seller: DemoIDs.awa,
                     cond: .veryGood, tags: ["Wax", "Fille"], brand: "Wax local", color: "Multicolore", views: 88,
-                    negotiable: true, minOffer: 1_800, gender: .enfant, delivery: [.relais, .mainPropre], hoursAgo: 50),
+                    negotiable: true, minOffer: 1_800, gender: .enfant, delivery: [.relais, .mainPropre], hoursAgo: 50, type: .robe),
             listing(8, "Ensemble t-shirt et short, 6 ans",
                     "Ensemble coton pour garçon. Le t-shirt a légèrement passé au lavage, le short est comme neuf. Idéal pour l'école.",
                     price: 1_500, size: .enfant, "6 ans", district: "Yopougon", city: "Abidjan", seller: DemoIDs.karim,
                     cond: .good, tags: ["Coton", "Garçon"], brand: "Sans marque précise", color: "Rouge", views: 41,
-                    negotiable: false, gender: .enfant, delivery: [.mainPropre], hoursAgo: 74),
+                    negotiable: false, gender: .enfant, delivery: [.mainPropre], hoursAgo: 74, type: .ensemble),
             listing(9, "Pyjama bébé et chaussons, 0-3 mois",
                     "Pyjama en coton doux porté trois semaines, mon bébé a grandi trop vite. Lavé et repassé, vendu avec les chaussons assortis.",
                     price: 2_000, size: .enfant, "0-3 mois", district: "Plateau", city: "Dakar", seller: DemoIDs.fatou,
                     cond: .excellent, tags: ["Coton", "Bébé"], brand: "Sans marque précise", color: "Jaune", views: 63,
-                    negotiable: true, minOffer: 1_500, gender: .bebe, delivery: [.relais, .yango], hoursAgo: 100),
+                    negotiable: true, minOffer: 1_500, gender: .bebe, delivery: [.relais, .yango], hoursAgo: 100, type: .ensemble),
         ]
 
         // MARK: Offer threads
@@ -137,12 +140,18 @@ struct DemoSeed {
 
         // MARK: Orders (mockup `orders`; the mockup's buyer "Aïcha" is Awa here)
         func order(_ n: Int, listing l: Int, seller: UUID, buyer: UUID, buyerName: String, price: FCFA,
-                   delivery: DeliveryMethod, payment: PaymentMethod, history: [(OrderStatus, Date)]) -> Order {
+                   delivery: DeliveryMethod, payment: PaymentMethod, history: [(OrderStatus, Date)],
+                   code: String? = nil) -> Order {
             let src = listings[l - 1]
+            let paidAt = history.first { $0.0 == .paid }?.1
+            let deliveredAt = history.first { $0.0 == .delivered }?.1
             return Order(id: DemoIDs.order(n), listingId: src.id, listingTitle: src.title, listingPhoto: src.photos.first,
                          sellerId: seller, buyerId: buyer, buyerName: buyerName, itemPrice: price, deliveryFee: delivery.fee,
                          delivery: delivery, payment: payment, status: history.last?.0 ?? .paymentPending,
-                         history: history.map { OrderEvent(status: $0.0, at: $0.1) }, createdAt: history.first?.1 ?? now)
+                         history: history.map { OrderEvent(status: $0.0, at: $0.1) }, createdAt: history.first?.1 ?? now,
+                         handoffCode: code,
+                         escrowReleaseAt: deliveredAt.map { $0.addingTimeInterval(TimeInterval(Catalog.escrowAutoReleaseHours * 3_600)) },
+                         paymentReference: paidAt.map { _ in "\(payment == .wave ? "WAVE" : "OM")-DEMO\(1_000 + n)" })
         }
         let threeDays = ago(days: 3)
         let orders = [
@@ -150,10 +159,12 @@ struct DemoSeed {
                   history: [(.paymentPending, yesterday(18, 40)), (.paid, yesterday(18, 41)), (.awaitingShipment, yesterday(18, 41))]),
             order(2, listing: 5, seller: DemoIDs.awa, buyer: DemoIDs.karim, buyerName: "Karim D.", price: 3_000, delivery: .relais, payment: .orangeMoney,
                   history: [(.paymentPending, threeDays), (.paid, threeDays.addingTimeInterval(60)),
-                            (.awaitingShipment, threeDays.addingTimeInterval(60)), (.shipped, ago(days: 2))]),
+                            (.awaitingShipment, threeDays.addingTimeInterval(60)), (.shipped, ago(days: 2))],
+                  code: DemoIDs.order2HandoffCode),
             order(3, listing: 4, seller: DemoIDs.fatou, buyer: DemoIDs.awa, buyerName: "Awa", price: 9_000, delivery: .yango, payment: .wave,
                   history: [(.paymentPending, yesterday(10)), (.paid, yesterday(10, 1)), (.awaitingShipment, yesterday(10, 1)),
-                            (.shipped, yesterday(16)), (.delivered, ago(hours: 3)), (.buyerValidation, ago(hours: 3))]),
+                            (.shipped, yesterday(16)), (.delivered, ago(hours: 3)), (.buyerValidation, ago(hours: 3))],
+                  code: DemoIDs.order3HandoffCode),
             order(4, listing: 3, seller: DemoIDs.sneak, buyer: DemoIDs.awa, buyerName: "Awa", price: 8_000, delivery: .relais, payment: .wave,
                   history: [(.paymentPending, past(month: 7, day: 12)), (.paid, past(month: 7, day: 12)), (.awaitingShipment, past(month: 7, day: 12)),
                             (.shipped, past(month: 7, day: 13)), (.delivered, past(month: 7, day: 14)), (.buyerValidation, past(month: 7, day: 14)),
@@ -207,6 +218,24 @@ struct DemoSeed {
                             createdAt: yesterday(9), read: true),
         ]
 
+        // MARK: Reviews (v3) — Awa's past sales: 8 × 5 ★ + 2 × 4 ★ = 4.8 over 10 reviews (see `people`).
+        let reviewLines: [(UUID, Int, String, Double)] = [
+            (DemoIDs.fatouK, 5, "Robe conforme aux photos, Awa est très réactive.", 4),
+            (DemoIDs.karim, 5, "Envoi rapide au point relais, merci.", 9),
+            (DemoIDs.sneak, 4, "Bon article, petite tache non signalée mais rien de grave.", 15),
+            (DemoIDs.fatou, 5, "Parfait, je recommande.", 22),
+            (DemoIDs.second, 5, "Très bel état, emballage soigné.", 30),
+            (DemoIDs.fatouK, 5, "Deuxième achat chez Awa, toujours aussi sérieuse.", 41),
+            (DemoIDs.karim, 4, "Un peu d'attente pour la remise, sinon ok.", 55),
+            (DemoIDs.sneak, 5, "Taille exacte, tissu de qualité.", 63),
+            (DemoIDs.fatou, 5, "Échange agréable et article impeccable.", 80),
+            (DemoIDs.second, 5, "Rien à redire.", 102),
+        ]
+        let reviews: [Review] = reviewLines.enumerated().map { i, r in
+            Review(id: DemoIDs.review(i + 1), orderId: DemoIDs.pastOrder(i + 1), reviewerId: r.0, revieweeId: DemoIDs.awa,
+                   rating: r.1, comment: r.2, createdAt: ago(days: r.3))
+        }
+
         // MARK: Dashboard (mockup `sellerStats`, `recommendations`)
         let stats = SellerStats(sales: 4, salesDelta: "+1 vs mois dernier",
                                 revenue: 75_000, revenueDelta: "+17 000 FCFA vs mois dernier",
@@ -240,6 +269,7 @@ struct DemoSeed {
                         conversations: conversations,
                         messages: messages,
                         notifications: [DemoIDs.awa: notifs],
+                        reviews: reviews,
                         stats: stats,
                         recommendations: recos)
     }

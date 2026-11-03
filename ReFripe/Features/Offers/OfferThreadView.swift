@@ -179,7 +179,7 @@ struct OfferThreadView: View {
                     ContentUnavailableView {
                         Label("Pas encore d'offre", systemImage: "arrow.left.arrow.right")
                     } description: {
-                        Text("Propose ton prix à \(sellerName).")
+                        Text("Propose ton prix")
                     } actions: {
                         if l.negotiable {
                             Button("Faire une offre") {
@@ -202,10 +202,13 @@ struct OfferThreadView: View {
         switch t.status {
         case .accepted:
             let amount = t.acceptedAmount ?? t.rounds.last?.amount ?? l.price
+            let reservedForMe = PurchaseAvailability.isReservedForMe(l, me: store.me?.id)
             OfferResultCard(accepted: true,
                             title: "Offre acceptée",
-                            subtitle: "Prix verrouillé à \(Fmt.fcfa(amount)).") {
-                if l.status == .active {
+                            subtitle: reservedForMe && l.reservedUntil != nil
+                                ? "Réservé pour toi · \(Fmt.hourMinute(l.reservedUntil ?? .now))"
+                                : Fmt.fcfa(amount)) {
+                if PurchaseAvailability.blocker(for: l, me: store.me?.id) == nil {
                     RFButton("Acheter") { buy(at: amount) }
                         .accessibilityLabel("Acheter pour \(Fmt.fcfa(amount))")
                 } else {
@@ -217,10 +220,10 @@ struct OfferThreadView: View {
         case .refused, .expired:
             OfferResultCard(accepted: false,
                             title: t.status == .refused ? "Offre refusée" : "Négociation expirée",
-                            subtitle: l.status == .active ? "Tu peux toujours acheter au prix affiché." : nil) {
+                            subtitle: nil) {
                 VStack(spacing: RF.S.sm) {
                     if l.status == .active {
-                        RFButton("Acheter au prix affiché") { buy(at: nil) }
+                        RFButton("Prix affiché") { buy(at: nil) }
                             .accessibilityLabel("Acheter au prix affiché, \(Fmt.fcfa(l.price))")
                     }
                     RFButton("Retour à l'annonce", style: .ghost) { router.pop() }
@@ -231,7 +234,7 @@ struct OfferThreadView: View {
                 VStack(spacing: RF.S.sm) {
                     HStack(spacing: RF.S.md) {
                         if canCounter {
-                            RFButton("Contre-proposer", style: .secondary) {
+                            RFButton("Proposer", style: .secondary) {
                                 router.push(.offer(l.id))
                             }
                         }
@@ -241,12 +244,12 @@ struct OfferThreadView: View {
                         .accessibilityLabel("Accepter \(Fmt.fcfa(counter.amount))")
                     }
                     if !canCounter {
-                        Text("Limite de \(OfferRules.maxBuyerOffers) propositions atteinte.")
+                        Text("3 offres utilisées")
                             .font(RF.T.footnote)
                             .foregroundStyle(RF.C.textDim)
                     }
                     if l.status == .active {
-                        Button("Acheter au prix affiché") { buy(at: nil) }
+                        Button("Prix affiché") { buy(at: nil) }
                             .font(RF.T.subheadline)
                             .foregroundStyle(RF.C.textDim)
                             .frame(minHeight: 44)

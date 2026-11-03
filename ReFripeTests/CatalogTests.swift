@@ -4,6 +4,7 @@ import XCTest
 /// Discover feed filters / sort / swipe deck on the demo catalogue, plus selling & price updates.
 /// Demo catalogue: 1 Robe wax 4 500 (Awa) · 2 Chemise 2 000 · 3 Baskets Nike 8 000 · 4 Boubou 10 000 ·
 /// 5 Jean 3 000 (Awa) · 6 Sac 6 500 · 7 Robe fille 2 500 (Awa) · 8 Ensemble 1 500 · 9 Pyjama bébé 2 000.
+/// v3: Awa is signed in, so her own listings (1, 5, 7) are never in her feed.
 final class CatalogTests: XCTestCase {
 
     private func ids(_ listings: [Listing]) -> Set<UUID> { Set(listings.map(\.id)) }
@@ -15,10 +16,11 @@ final class CatalogTests: XCTestCase {
         XCTAssertEqual(got, expected, file: file, line: line)
     }
 
-    func testDefaultFeedReturnsAllActiveListings() async throws {
+    func testDefaultFeedReturnsAllActiveListingsButMine() async throws {
         let repo = DemoRepository()
         let all = try await repo.feed(filters: ListingFilters(), preferences: nil)
-        XCTAssertEqual(all.count, 9)
+        XCTAssertEqual(ids(all), set(2, 3, 4, 6, 8, 9))
+        XCTAssertFalse(all.contains { $0.sellerId == DemoIDs.awa }, "my own listings are not in my feed")
         // Recent first when no preferences.
         XCTAssertEqual(all.map(\.createdAt), all.map(\.createdAt).sorted(by: >))
     }
@@ -27,9 +29,9 @@ final class CatalogTests: XCTestCase {
         let repo = DemoRepository()
         var f = ListingFilters()
         f.gender = .femme
-        try await expectFeed(repo, f, set(1, 4, 5, 6))
+        try await expectFeed(repo, f, set(4, 6))
         f.gender = .enfant
-        try await expectFeed(repo, f, set(7, 8))
+        try await expectFeed(repo, f, set(8))
         f.gender = .bebe
         try await expectFeed(repo, f, set(9))
     }
@@ -39,7 +41,7 @@ final class CatalogTests: XCTestCase {
         var f = ListingFilters()
         f.priceMin = 2_000
         f.priceMax = 3_000
-        try await expectFeed(repo, f, set(2, 5, 7, 9))
+        try await expectFeed(repo, f, set(2, 9))
         f.priceMin = 6_500
         f.priceMax = ListingFilters.catalogMaxPrice
         try await expectFeed(repo, f, set(3, 4, 6))
@@ -50,7 +52,7 @@ final class CatalogTests: XCTestCase {
         var f = ListingFilters()
         f.negotiableOnly = true
         let result = try await repo.feed(filters: f, preferences: nil)
-        XCTAssertEqual(ids(result), set(1, 3, 4, 6, 7, 9))
+        XCTAssertEqual(ids(result), set(3, 4, 6, 9))
         XCTAssertTrue(result.allSatisfy(\.negotiable))
     }
 
@@ -67,8 +69,8 @@ final class CatalogTests: XCTestCase {
         f = ListingFilters()
         f.query = "  NIKE "
         try await expectFeed(repo, f, set(3))
-        f.query = "ceremonie"   // tag "Cérémonie": case and diacritic insensitive
-        try await expectFeed(repo, f, set(1))
+        f.query = "bebe"   // "Pyjama bébé" / tag "Bébé": case and diacritic insensitive
+        try await expectFeed(repo, f, set(9))
     }
 
     func testCombinedFilters() async throws {
@@ -77,7 +79,7 @@ final class CatalogTests: XCTestCase {
         f.gender = .femme
         f.negotiableOnly = true
         f.priceMax = 7_000
-        try await expectFeed(repo, f, set(1, 6))
+        try await expectFeed(repo, f, set(6))
     }
 
     func testSortOrders() async throws {
@@ -102,10 +104,10 @@ final class CatalogTests: XCTestCase {
     func testRecentSortPutsPreferredCategoriesFirst() async throws {
         let repo = DemoRepository()
         var prefs = UserPreferences()
-        prefs.categories = [.enfant]
+        prefs.categories = [.enfant, .bebe]
         let feed = try await repo.feed(filters: ListingFilters(), preferences: prefs)
-        XCTAssertEqual(Array(feed.prefix(2)).map(\.id), [DemoIDs.listing(7), DemoIDs.listing(8)])
-        XCTAssertEqual(feed.count, 9)
+        XCTAssertEqual(Array(feed.prefix(2)).map(\.id), [DemoIDs.listing(8), DemoIDs.listing(9)])
+        XCTAssertEqual(feed.count, 6)
     }
 
     func testReservedListingsLeaveTheFeed() async throws {
@@ -166,6 +168,10 @@ final class CatalogTests: XCTestCase {
         d.sizeType = .haut
         await assertThrowsAsync(try await repo.publish(d)) { assertInvalidState($0, contains: "état") }
         d.condition = .good
+        XCTAssertEqual(d.price, 0, "v3: the price field starts empty")
+        XCTAssertTrue(d.negotiable, "v3: open to offers by default")
+        await assertThrowsAsync(try await repo.publish(d)) { assertInvalidState($0, contains: "prix") }
+        d.price = 2_000
         d.delivery = []
         await assertThrowsAsync(try await repo.publish(d)) { assertInvalidState($0, contains: "mode de remise") }
     }

@@ -1,13 +1,19 @@
 import Foundation
 
 /// In-memory `Repository` seeded with the mockup data. Simulates the other side of the marketplace:
-/// seller answers to offers (~1,5 s), payment confirmation, chat replies (~2 s).
+/// seller answers to offers (~1,5 s), payment confirmation (~4 s after `startPayment`), shipping by the
+/// other seller (~8 s after payment), chat replies (~2 s).
 /// All state lives in the `DemoState` actor, so this class is safely `Sendable`.
 final class DemoRepository: Repository {
     private let state: DemoState
 
-    init(now: Date = .now) {
-        state = DemoState(seed: DemoSeed.make(now: now))
+    /// - Parameters:
+    ///   - clock: current date used by the business rules (2 h reservation, 72 h escrow). Injectable for tests.
+    ///   - paymentDelay: seconds between `startPayment` and PAID.
+    ///   - shipDelay: seconds after AWAITING_SHIPMENT before a simulated seller ships my purchase (nil = never).
+    init(now: Date = .now, clock: @escaping @Sendable () -> Date = { Date() },
+         paymentDelay: Double = 4, shipDelay: Double? = 8) {
+        state = DemoState(seed: DemoSeed.make(now: now), clock: clock, paymentDelay: paymentDelay, shipDelay: shipDelay)
     }
 
     // MARK: Auth & profile
@@ -82,6 +88,38 @@ final class DemoRepository: Repository {
     // MARK: Dashboard
     func sellerStats() async throws -> SellerStats { state.stats }
     func recommendations() async throws -> [SellerRecommendation] { state.recommendations }
+
+    // MARK: v3
+    func startPayment(orderId: UUID) async throws -> PaymentSession {
+        await DemoState.latency(0.4)
+        return try await state.startPayment(orderId: orderId)
+    }
+    func confirmHandoff(orderId: UUID, code: String) async throws -> Order { try await state.confirmHandoff(orderId: orderId, code: code) }
+    func submitReview(orderId: UUID, rating: Int, comment: String) async throws -> Review {
+        try await state.submitReview(orderId: orderId, rating: rating, comment: comment)
+    }
+    func reviews(userId: UUID) async throws -> [Review] { await state.reviews(userId: userId) }
+    func sendPhoto(_ jpeg: Data, conversationId: UUID) async throws -> ChatMessage { try await state.sendPhoto(jpeg, conversationId: conversationId) }
+    func report(listingId: UUID?, userId: UUID?, reason: ReportReason, details: String) async throws {
+        try await state.report(listingId: listingId, userId: userId, reason: reason, details: details)
+    }
+    func block(userId: UUID) async throws { try await state.block(userId: userId) }
+    func unblock(userId: UUID) async throws { try await state.unblock(userId: userId) }
+    func blockedUserIds() async throws -> Set<UUID> { try await state.blockedUserIds() }
+    func deleteAccount() async throws {
+        await DemoState.latency(0.5)
+        try await state.deleteAccount()
+    }
+}
+
+/// A report filed through `report(...)` (kept in memory in demo mode).
+struct DemoReport: Hashable {
+    var reporterId: UUID
+    var listingId: UUID?
+    var userId: UUID?
+    var reason: ReportReason
+    var details: String
+    var createdAt: Date
 }
 
 // MARK: - State actor
@@ -103,10 +141,23 @@ actor DemoState {
     private var messagesByConv: [UUID: [ChatMessage]]
     private var notifs: [UUID: [AppNotification]]
     private var dropDate: Date?
+    // v3
+    private var allReviews: [Review]
+    private var blocks: [UUID: Set<UUID>] = [:]
+    private(set) var reports: [DemoReport] = []
+    private var paymentsStarted: Set<UUID> = []
+    private let clock: @Sendable () -> Date
+    private let paymentDelay: Double
+    private let shipDelay: Double?
     let stats: SellerStats
     let recommendations: [SellerRecommendation]
 
-    init(seed: DemoSeed) {
+    init(seed: DemoSeed, clock: @escaping @Sendable () -> Date = { Date() },
+         paymentDelay: Double = 4, shipDelay: Double? = 8) {
+        self.clock = clock
+        self.paymentDelay = paymentDelay
+        self.shipDelay = shipDelay
+        allReviews = seed.reviews
         me = DemoIDs.awa
         users = seed.profiles
         preferences = seed.preferences
@@ -240,15 +291,46 @@ actor DemoState {
         if l.status != .active { return false }
         if let g = f.gender, l.gender != g { return false }
         if !matches(l, query: f.query) { return false }
-        if l.price < f.priceMin || l.price > f.priceMax { return false }
+        // "15 000 +": the top of the slider means no upper bound.
+        if l.price < f.priceMin || (f.priceMax < ListingFilters.catalogMaxPrice && l.price > f.priceMax) { return false }
         if !f.conditions.isEmpty && !f.conditions.contains(l.condition) { return false }
         if !f.brands.isEmpty && !f.brands.contains(l.brand) { return false }
         if f.negotiableOnly && !l.negotiable { return false }
+        if !f.itemTypes.isEmpty && !f.itemTypes.contains(l.itemType) { return false }
+        if !l.matchesSize(f.sizes) { return false }
+        if !f.districts.isEmpty {
+            let mine = l.district.folding(options: [.caseInsensitive, .diacriticInsensitive], locale: nil)
+            let wanted = f.districts.map { $0.folding(options: [.caseInsensitive, .diacriticInsensitive], locale: nil) }
+            if !wanted.contains(mine) { return false }
+        }
         return true
     }
 
+    /// Sellers whose listings I must not see: me (own listings are not in my feed) and blocked members.
+    private func hiddenSellers() -> Set<UUID> {
+        guard let me else { return [] }
+        var hidden = blocks[me] ?? []
+        hidden.insert(me)
+        // A member who blocked me doesn't show up either.
+        for (blocker, blocked) in blocks where blocked.contains(me) { hidden.insert(blocker) }
+        return hidden
+    }
+
+    /// What the signed-in user may see of a listing: `minOffer` is the seller's private floor,
+    /// and an expired reservation is cleared.
+    private func visible(_ l: Listing) -> Listing {
+        var out = l
+        if out.sellerId != me { out.minOffer = nil }
+        if let until = out.reservedUntil, until <= clock() {
+            out.reservedUntil = nil
+            out.reservedFor = nil
+        }
+        return out
+    }
+
     func feed(filters f: ListingFilters, preferences prefs: UserPreferences?) -> [Listing] {
-        var out = items.filter { Self.passes($0, f) }
+        let hidden = hiddenSellers()
+        var out = items.filter { !hidden.contains($0.sellerId) && Self.passes($0, f) }
         switch f.sort {
         case .recent:
             out.sort { $0.createdAt > $1.createdAt }
@@ -257,24 +339,33 @@ actor DemoState {
         case .priceDesc: out.sort { $0.price > $1.price }
         case .popular: out.sort { $0.views > $1.views }
         }
-        return out
+        return out.map { visible($0) }
     }
 
     func swipeDeck(preferences prefs: UserPreferences?) -> [Listing] {
         let done = me.flatMap { swiped[$0] } ?? []
+        let hidden = hiddenSellers()
         let deck = items
-            .filter { $0.status == .active && $0.sellerId != me && !done.contains($0.id) }
+            .filter { $0.status == .active && $0.sellerId != me && !hidden.contains($0.sellerId) && !done.contains($0.id) }
             .sorted { $0.createdAt > $1.createdAt }
-        return Self.preferredFirst(deck, prefs)
+        return Self.preferredFirst(deck, prefs).map { visible($0) }
     }
 
     func listing(id: UUID) throws -> Listing {
         guard let l = items.first(where: { $0.id == id }) else { throw RepositoryError.notFound }
-        return l
+        return visible(l)
     }
 
     func listings(sellerId: UUID) -> [Listing] {
-        items.filter { $0.sellerId == sellerId && $0.status != .removed }.sorted { $0.createdAt > $1.createdAt }
+        items.filter { $0.sellerId == sellerId && $0.status != .removed }
+            .sorted { $0.createdAt > $1.createdAt }
+            .map { visible($0) }
+    }
+
+    /// Raw (unprojected) listing, for internal rules.
+    private func rawListing(_ id: UUID) throws -> Listing {
+        guard let l = items.first(where: { $0.id == id }) else { throw RepositoryError.notFound }
+        return l
     }
 
     func profile(id: UUID) throws -> UserProfile {
@@ -354,7 +445,7 @@ actor DemoState {
         let sizeValue = draft.sizeValue ?? sizeType.options.first ?? ""
         let listing = Listing(
             id: id, sellerId: me,
-            title: title.isEmpty ? [gender.label, brand].filter { !$0.isEmpty }.joined(separator: " · ") : title,
+            title: title.isEmpty ? [draft.itemType?.label ?? gender.label, brand].filter { !$0.isEmpty }.joined(separator: " · ") : title,
             description: draft.description.trimmingCharacters(in: .whitespacesAndNewlines),
             price: draft.price, oldPrice: nil,
             sizeType: sizeType, sizeLabel: sizeType.displayLabel(for: sizeValue),
@@ -365,9 +456,10 @@ actor DemoState {
             city: profile.city, district: profile.district.isEmpty ? profile.city : profile.district,
             photos: photos, defectComment: defect.isEmpty ? nil : defect,
             views: 0, favoritesCount: 0, isLastPiece: false,
-            negotiable: draft.negotiable, minOffer: draft.negotiable ? min(draft.minOffer, draft.price) : nil,
+            negotiable: draft.negotiable,
+            minOffer: draft.negotiable && draft.minOffer > 0 ? min(draft.minOffer, draft.price) : nil,
             deliveryMethods: DeliveryMethod.allCases.filter { draft.delivery.contains($0) },
-            status: .active, createdAt: .now)
+            status: .active, createdAt: clock(), itemType: draft.itemType ?? .autre)
         items.insert(listing, at: 0)
         return listing
     }
@@ -400,16 +492,25 @@ actor DemoState {
             .sorted { $0.updatedAt > $1.updatedAt }
     }
 
+    /// v3: an accepted offer reserves the item 2 h for the buyer (unless it is already held by someone else).
+    private func reserve(listingId: UUID, for buyer: UUID, at date: Date) {
+        guard let i = index(ofListing: listingId), !items[i].isReserved(forSomeoneOtherThan: buyer, at: date) else { return }
+        items[i].reservedUntil = date.addingTimeInterval(Catalog.reservationDuration)
+        items[i].reservedFor = buyer
+    }
+
+    private func username(_ id: UUID, fallback: String) -> String { users[id]?.username ?? fallback }
+
     func makeOffer(listingId: UUID, amount: FCFA) throws -> OfferThread {
         let me = try requireMe()
-        let l = try listing(id: listingId)
+        let l = try rawListing(listingId)
         guard l.sellerId != me else { throw RepositoryError.invalidState("Tu ne peux pas faire d'offre sur ton propre article.") }
         guard l.status == .active else { throw RepositoryError.invalidState("Cet article n'est plus disponible.") }
         guard l.negotiable else { throw RepositoryError.invalidState("Cette vendeuse n'accepte pas les offres sur cet article.") }
         guard amount > 0 else { throw RepositoryError.invalidState("Indique un montant.") }
         guard amount < l.price else { throw RepositoryError.invalidState("Ton offre doit être inférieure au prix affiché (\(Fmt.fcfa(l.price))).") }
 
-        let now = Date.now
+        let now = clock()
         var thread: OfferThread
         if let i = threads.lastIndex(where: { $0.listingId == listingId && $0.buyerId == me }) {
             thread = threads[i]
@@ -428,10 +529,18 @@ actor DemoState {
             }
             // Same rule as the Supabase `make_offer` RPC: meeting the seller's pending counter accepts it.
             if let counter = thread.rounds.last, counter.by == .seller, counter.action == .counter, amount >= counter.amount {
+                if l.isReserved(forSomeoneOtherThan: me, at: now), let until = l.reservedUntil {
+                    throw RepositoryError.invalidState("Article déjà réservé pour une autre acheteuse jusqu'à \(Fmt.hourMinute(until)).")
+                }
                 thread.rounds.append(OfferRound(by: .buyer, amount: counter.amount, action: .accept, at: now))
                 thread.status = .accepted
                 thread.updatedAt = now
                 threads[i] = thread
+                reserve(listingId: listingId, for: me, at: now)
+                notify(l.sellerId, AppNotification(
+                    id: UUID(), kind: .offerAccepted, title: "Contre-offre acceptée",
+                    body: "\(username(me, fallback: "L'acheteuse")) accepte \(Fmt.fcfa(counter.amount)) pour \(l.title)",
+                    createdAt: now, read: false, listingId: l.id))
                 return thread
             }
             thread.rounds.append(OfferRound(by: .buyer, amount: amount, action: .offer, at: now))
@@ -443,6 +552,10 @@ actor DemoState {
                                  status: .pending, updatedAt: now)
             threads.append(thread)
         }
+        notify(l.sellerId, AppNotification(
+            id: UUID(), kind: .offerReceived, title: "Nouvelle offre",
+            body: "\(username(me, fallback: "Une acheteuse")) propose \(Fmt.fcfa(amount)) pour \(l.title)",
+            createdAt: now, read: false, listingId: l.id))
         let threadId = thread.id
         Task {
             try? await Task.sleep(for: .seconds(1.5))
@@ -456,22 +569,29 @@ actor DemoState {
               threads[i].status == .pending, threads[i].rounds.last?.by == .buyer,
               let l = items.first(where: { $0.id == threads[i].listingId }) else { return }
         let (action, amount) = OfferRules.simulatedSellerResponse(listing: l, thread: threads[i])
-        let now = Date.now
+        let now = clock()
         threads[i].rounds.append(OfferRound(by: .seller, amount: amount, action: action, at: now))
         threads[i].updatedAt = now
         switch action {
-        case .accept: threads[i].status = .accepted
+        case .accept:
+            threads[i].status = .accepted
+            reserve(listingId: l.id, for: threads[i].buyerId, at: now)
         case .refuse: threads[i].status = .refused
         default: threads[i].status = .pending
         }
-        let seller = users[l.sellerId]?.username ?? "La vendeuse"
-        let (title, body): (String, String) = switch action {
-        case .accept: ("Offre acceptée", "\(seller) a accepté ton offre de \(Fmt.fcfa(amount)) pour \(l.title)")
-        case .refuse: ("Offre refusée", "\(seller) a refusé ton offre pour \(l.title)")
-        default: ("Contre-offre reçue", "\(seller) te propose \(Fmt.fcfa(amount)) pour \(l.title)")
+        notifyBuyerOfSellerAnswer(threads[i], listing: l, action: action, amount: amount, at: now)
+    }
+
+    private func notifyBuyerOfSellerAnswer(_ t: OfferThread, listing l: Listing, action: OfferAction, amount: FCFA, at now: Date) {
+        let seller = username(l.sellerId, fallback: "La vendeuse")
+        let (kind, title, body): (NotificationKind, String, String) = switch action {
+        case .accept: (.offerAccepted, "Offre acceptée",
+                       "\(seller) a accepté ton offre de \(Fmt.fcfa(amount)) pour \(l.title). Article réservé pour toi \(Catalog.reservationHours) h.")
+        case .refuse: (.offerRefused, "Offre refusée", "\(seller) a refusé ton offre pour \(l.title)")
+        default: (.counterOffer, "Contre-offre reçue", "\(seller) te propose \(Fmt.fcfa(amount)) pour \(l.title)")
         }
-        notify(threads[i].buyerId, AppNotification(id: UUID(), kind: .counterOffer, title: title, body: body,
-                                                    createdAt: now, read: false, listingId: l.id))
+        notify(t.buyerId, AppNotification(id: UUID(), kind: kind, title: title, body: body,
+                                          createdAt: now, read: false, listingId: l.id))
     }
 
     func respondToOffer(threadId: UUID, action: OfferAction, amount: FCFA?) throws -> OfferThread {
@@ -482,12 +602,16 @@ actor DemoState {
         guard t.status == .pending, let last = t.lastBuyerOffer, t.rounds.last?.by == .buyer else {
             throw RepositoryError.invalidState("Aucune offre en attente de réponse.")
         }
-        let l = try listing(id: t.listingId)
-        let now = Date.now
+        let l = try rawListing(t.listingId)
+        let now = clock()
         switch action {
         case .accept:
+            if l.isReserved(forSomeoneOtherThan: t.buyerId, at: now), let until = l.reservedUntil {
+                throw RepositoryError.invalidState("Article déjà réservé pour une autre acheteuse jusqu'à \(Fmt.hourMinute(until)).")
+            }
             t.rounds.append(OfferRound(by: .seller, amount: last.amount, action: .accept, at: now))
             t.status = .accepted
+            reserve(listingId: l.id, for: t.buyerId, at: now)
         case .refuse:
             t.rounds.append(OfferRound(by: .seller, amount: last.amount, action: .refuse, at: now))
             t.status = .refused
@@ -501,6 +625,9 @@ actor DemoState {
         }
         t.updatedAt = now
         threads[i] = t
+        if let answer = t.rounds.last {
+            notifyBuyerOfSellerAnswer(t, listing: l, action: answer.action, amount: answer.amount, at: now)
+        }
         if t.status == .pending {
             Task {
                 try? await Task.sleep(for: .seconds(2))
@@ -518,58 +645,126 @@ actor DemoState {
               let l = items.first(where: { $0.id == threads[i].listingId }) else { return }
         let step = OfferRules.step(for: l.price)
         let lastBuyer = threads[i].lastBuyerOffer?.amount ?? 0
-        let now = Date.now
+        let now = clock()
+        let buyer = username(threads[i].buyerId, fallback: "L'acheteuse")
         if counter.amount - lastBuyer <= 2 * step || threads[i].buyerOfferCount >= OfferRules.maxBuyerOffers {
             threads[i].rounds.append(OfferRound(by: .buyer, amount: counter.amount, action: .accept, at: now))
             threads[i].status = .accepted
+            reserve(listingId: l.id, for: threads[i].buyerId, at: now)
+            notify(l.sellerId, AppNotification(
+                id: UUID(), kind: .offerAccepted, title: "Contre-offre acceptée",
+                body: "\(buyer) accepte \(Fmt.fcfa(counter.amount)) pour \(l.title)",
+                createdAt: now, read: false, listingId: l.id))
         } else {
             let mid = OfferRules.round(Double(lastBuyer + counter.amount) / 2, step: step)
-            threads[i].rounds.append(OfferRound(by: .buyer, amount: min(mid, counter.amount - step), action: .offer, at: now))
+            let amount = min(mid, counter.amount - step)
+            threads[i].rounds.append(OfferRound(by: .buyer, amount: amount, action: .offer, at: now))
+            notify(l.sellerId, AppNotification(
+                id: UUID(), kind: .offerReceived, title: "Nouvelle offre",
+                body: "\(buyer) propose \(Fmt.fcfa(amount)) pour \(l.title)",
+                createdAt: now, read: false, listingId: l.id))
         }
         threads[i].updatedAt = now
     }
 
     // MARK: Orders
 
+    /// What the signed-in user may see of an order: the hand-off code is the buyer's secret.
+    private func visible(_ o: Order) -> Order {
+        var out = o
+        if out.buyerId != me { out.handoffCode = nil }
+        return out
+    }
+
     func createOrder(listingId: UUID, delivery: DeliveryMethod, payment: PaymentMethod) throws -> Order {
         let me = try requireMe()
         guard let i = index(ofListing: listingId) else { throw RepositoryError.notFound }
         let l = items[i]
+        let now = clock()
         guard l.sellerId != me else { throw RepositoryError.invalidState("Tu ne peux pas acheter ton propre article.") }
         guard l.status == .active else { throw RepositoryError.invalidState("Cet article n'est plus disponible.") }
+        if l.isReserved(forSomeoneOtherThan: me, at: now), let until = l.reservedUntil {
+            throw RepositoryError.invalidState("Réservé pour une autre acheteuse jusqu'à \(Fmt.hourMinute(until)).")
+        }
+        if hiddenSellers().contains(l.sellerId) {
+            throw RepositoryError.invalidState("Tu ne peux pas acheter à ce membre.")
+        }
         guard l.deliveryMethods.contains(delivery) else {
             throw RepositoryError.invalidState("Ce mode de remise n'est pas proposé par la vendeuse.")
         }
         let accepted = threads.last { $0.listingId == listingId && $0.buyerId == me }?.acceptedAmount
-        let now = Date.now
         let order = Order(id: UUID(), listingId: l.id, listingTitle: l.title, listingPhoto: l.photos.first,
                           sellerId: l.sellerId, buyerId: me, buyerName: users[me]?.firstName ?? "Moi",
-                          itemPrice: accepted ?? l.price, deliveryFee: delivery.fee, delivery: delivery, payment: payment,
+                          itemPrice: min(accepted ?? l.price, l.price), deliveryFee: delivery.fee, delivery: delivery, payment: payment,
                           status: .paymentPending, history: [OrderEvent(status: .paymentPending, at: now)], createdAt: now)
         allOrders.insert(order, at: 0)
         items[i].status = .reserved
-        let orderId = order.id
-        Task {
-            try? await Task.sleep(for: .seconds(1.2))
-            await self.simulatePayment(orderId: orderId)
-        }
-        return order
+        // The 2 h reservation is kept: if this buyer cancels (e.g. to switch payment method) and re-orders,
+        // the item is still held for her until `reservedUntil`.
+        // v3: payment only starts with `startPayment` (guided Wave / Orange Money screen).
+        return visible(order)
     }
 
-    /// PAYMENT_PENDING → PAID → AWAITING_SHIPMENT (escrow funded).
+    /// "0707070707" → "07 07 •• •• 07" (number shown on the payment screen).
+    static func maskedPhone(_ phone: String) -> String? {
+        let digits = Array(phone.filter(\.isNumber).suffix(10))
+        guard digits.count == 10 else { return nil }
+        let pairs = stride(from: 0, to: 10, by: 2).map { String(digits[$0..<$0 + 2]) }
+        return [pairs[0], pairs[1], "••", "••", pairs[4]].joined(separator: " ")
+    }
+
+    func startPayment(orderId: UUID) throws -> PaymentSession {
+        let me = try requireMe()
+        guard let i = allOrders.firstIndex(where: { $0.id == orderId }), allOrders[i].buyerId == me else {
+            throw RepositoryError.notFound
+        }
+        let o = allOrders[i]
+        guard o.status == .paymentPending else {
+            throw RepositoryError.invalidState("Cette commande n'est plus en attente de paiement.")
+        }
+        let phone = phones.first { $0.value == me }?.key
+        let token = o.id.uuidString.lowercased()
+        let session = PaymentSession(
+            orderId: o.id, method: o.payment, amount: o.total,
+            checkoutURL: o.payment == .wave ? URL(string: "https://pay.wave.com/c/demo-\(token)") : nil,
+            ussdCode: o.payment == .orangeMoney ? "#144*82#" : nil,
+            maskedPhone: phone.flatMap { Self.maskedPhone($0) })
+        if paymentsStarted.insert(o.id).inserted {
+            let delay = paymentDelay
+            Task {
+                try? await Task.sleep(for: .seconds(delay))
+                await self.simulatePayment(orderId: orderId)
+            }
+        }
+        return session
+    }
+
+    /// PAYMENT_PENDING → PAID → AWAITING_SHIPMENT (escrow funded), then the other seller ships (demo bot).
     private func simulatePayment(orderId: UUID) async {
         guard let i = allOrders.firstIndex(where: { $0.id == orderId }), allOrders[i].status == .paymentPending else { return }
-        let now = Date.now
+        let now = clock()
+        let o = allOrders[i]
         allOrders[i].status = .paid
         allOrders[i].history.append(OrderEvent(status: .paid, at: now))
-        notify(allOrders[i].buyerId, AppNotification(
+        let ref = UUID().uuidString.replacingOccurrences(of: "-", with: "").prefix(10).uppercased()
+        allOrders[i].paymentReference = "\(o.payment == .wave ? "WAVE" : "OM")-\(ref)"
+        notify(o.buyerId, AppNotification(
             id: UUID(), kind: .orderUpdate, title: "Paiement confirmé",
-            body: "\(Fmt.fcfa(allOrders[i].total)) bloqués en séquestre pour \(allOrders[i].listingTitle)",
-            createdAt: now, read: false, listingId: allOrders[i].listingId, orderId: orderId))
+            body: "\(Fmt.fcfa(o.total)) bloqués en séquestre pour \(o.listingTitle)",
+            createdAt: now, read: false, listingId: o.listingId, orderId: orderId))
+        notify(o.sellerId, AppNotification(
+            id: UUID(), kind: .newSale, title: "Nouvelle vente",
+            body: "\(o.listingTitle) a été payé (\(Fmt.fcfa(o.itemPrice))). Prépare la remise.",
+            createdAt: now, read: false, listingId: o.listingId, orderId: orderId))
         try? await Task.sleep(for: .seconds(0.8))
         guard let j = allOrders.firstIndex(where: { $0.id == orderId }), allOrders[j].status == .paid else { return }
         allOrders[j].status = .awaitingShipment
-        allOrders[j].history.append(OrderEvent(status: .awaitingShipment, at: .now))
+        allOrders[j].history.append(OrderEvent(status: .awaitingShipment, at: clock()))
+        guard let shipDelay, allOrders[j].sellerId != me else { return }
+        try? await Task.sleep(for: .seconds(shipDelay))
+        guard let k = allOrders.firstIndex(where: { $0.id == orderId }), allOrders[k].status == .awaitingShipment,
+              allOrders[k].sellerId != me else { return }
+        apply(.shipped, toOrderAt: k)
     }
 
     func orders(role: OrderRole) throws -> [Order] {
@@ -577,11 +772,12 @@ actor DemoState {
         return allOrders
             .filter { role == .buyer ? $0.buyerId == me : $0.sellerId == me }
             .sorted { $0.createdAt > $1.createdAt }
+            .map { visible($0) }
     }
 
     func order(id: UUID) throws -> Order {
         guard let o = allOrders.first(where: { $0.id == id }) else { throw RepositoryError.notFound }
-        return o
+        return visible(o)
     }
 
     private static func canMove(from: OrderStatus, to: OrderStatus) -> Bool {
@@ -597,6 +793,44 @@ actor DemoState {
         }
     }
 
+    static func makeHandoffCode() -> String {
+        let n = String(Int.random(in: 0..<10_000))
+        return String(repeating: "0", count: max(0, Catalog.handoffCodeLength - n.count)) + n
+    }
+
+    /// Applies a status change and its side effects (history, hand-off code, escrow deadline, listing status,
+    /// notifications). DELIVERED chains to BUYER_VALIDATION, like `private.transition_order` in SQL.
+    private func apply(_ status: OrderStatus, toOrderAt i: Int) {
+        let now = clock()
+        allOrders[i].status = status
+        allOrders[i].history.append(OrderEvent(status: status, at: now))
+        let o = allOrders[i]
+        switch status {
+        case .shipped:
+            allOrders[i].handoffCode = Self.makeHandoffCode()
+            notify(o.buyerId, AppNotification(
+                id: UUID(), kind: .orderUpdate, title: "Colis expédié",
+                body: "\(o.listingTitle) est en route. Montre ton code de remise à la réception.",
+                createdAt: now, read: false, listingId: o.listingId, orderId: o.id))
+        case .delivered:
+            allOrders[i].escrowReleaseAt = now.addingTimeInterval(TimeInterval(Catalog.escrowAutoReleaseHours * 3_600))
+            allOrders[i].status = .buyerValidation
+            allOrders[i].history.append(OrderEvent(status: .buyerValidation, at: now))
+            notify(o.buyerId, AppNotification(
+                id: UUID(), kind: .orderUpdate, title: "Confirme la réception",
+                body: "\(o.listingTitle) t'a été remis. Sans réponse sous \(Catalog.escrowAutoReleaseHours) h, les fonds seront libérés.",
+                createdAt: now, read: false, listingId: o.listingId, orderId: o.id))
+        default: break
+        }
+        if let li = index(ofListing: o.listingId) {
+            switch status {
+            case .completed: items[li].status = .sold
+            case .cancelled, .refunded: items[li].status = .active
+            default: break
+            }
+        }
+    }
+
     func advanceOrder(id: UUID, to status: OrderStatus) throws -> Order {
         let me = try requireMe()
         guard let i = allOrders.firstIndex(where: { $0.id == id }) else { throw RepositoryError.notFound }
@@ -605,31 +839,89 @@ actor DemoState {
         guard Self.canMove(from: from, to: status) else {
             throw RepositoryError.invalidState("Impossible de passer de « \(from.label) » à « \(status.label) ».")
         }
-        allOrders[i].status = status
-        allOrders[i].history.append(OrderEvent(status: status, at: .now))
-        if let li = index(ofListing: allOrders[i].listingId) {
-            switch status {
-            case .completed: items[li].status = .sold
-            case .cancelled, .refunded: items[li].status = .active
-            default: break
-            }
+        // v3: the hand-off is proven by the buyer's code (confirmHandoff), never declared by the seller alone.
+        if status == .delivered && allOrders[i].sellerId == me {
+            throw RepositoryError.invalidState("Saisis le code de remise de l'acheteuse pour confirmer la remise.")
         }
-        return allOrders[i]
+        if status == .shipped && allOrders[i].sellerId != me {
+            throw RepositoryError.invalidState("Seule la vendeuse peut marquer la commande comme expédiée.")
+        }
+        apply(status, toOrderAt: i)
+        return visible(allOrders[i])
+    }
+
+    func confirmHandoff(orderId: UUID, code: String) throws -> Order {
+        let me = try requireMe()
+        guard let i = allOrders.firstIndex(where: { $0.id == orderId }),
+              allOrders[i].buyerId == me || allOrders[i].sellerId == me else { throw RepositoryError.notFound }
+        guard allOrders[i].sellerId == me else {
+            throw RepositoryError.invalidState("Le code se donne à la vendeuse, au point relais ou au coursier.")
+        }
+        guard allOrders[i].status == .shipped else {
+            throw RepositoryError.invalidState("Cette commande n'attend pas de remise (« \(allOrders[i].status.label) »).")
+        }
+        let typed = code.filter(\.isNumber)
+        guard let expected = allOrders[i].handoffCode, typed == expected else {
+            throw RepositoryError.invalidState("Code incorrect. Demande à l'acheteuse son code à \(Catalog.handoffCodeLength) chiffres.")
+        }
+        apply(.delivered, toOrderAt: i)
+        return visible(allOrders[i])
+    }
+
+    // MARK: Reviews
+
+    func submitReview(orderId: UUID, rating: Int, comment: String) throws -> Review {
+        let me = try requireMe()
+        guard let o = allOrders.first(where: { $0.id == orderId }), o.buyerId == me || o.sellerId == me else {
+            throw RepositoryError.notFound
+        }
+        guard o.buyerId == me else { throw RepositoryError.invalidState("Seule l'acheteuse peut noter la vendeuse.") }
+        guard o.status == .completed else {
+            throw RepositoryError.invalidState("Tu pourras noter la vendeuse une fois la commande terminée.")
+        }
+        guard (1...5).contains(rating) else { throw RepositoryError.invalidState("Choisis une note de 1 à 5 étoiles.") }
+        guard !allReviews.contains(where: { $0.orderId == orderId && $0.reviewerId == me }) else {
+            throw RepositoryError.invalidState("Tu as déjà noté cette commande.")
+        }
+        let text = String(comment.trimmingCharacters(in: .whitespacesAndNewlines).prefix(500))
+        let review = Review(id: UUID(), orderId: orderId, reviewerId: me, revieweeId: o.sellerId,
+                            rating: rating, comment: text, createdAt: clock())
+        allReviews.append(review)
+        if var seller = users[o.sellerId] {
+            // Running average over the seller's (aggregate) review count, same result as the SQL trigger.
+            let count = max(0, seller.reviewCount)
+            let total = seller.rating * Double(count) + Double(rating)
+            seller.reviewCount = count + 1
+            seller.rating = min(5, max(0, total / Double(count + 1)))
+            users[o.sellerId] = seller
+        }
+        return review
+    }
+
+    func reviews(userId: UUID) -> [Review] {
+        allReviews.filter { $0.revieweeId == userId }.sorted { $0.createdAt > $1.createdAt }
     }
 
     // MARK: Messaging
 
     private func project(_ c: DemoConversation, for me: UUID) -> Conversation {
         let last = messagesByConv[c.id]?.last
+        let preview = (last?.text.isEmpty ?? false) && last?.photo != nil ? "Photo" : (last?.text ?? "")
         return Conversation(id: c.id, listingId: c.listingId, otherUserId: c.other(than: me),
-                            lastMessage: last?.text ?? "", lastMessageAt: last?.sentAt ?? .now,
+                            lastMessage: preview, lastMessageAt: last?.sentAt ?? clock(),
                             unreadCount: c.unread[me] ?? 0)
+    }
+
+    /// Blocked either way (I blocked them, or they blocked me).
+    private func isBlocked(between a: UUID, and b: UUID) -> Bool {
+        (blocks[a]?.contains(b) ?? false) || (blocks[b]?.contains(a) ?? false)
     }
 
     func conversations() throws -> [Conversation] {
         let me = try requireMe()
         return convs
-            .filter { $0.members.contains(me) && !(messagesByConv[$0.id] ?? []).isEmpty }
+            .filter { $0.members.contains(me) && !(messagesByConv[$0.id] ?? []).isEmpty
+                && !isBlocked(between: me, and: $0.other(than: me)) }
             .map { project($0, for: me) }
             .sorted { $0.lastMessageAt > $1.lastMessageAt }
     }
@@ -640,20 +932,51 @@ actor DemoState {
         return (messagesByConv[conversationId] ?? []).sorted { $0.sentAt < $1.sentAt }
     }
 
+    /// Checks membership and blocks, returns the conversation index and the other member.
+    private func writableConversation(_ conversationId: UUID, me: UUID) throws -> (Int, UUID) {
+        guard let i = convs.firstIndex(where: { $0.id == conversationId }), convs[i].members.contains(me) else {
+            throw RepositoryError.notFound
+        }
+        let other = convs[i].other(than: me)
+        if isBlocked(between: me, and: other) {
+            throw RepositoryError.invalidState("Tu ne peux plus échanger de messages avec ce membre.")
+        }
+        return (i, other)
+    }
+
     func send(text: String, conversationId: UUID) throws -> ChatMessage {
         let me = try requireMe()
         let body = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !body.isEmpty else { throw RepositoryError.invalidState("Message vide.") }
-        guard let i = convs.firstIndex(where: { $0.id == conversationId }), convs[i].members.contains(me) else {
-            throw RepositoryError.notFound
-        }
-        let msg = ChatMessage(id: UUID(), conversationId: conversationId, senderId: me, text: body, sentAt: .now)
+        let (i, other) = try writableConversation(conversationId, me: me)
+        let msg = ChatMessage(id: UUID(), conversationId: conversationId, senderId: me, text: String(body.prefix(2000)), sentAt: clock())
         messagesByConv[conversationId, default: []].append(msg)
-        let other = convs[i].other(than: me)
         convs[i].unread[other, default: 0] += 1
         Task {
             try? await Task.sleep(for: .seconds(2))
             await self.simulateReply(conversationId: conversationId, from: other, to: me, prompt: body)
+        }
+        return msg
+    }
+
+    func sendPhoto(_ jpeg: Data, conversationId: UUID) throws -> ChatMessage {
+        let me = try requireMe()
+        guard !jpeg.isEmpty else { throw RepositoryError.invalidState("Photo vide.") }
+        let (i, other) = try writableConversation(conversationId, me: me)
+        let id = UUID()
+        let dir = FileManager.default.temporaryDirectory.appendingPathComponent("refripe-demo-chat", isDirectory: true)
+        try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        let url = dir.appendingPathComponent("\(id.uuidString).jpg")
+        do { try jpeg.write(to: url, options: .atomic) } catch {
+            throw RepositoryError.invalidState("Impossible d'envoyer la photo.")
+        }
+        let msg = ChatMessage(id: id, conversationId: conversationId, senderId: me, text: "", sentAt: clock(),
+                              photo: ListingPhoto(url: url))
+        messagesByConv[conversationId, default: []].append(msg)
+        convs[i].unread[other, default: 0] += 1
+        Task {
+            try? await Task.sleep(for: .seconds(2))
+            await self.simulateReply(conversationId: conversationId, from: other, to: me, prompt: "photo reçue merci")
         }
         return msg
     }
@@ -674,8 +997,8 @@ actor DemoState {
     }
 
     private func simulateReply(conversationId: UUID, from other: UUID, to me: UUID, prompt: String) async {
-        guard let i = convs.firstIndex(where: { $0.id == conversationId }) else { return }
-        let now = Date.now
+        guard let i = convs.firstIndex(where: { $0.id == conversationId }), !isBlocked(between: me, and: other) else { return }
+        let now = clock()
         let reply = ChatMessage(id: UUID(), conversationId: conversationId, senderId: other,
                                 text: Self.cannedReply(to: prompt), sentAt: now)
         messagesByConv[conversationId, default: []].append(reply)
@@ -690,6 +1013,9 @@ actor DemoState {
         let me = try requireMe()
         guard userId != me else { throw RepositoryError.invalidState("Tu ne peux pas t'écrire à toi-même.") }
         guard users[userId] != nil else { throw RepositoryError.notFound }
+        if isBlocked(between: me, and: userId) {
+            throw RepositoryError.invalidState("Tu ne peux plus échanger de messages avec ce membre.")
+        }
         if let c = convs.first(where: { Set($0.members) == [me, userId] && $0.listingId == listingId }) {
             return project(c, for: me)
         }
@@ -718,5 +1044,68 @@ actor DemoState {
     func markNotificationsRead() throws {
         let me = try requireMe()
         notifs[me] = (notifs[me] ?? []).map { var n = $0; n.read = true; return n }
+    }
+
+    // MARK: Moderation & account (v3)
+
+    func report(listingId: UUID?, userId: UUID?, reason: ReportReason, details: String) throws {
+        let me = try requireMe()
+        guard listingId != nil || userId != nil else { throw RepositoryError.invalidState("Que veux-tu signaler ?") }
+        if let listingId, index(ofListing: listingId) == nil { throw RepositoryError.notFound }
+        if let userId {
+            guard users[userId] != nil else { throw RepositoryError.notFound }
+            guard userId != me else { throw RepositoryError.invalidState("Tu ne peux pas te signaler toi-même.") }
+        }
+        let text = String(details.trimmingCharacters(in: .whitespacesAndNewlines).prefix(1000))
+        reports.append(DemoReport(reporterId: me, listingId: listingId, userId: userId, reason: reason,
+                                  details: text, createdAt: clock()))
+    }
+
+    func block(userId: UUID) throws {
+        let me = try requireMe()
+        guard userId != me else { throw RepositoryError.invalidState("Tu ne peux pas te bloquer toi-même.") }
+        guard users[userId] != nil else { throw RepositoryError.notFound }
+        blocks[me, default: []].insert(userId)
+        // Pending negotiations between us stop.
+        for i in threads.indices where threads[i].status == .pending
+            && Set([threads[i].buyerId, threads[i].sellerId]) == Set([me, userId]) {
+            threads[i].status = .expired
+            threads[i].updatedAt = clock()
+        }
+    }
+
+    func unblock(userId: UUID) throws {
+        let me = try requireMe()
+        blocks[me]?.remove(userId)
+    }
+
+    func blockedUserIds() throws -> Set<UUID> {
+        let me = try requireMe()
+        return blocks[me] ?? []
+    }
+
+    /// Demo equivalent of the `delete_account` RPC: my listings are withdrawn, my profile and private data
+    /// removed, past orders keep an anonymised buyer name, then the session ends.
+    func deleteAccount() throws {
+        let me = try requireMe()
+        // Unlike the SQL RPC (which refuses while escrow is in flight), the demo always lets you delete.
+        for i in items.indices where items[i].sellerId == me && items[i].status != .sold {
+            items[i].status = .removed
+        }
+        for i in allOrders.indices where allOrders[i].buyerId == me {
+            allOrders[i].buyerName = "Compte supprimé"
+        }
+        for i in threads.indices where threads[i].status == .pending && (threads[i].buyerId == me || threads[i].sellerId == me) {
+            threads[i].status = .expired
+        }
+        users[me] = nil
+        preferences[me] = nil
+        wishlists[me] = nil
+        swiped[me] = nil
+        notifs[me] = nil
+        blocks[me] = nil
+        phones = phones.filter { $0.value != me }
+        if appleUser == me { appleUser = nil }
+        self.me = nil
     }
 }
