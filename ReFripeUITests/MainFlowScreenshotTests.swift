@@ -125,7 +125,8 @@ final class MainFlowScreenshotTests: XCTestCase {
         _ = require(element(prefix: "Filtres"), "Filtres chip")
         _ = require(element(prefix: "Chemise vintage"), "grid card")
         // Regression: my own listings are excluded from the feed.
-        XCTAssertFalse(element(prefix: "Robe wax imprimé").exists, "own listing in the Accueil feed")
+        // (The feed reloads once the sign-in lands: give it a moment.)
+        XCTAssertTrue(element(prefix: "Robe wax imprimé").waitForNonExistence(timeout: 5), "own listing in the Accueil feed")
         snap("01-accueil-grid")
     }
 
@@ -361,6 +362,9 @@ final class MainFlowScreenshotTests: XCTestCase {
         _ = require(element(prefix: "Pseudo"), "account section")
         snap("14-settings")
         let delete = id("settings.deleteAccount")
+        // The Form is lazy: the last rows only exist once scrolled into view.
+        var swipes = 0
+        while !delete.exists && swipes < 6 { app.swipeUp(); swipes += 1 }
         if require(delete, "Supprimer mon compte") {
             scrollUntilHittable(delete)
             snap("14-settings-bottom")
