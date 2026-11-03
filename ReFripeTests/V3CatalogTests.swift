@@ -198,7 +198,30 @@ final class V3CatalogTests: XCTestCase {
         XCTAssertEqual(order.itemPrice, 2_000)
         let listing = try await state.listing(id: DemoIDs.listing(7))
         XCTAssertEqual(listing.status, .reserved)
-        XCTAssertNil(listing.reservedFor, "the order consumes the reservation")
+        XCTAssertEqual(listing.reservedFor, DemoIDs.karim, "kept while the order is open")
+    }
+
+    func testCancelAndReorderKeepsTheReservationForTheSameBuyer() async throws {
+        let state = makeDemoState()
+        _ = try await state.respondToOffer(threadId: DemoIDs.offerRobeFille, action: .accept, amount: nil)
+        try await signIn(state, phone: TestPhones.karim)
+        let first = try await state.createOrder(listingId: DemoIDs.listing(7), delivery: .relais, payment: .wave)
+        // Payment-method switch: cancel the pending order, re-create it with Orange Money.
+        let cancelled = try await state.advanceOrder(id: first.id, to: .cancelled)
+        XCTAssertEqual(cancelled.status, .cancelled)
+        let freed = try await state.listing(id: DemoIDs.listing(7))
+        XCTAssertEqual(freed.status, .active)
+        XCTAssertEqual(freed.reservedFor, DemoIDs.karim)
+        // Still refused to others…
+        try await signIn(state, phone: TestPhones.sneak)
+        await assertThrowsAsync(try await state.createOrder(listingId: DemoIDs.listing(7), delivery: .relais, payment: .wave)) {
+            assertInvalidState($0, contains: "Réservé pour une autre acheteuse")
+        }
+        // …and Karim re-orders at the negotiated price.
+        try await signIn(state, phone: TestPhones.karim)
+        let second = try await state.createOrder(listingId: DemoIDs.listing(7), delivery: .relais, payment: .orangeMoney)
+        XCTAssertEqual(second.itemPrice, 2_000)
+        XCTAssertEqual(second.payment, .orangeMoney)
     }
 
     func testBuyerAcceptingACounterReservesTheListing() async throws {

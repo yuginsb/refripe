@@ -699,8 +699,8 @@ actor DemoState {
                           status: .paymentPending, history: [OrderEvent(status: .paymentPending, at: now)], createdAt: now)
         allOrders.insert(order, at: 0)
         items[i].status = .reserved
-        items[i].reservedUntil = nil
-        items[i].reservedFor = nil
+        // The 2 h reservation is kept: if this buyer cancels (e.g. to switch payment method) and re-orders,
+        // the item is still held for her until `reservedUntil`.
         // v3: payment only starts with `startPayment` (guided Wave / Orange Money screen).
         return visible(order)
     }

@@ -124,9 +124,9 @@ extension DeliveryMethod {
     }
     var subtitle: String {
         switch self {
-        case .relais: "Retrait en boutique partenaire, sous 24-48h"
-        case .mainPropre: "Rendez-vous direct avec la vendeuse, gratuit"
-        case .yango: "Coursier à la demande, remis chez vous en 30 à 60 min"
+        case .relais: "24-48 h"
+        case .mainPropre: "Gratuit"
+        case .yango: "30-60 min"
         }
     }
     var fee: FCFA {
@@ -162,10 +162,10 @@ extension OrderStatus {
     /// For alternative outcomes: (SF Symbol, title, explanation).
     var alternativeInfo: (symbol: String, title: String, detail: String)? {
         switch self {
-        case .cancelled: ("nosign", "Commande annulée", "La commande a été annulée avant expédition. Le paiement, s'il avait été prélevé, est intégralement remboursé à l'acheteuse.")
-        case .disputed: ("exclamationmark.triangle", "Litige en cours", "Un litige a été signalé. Les fonds restent bloqués en séquestre pendant que notre équipe médiation examine le dossier (réponse sous 48h).")
-        case .returnPending: ("arrow.uturn.backward", "Retour en cours", "L'acheteuse a demandé un retour. Les fonds restent en séquestre jusqu'à réception et vérification de l'article par la vendeuse.")
-        case .refunded: ("banknote", "Commande remboursée", "Les fonds ont été recrédités à l'acheteuse sur son compte Wave / Orange Money.")
+        case .cancelled: ("nosign", "Commande annulée", "Annulée, remboursée.")
+        case .disputed: ("exclamationmark.triangle", "Litige en cours", "Litige en cours. Réponse sous 48 h.")
+        case .returnPending: ("arrow.uturn.backward", "Retour en cours", "Retour en cours.")
+        case .refunded: ("banknote", "Commande remboursée", "Remboursée sur Wave / Orange Money.")
         default: nil
         }
     }

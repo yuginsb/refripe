@@ -371,7 +371,8 @@ create trigger offer_threads_reserve after update of status on public.offer_thre
   when (new.status = 'accepted' and old.status is distinct from new.status)
   execute function private.offer_threads_reserve();
 
--- create_order : refusé pour les autres pendant la réservation ; la réservation est consommée.
+-- create_order : refusé pour les autres pendant la réservation. La réservation est conservée :
+-- si l'acheteuse annule (changement de moyen de paiement) puis recommande, l'article l'attend encore.
 create function private.orders_check_reservation()
 returns trigger
 language plpgsql
@@ -395,21 +396,6 @@ $$;
 
 create trigger orders_check_reservation before insert on public.orders
   for each row execute function private.orders_check_reservation();
-
-create function private.orders_clear_reservation()
-returns trigger
-language plpgsql
-security definer
-set search_path = ''
-as $$
-begin
-  update public.listings set reserved_until = null, reserved_for = null where id = new.listing_id;
-  return null;
-end;
-$$;
-
-create trigger orders_clear_reservation after insert on public.orders
-  for each row execute function private.orders_clear_reservation();
 
 -- Avis → profiles.rating (moyenne) et review_count.
 create function private.reviews_refresh_rating()

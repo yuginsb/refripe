@@ -409,3 +409,53 @@ Ensuite : `xcodegen generate`, puis build. `AppConfig` lit ces valeurs dans Info
 - `UserPreferences.sizes` (`[SizeType: String]`) est stocké en `jsonb` avec des clés texte. JSONEncoder encoderait sinon le dictionnaire en tableau.
 - `swipeDeck(preferences:)` ignore le paramètre : les préférences sont lues côté serveur.
 - `UserProfile.rating` n'est alimenté par aucune RPC (il n'y a pas d'avis dans le protocole). La valeur vient du seed ou d'une mise à jour admin.
+
+## 9. v3 (migration `20261103000001_v3.sql`)
+
+Règles : `docs/DESIGN-v3.md`. Validée sur PostgreSQL 16 (schémas `auth` / `storage` simulés) : migrations 1→7 appliquées, scénario complet offre → réservation → paiement → expédition → code → avis → blocage → suppression de compte.
+
+### Schéma
+
+| Objet | Ajout |
+|---|---|
+| `item_type` (enum) | `robe, pagne, ensemble, haut, chemise, pantalon, jean, jupe, chaussures, sac, accessoire, autre` = `ItemType` |
+| `listings` | `item_type` (défaut `autre`, index partiel), `reserved_until`, `reserved_for` (réservation 2 h) |
+| `listings_public` | + `item_type`, `reserved_until`/`reserved_for` (nuls une fois expirés) ; masque les annonces des membres bloqués (dans les deux sens). Toujours sans `min_offer`. |
+| `profiles` | `review_count` (lisible par tous), `deleted_at` ; la FK vers `auth.users` est supprimée (profil « pierre tombale » après suppression) |
+| `orders` | `handoff_code` (4 chiffres, **jamais lisible via la table** : SELECT par colonnes sans elle), `handoff_attempts`, `escrow_release_at`, `payment_reference` |
+| `messages` | `photo_url` (bucket `chat-photos`), texte vide autorisé si photo |
+| `reviews` | 1 par commande ; lecture publique ; écriture via `submit_review` ; trigger → `profiles.rating` (moyenne) et `review_count` |
+| `reports` | `report_reason` (enum = `ReportReason`) ; insert/lecture de ses propres signalements ; modération via service_role |
+| `blocks` | `(blocker_id, blocked_id)` ; RLS personnelle ; `private.is_blocked(a, b)` (exécutable par authenticated) filtre `my_conversations` et refuse l'insert de messages |
+| `notification_kind` | + `offer_received`, `offer_accepted`, `offer_refused`, `new_sale` |
+| Storage | bucket public `chat-photos` (`<uid>/<conversation>/<uuid>.jpg`, écriture dans son dossier) |
+
+### Règles côté base
+
+- **Réservation 2 h** : trigger sur `offer_threads` (passage à `accepted`, par `respond_offer` ou par l'acceptation d'une contre-offre dans `make_offer`) → `reserved_until = now() + 2 h`, `reserved_for = buyer`. Refusé si déjà réservé pour une autre (`listing_reserved`). Trigger BEFORE INSERT sur `orders` : `create_order` refusé aux autres (« Réservé pour une autre acheteuse jusqu'à HH:MM ») et entre membres bloqués. La réservation n'est pas consommée par la commande : si l'acheteuse annule (changement de moyen de paiement) elle peut recommander jusqu'à l'échéance.
+- **Code de remise** : `private.transition_order` (remplacée) génère `handoff_code` au passage `SHIPPED` (pgcrypto) et fixe `escrow_release_at = +72 h` à `DELIVERED`. `SHIPPED → DELIVERED` n'est plus permis à la vendeuse (`handoff_code_required`) : acheteuse ou `system` uniquement.
+- `release_escrow` (cron) utilise `escrow_release_at`.
+- `confirm_payment` renseigne `payment_reference` (référence prestataire).
+- Notifications : `offer_received` (vendeuse, nouvelle offre), `offer_accepted` / `offer_refused` (acheteuse ; `offer_accepted` aussi pour la vendeuse quand sa contre-offre est acceptée), `new_sale` (vendeuse, commande payée). Aperçu « Photo » pour un message photo.
+
+### RPC
+
+| RPC | Rôle |
+|---|---|
+| `my_handoff_codes(p_order_id uuid default null)` → `(order_id, handoff_code)` | codes de **mes achats** uniquement (acheteuse) |
+| `confirm_handoff(p_order_id, p_code)` → `'ok' \| 'wrong_code' \| 'locked'` | vendeuse (ou service_role pour relais / coursier) ; 5 essais max ; pas d'exception sur mauvais code (le compteur doit persister) |
+| `submit_review(p_order_id, p_rating, p_comment)` → ligne `reviews` (jsonb) | acheteuse, commande `COMPLETED`, une fois |
+| `delete_account()` | refusée si de l'argent est en séquestre ; annule les commandes non payées, supprime/retire les annonces, efface préférences/envies/swipes/blocages/notifications, anonymise le profil (`supprime_xxxx`) et `buyer_name` des commandes |
+
+### Edge Functions
+
+- `payment-init` renvoie en plus `amount`, `method`, `masked_phone` (« 07 07 •• •• 07 », depuis `profiles.phone`) et `ussd_code` (Orange Money, secret optionnel `OM_USSD_CODE`). L'app ne l'appelle plus dans `createOrder` mais dans `startPayment`, puis interroge `order(id:)` toutes les 3 s.
+- `delete-account` (nouvelle, `verify_jwt = true`) : RPC `delete_account` avec le JWT de l'utilisatrice → suppression de ses fichiers `listing-photos/<uid>` et `chat-photos/<uid>` → `auth.admin.deleteUser` (service_role, impossible depuis SQL). Déployer : `supabase functions deploy delete-account`.
+
+### Côté Swift (`SupabaseRepository`)
+
+`feed` exclut mes annonces (`seller_id <> moi`) et filtre `item_type`, `size_value` (valeur brute = `ListingFilters.sizes`), `district` ; `orders`/`order` complètent `handoffCode` via `my_handoff_codes` quand je suis l'acheteuse ; `sendPhoto` envoie dans `chat-photos` puis insère le message ; `report`, `block`/`unblock`/`blockedUserIds` passent par les tables (RLS) ; `deleteAccount` appelle `delete-account` puis se déconnecte.
+
+### Mode démo (`DemoRepository`)
+
+Mêmes règles, avec horloge injectable (`DemoRepository(clock:paymentDelay:shipDelay:)`) : paiement `PAID` ~4 s après `startPayment` (plus de paiement automatique à `createOrder`), vendeuse simulée qui expédie un achat ~8 s après paiement (code visible par l'acheteuse), `minOffer` retiré des annonces des autres. Seule différence : la suppression de compte n'y est jamais refusée.
