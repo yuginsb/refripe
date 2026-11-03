@@ -1,0 +1,2 @@
+** TEST FAILED **
+/Users/runner/work/refripe/refripe/ReFripeUITests/MainFlowScreenshotTests.swift:439: error: -[ReFripeUITests.MainFlowScreenshotTests testMainFlowScreenshots] : failed - sell.primary stayed disabled

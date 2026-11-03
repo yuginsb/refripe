@@ -1,0 +1,2 @@
+[ReFripeUITests] testMainFlowScreenshots()
+    failed - sell.primary stayed disabled

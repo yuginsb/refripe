@@ -1,0 +1,300 @@
+    t =   213.13s     Waiting 15.0s for "Profil" NavigationBar to exist
+    t =   214.14s         Checking `Expect predicate `existsNoRetry == 1` for object "Profil" NavigationBar`
+    t =   214.14s             Checking existence of `"Profil" NavigationBar`
+    t =   214.27s     Waiting 15.0s for Any (First Match) to exist
+    t =   215.32s         Checking `Expect predicate `existsNoRetry == 1` for object Any (First Match)`
+    t =   215.32s             Checking existence of `Any (First Match)`
+    t =   215.49s     Find the Target Application 'dev.eugenebessan.refripe'
+    t =   215.90s     Added attachment named '10-profile'
+    t =   215.90s     Waiting 15.0s for "profile.activity.purchases" Any to exist
+    t =   216.92s         Checking `Expect predicate `existsNoRetry == 1` for object "profile.activity.purchases" Any`
+    t =   216.92s             Checking existence of `"profile.activity.purchases" Any`
+    t =   217.46s     Checking existence of `"profile.activity.help" Any`
+    t =   217.77s     Find the "profile.activity.help" Any
+    t =   218.10s     Swipe up Target Application 'dev.eugenebessan.refripe'
+    t =   218.10s         Wait for dev.eugenebessan.refripe to idle
+    t =   218.10s         Find the Target Application 'dev.eugenebessan.refripe'
+    t =   218.19s         Check for interrupting elements affecting "ReFripe" Application
+    t =   218.28s         Synthesize event
+    t =   218.72s         Wait for dev.eugenebessan.refripe to idle
+    t =   219.28s     Checking existence of `"profile.activity.help" Button`
+    t =   219.90s     Find the "profile.activity.help" Button
+    t =   220.32s     Find the Target Application 'dev.eugenebessan.refripe'
+    t =   220.69s     Added attachment named '10-profile-activity'
+    t =   220.70s 11 purchases
+    t =   220.70s     Waiting 15.0s for "profile.activity.purchases" Any to exist
+    t =   221.71s         Checking `Expect predicate `existsNoRetry == 1` for object "profile.activity.purchases" Any`
+    t =   221.72s             Checking existence of `"profile.activity.purchases" Any`
+    t =   222.01s     Checking existence of `"profile.activity.purchases" Any`
+    t =   222.29s     Find the "profile.activity.purchases" Any
+    t =   222.63s     Tap "profile.activity.purchases" Button
+    t =   222.63s         Wait for dev.eugenebessan.refripe to idle
+    t =   222.63s         Find the "profile.activity.purchases" Button
+    t =   222.98s         Check for interrupting elements affecting "profile.activity.purchases" Button
+    t =   223.21s         Synthesize event
+    t =   223.52s         Wait for dev.eugenebessan.refripe to idle
+    t =   224.64s     Waiting 15.0s for "Mes achats" NavigationBar to exist
+    t =   225.68s         Checking `Expect predicate `existsNoRetry == 1` for object "Mes achats" NavigationBar`
+    t =   225.68s             Checking existence of `"Mes achats" NavigationBar`
+    t =   225.83s     Find the Target Application 'dev.eugenebessan.refripe'
+    t =   226.17s     Added attachment named '11-mes-achats'
+    t =   226.17s     Waiting 5.0s for Button (Element at index 0) to exist
+    t =   227.20s         Checking `Expect predicate `existsNoRetry == 1` for object Button (Element at index 0)`
+    t =   227.20s             Checking existence of `Button (Element at index 0)`
+    t =   227.30s     Tap Button (Element at index 0)
+    t =   227.30s         Wait for dev.eugenebessan.refripe to idle
+    t =   227.31s         Find the Button (Element at index 0)
+    t =   227.40s         Check for interrupting elements affecting "BackButton" Button
+    t =   227.50s         Synthesize event
+    t =   227.86s         Wait for dev.eugenebessan.refripe to idle
+    t =   228.74s     Waiting 15.0s for "profile.activity.sales" Any to exist
+    t =   229.78s         Checking `Expect predicate `existsNoRetry == 1` for object "profile.activity.sales" Any`
+    t =   229.78s             Checking existence of `"profile.activity.sales" Any`
+    t =   230.26s     Checking existence of `"profile.activity.sales" Any`
+    t =   230.72s     Find the "profile.activity.sales" Any
+    t =   231.20s     Tap "profile.activity.sales" Button
+    t =   231.20s         Wait for dev.eugenebessan.refripe to idle
+    t =   231.21s         Find the "profile.activity.sales" Button
+    t =   231.62s         Check for interrupting elements affecting "profile.activity.sales" Button
+    t =   231.76s         Synthesize event
+    t =   232.12s         Wait for dev.eugenebessan.refripe to idle
+    t =   233.10s     Waiting 15.0s for "Mes ventes" NavigationBar to exist
+    t =   234.12s         Checking `Expect predicate `existsNoRetry == 1` for object "Mes ventes" NavigationBar`
+    t =   234.13s             Checking existence of `"Mes ventes" NavigationBar`
+    t =   234.25s     Find the Target Application 'dev.eugenebessan.refripe'
+    t =   234.51s     Added attachment named '11-mes-ventes'
+    t =   234.51s     Waiting 5.0s for Button (Element at index 0) to exist
+    t =   235.53s         Checking `Expect predicate `existsNoRetry == 1` for object Button (Element at index 0)`
+    t =   235.53s             Checking existence of `Button (Element at index 0)`
+    t =   235.62s     Tap Button (Element at index 0)
+    t =   235.62s         Wait for dev.eugenebessan.refripe to idle
+    t =   235.62s         Find the Button (Element at index 0)
+    t =   235.68s         Check for interrupting elements affecting "BackButton" Button
+    t =   235.76s         Synthesize event
+    t =   236.09s         Wait for dev.eugenebessan.refripe to idle
+    t =   237.10s     Waiting 15.0s for "profile.activity.payouts" Any to exist
+    t =   238.11s         Checking `Expect predicate `existsNoRetry == 1` for object "profile.activity.payouts" Any`
+    t =   238.12s             Checking existence of `"profile.activity.payouts" Any`
+    t =   238.51s     Checking existence of `"profile.activity.payouts" Any`
+    t =   239.07s     Find the "profile.activity.payouts" Any
+    t =   239.81s     Tap "profile.activity.payouts" Button
+    t =   239.81s         Wait for dev.eugenebessan.refripe to idle
+    t =   239.81s         Find the "profile.activity.payouts" Button
+    t =   240.64s         Check for interrupting elements affecting "profile.activity.payouts" Button
+    t =   240.92s         Synthesize event
+    t =   241.28s         Wait for dev.eugenebessan.refripe to idle
+    t =   242.26s     Waiting 15.0s for "Versements" NavigationBar to exist
+    t =   243.27s         Checking `Expect predicate `existsNoRetry == 1` for object "Versements" NavigationBar`
+    t =   243.27s             Checking existence of `"Versements" NavigationBar`
+    t =   243.40s     Find the Target Application 'dev.eugenebessan.refripe'
+    t =   243.66s     Added attachment named '11-versements'
+    t =   243.66s     Waiting 5.0s for Button (Element at index 0) to exist
+    t =   244.68s         Checking `Expect predicate `existsNoRetry == 1` for object Button (Element at index 0)`
+    t =   244.68s             Checking existence of `Button (Element at index 0)`
+    t =   244.80s     Tap Button (Element at index 0)
+    t =   244.80s         Wait for dev.eugenebessan.refripe to idle
+    t =   244.81s         Find the Button (Element at index 0)
+    t =   244.92s         Check for interrupting elements affecting "BackButton" Button
+    t =   245.01s         Synthesize event
+    t =   245.37s         Wait for dev.eugenebessan.refripe to idle
+    t =   246.28s 12 reviews
+    t =   246.28s     Waiting 2.0s for TabBar (First Match) to exist
+    t =   247.32s         Checking `Expect predicate `existsNoRetry == 1` for object TabBar (First Match)`
+    t =   247.32s             Checking existence of `TabBar (First Match)`
+    t =   247.37s     Waiting 15.0s for "Profil" Button to exist
+    t =   248.38s         Checking `Expect predicate `existsNoRetry == 1` for object "Profil" Button`
+    t =   248.38s             Checking existence of `"Profil" Button`
+    t =   248.54s     Tap "Profil" Button
+    t =   248.54s         Wait for dev.eugenebessan.refripe to idle
+    t =   248.57s         Find the "Profil" Button
+    t =   248.68s         Check for interrupting elements affecting "person" Button
+    t =   248.79s         Synthesize event
+    t =   249.10s         Wait for dev.eugenebessan.refripe to idle
+    t =   249.88s     Tap "person" Button
+    t =   249.89s         Wait for dev.eugenebessan.refripe to idle
+    t =   249.90s         Find the "person" Button
+    t =   250.12s         Check for interrupting elements affecting "person" Button
+    t =   250.22s         Synthesize event
+    t =   250.57s         Wait for dev.eugenebessan.refripe to idle
+    t =   251.42s     Waiting 15.0s for "profile.reviews" Any to exist
+    t =   252.47s         Checking `Expect predicate `existsNoRetry == 1` for object "profile.reviews" Any`
+    t =   252.47s             Checking existence of `"profile.reviews" Any`
+    t =   252.77s     Checking existence of `"profile.reviews" Any`
+    t =   253.08s     Find the "profile.reviews" Any
+    t =   253.38s     Tap "profile.reviews" Button
+    t =   253.38s         Wait for dev.eugenebessan.refripe to idle
+    t =   253.40s         Find the "profile.reviews" Button
+    t =   253.71s         Check for interrupting elements affecting "profile.reviews" Button
+    t =   253.89s         Synthesize event
+    t =   254.21s         Wait for dev.eugenebessan.refripe to idle
+    t =   255.38s     Waiting 15.0s for "Avis" NavigationBar to exist
+    t =   256.40s         Checking `Expect predicate `existsNoRetry == 1` for object "Avis" NavigationBar`
+    t =   256.40s             Checking existence of `"Avis" NavigationBar`
+    t =   256.60s     Find the Target Application 'dev.eugenebessan.refripe'
+    t =   256.87s     Added attachment named '12-avis'
+    t =   256.87s     Waiting 2.0s for TabBar (First Match) to exist
+    t =   257.92s         Checking `Expect predicate `existsNoRetry == 1` for object TabBar (First Match)`
+    t =   257.92s             Checking existence of `TabBar (First Match)`
+    t =   257.96s     Waiting 15.0s for "Profil" Button to exist
+    t =   259.00s         Checking `Expect predicate `existsNoRetry == 1` for object "Profil" Button`
+    t =   259.00s             Checking existence of `"Profil" Button`
+    t =   259.12s     Tap "Profil" Button
+    t =   259.12s         Wait for dev.eugenebessan.refripe to idle
+    t =   259.12s         Find the "Profil" Button
+    t =   259.28s         Check for interrupting elements affecting "person" Button
+    t =   259.39s         Synthesize event
+    t =   259.75s         Wait for dev.eugenebessan.refripe to idle
+    t =   260.70s     Tap "person" Button
+    t =   260.70s         Wait for dev.eugenebessan.refripe to idle
+    t =   260.74s         Find the "person" Button
+    t =   260.88s         Check for interrupting elements affecting "person" Button
+    t =   261.01s         Synthesize event
+    t =   261.33s         Wait for dev.eugenebessan.refripe to idle
+    t =   262.10s 13 stats
+    t =   262.10s     Waiting 2.0s for TabBar (First Match) to exist
+    t =   263.11s         Checking `Expect predicate `existsNoRetry == 1` for object TabBar (First Match)`
+    t =   263.11s             Checking existence of `TabBar (First Match)`
+    t =   263.21s     Waiting 15.0s for "Profil" Button to exist
+    t =   264.25s         Checking `Expect predicate `existsNoRetry == 1` for object "Profil" Button`
+    t =   264.25s             Checking existence of `"Profil" Button`
+    t =   264.34s     Tap "Profil" Button
+    t =   264.34s         Wait for dev.eugenebessan.refripe to idle
+    t =   264.35s         Find the "Profil" Button
+    t =   264.44s         Check for interrupting elements affecting "person" Button
+    t =   264.53s         Synthesize event
+    t =   264.84s         Wait for dev.eugenebessan.refripe to idle
+    t =   265.66s     Tap "person" Button
+    t =   265.66s         Wait for dev.eugenebessan.refripe to idle
+    t =   265.67s         Find the "person" Button
+    t =   265.85s         Check for interrupting elements affecting "person" Button
+    t =   265.99s         Synthesize event
+    t =   266.34s         Wait for dev.eugenebessan.refripe to idle
+    t =   267.83s     Waiting 15.0s for "profile.activity.stats" Any to exist
+    t =   268.87s         Checking `Expect predicate `existsNoRetry == 1` for object "profile.activity.stats" Any`
+    t =   268.87s             Checking existence of `"profile.activity.stats" Any`
+    t =   270.41s     Checking existence of `"profile.activity.stats" Any`
+    t =   271.32s     Find the "profile.activity.stats" Any
+    t =   272.16s     Swipe up Target Application 'dev.eugenebessan.refripe'
+    t =   272.16s         Wait for dev.eugenebessan.refripe to idle
+    t =   272.20s         Find the Target Application 'dev.eugenebessan.refripe'
+    t =   272.28s         Check for interrupting elements affecting "ReFripe" Application
+    t =   272.63s         Synthesize event
+    t =   273.07s         Wait for dev.eugenebessan.refripe to idle
+    t =   273.60s     Checking existence of `"profile.activity.stats" Button`
+    t =   274.58s     Find the "profile.activity.stats" Button
+    t =   275.79s     Tap "profile.activity.stats" Button
+    t =   275.79s         Wait for dev.eugenebessan.refripe to idle
+    t =   275.80s         Find the "profile.activity.stats" Button
+    t =   276.46s         Check for interrupting elements affecting "profile.activity.stats" Button
+    t =   276.62s         Synthesize event
+    t =   276.95s         Wait for dev.eugenebessan.refripe to idle
+    t =   278.73s     Waiting 15.0s for "Statistiques" NavigationBar to exist
+    t =   279.76s         Checking `Expect predicate `existsNoRetry == 1` for object "Statistiques" NavigationBar`
+    t =   279.76s             Checking existence of `"Statistiques" NavigationBar`
+    t =   279.91s     Find the Target Application 'dev.eugenebessan.refripe'
+    t =   280.17s     Added attachment named '13-stats'
+    t =   280.17s     Waiting 2.0s for TabBar (First Match) to exist
+    t =   281.18s         Checking `Expect predicate `existsNoRetry == 1` for object TabBar (First Match)`
+    t =   281.18s             Checking existence of `TabBar (First Match)`
+    t =   281.21s     Waiting 15.0s for "Profil" Button to exist
+    t =   282.25s         Checking `Expect predicate `existsNoRetry == 1` for object "Profil" Button`
+    t =   282.25s             Checking existence of `"Profil" Button`
+    t =   282.42s     Tap "Profil" Button
+    t =   282.42s         Wait for dev.eugenebessan.refripe to idle
+    t =   282.43s         Find the "Profil" Button
+    t =   282.59s         Check for interrupting elements affecting "person" Button
+    t =   282.70s         Synthesize event
+    t =   283.03s         Wait for dev.eugenebessan.refripe to idle
+    t =   284.05s     Tap "person" Button
+    t =   284.05s         Wait for dev.eugenebessan.refripe to idle
+    t =   284.05s         Find the "person" Button
+    t =   284.31s         Check for interrupting elements affecting "person" Button
+    t =   284.43s         Synthesize event
+    t =   284.77s         Wait for dev.eugenebessan.refripe to idle
+    t =   285.55s 14 settings
+    t =   285.56s     Waiting 2.0s for TabBar (First Match) to exist
+    t =   286.60s         Checking `Expect predicate `existsNoRetry == 1` for object TabBar (First Match)`
+    t =   286.60s             Checking existence of `TabBar (First Match)`
+    t =   286.66s     Waiting 15.0s for "Profil" Button to exist
+    t =   287.72s         Checking `Expect predicate `existsNoRetry == 1` for object "Profil" Button`
+    t =   287.72s             Checking existence of `"Profil" Button`
+    t =   288.02s     Tap "Profil" Button
+    t =   288.02s         Wait for dev.eugenebessan.refripe to idle
+    t =   288.03s         Find the "Profil" Button
+    t =   288.20s         Check for interrupting elements affecting "person" Button
+    t =   288.32s         Synthesize event
+    t =   288.64s         Wait for dev.eugenebessan.refripe to idle
+    t =   289.46s     Tap "person" Button
+    t =   289.46s         Wait for dev.eugenebessan.refripe to idle
+    t =   289.48s         Find the "person" Button
+    t =   289.64s         Check for interrupting elements affecting "person" Button
+    t =   289.75s         Synthesize event
+    t =   290.11s         Wait for dev.eugenebessan.refripe to idle
+    t =   290.88s     Waiting 15.0s for "Réglages" Button to exist
+    t =   291.91s         Checking `Expect predicate `existsNoRetry == 1` for object "Réglages" Button`
+    t =   291.92s             Checking existence of `"Réglages" Button`
+    t =   292.07s     Tap "Réglages" Button
+    t =   292.07s         Wait for dev.eugenebessan.refripe to idle
+    t =   292.07s         Find the "Réglages" Button
+    t =   292.20s         Check for interrupting elements affecting "gearshape" Button
+    t =   292.33s         Synthesize event
+    t =   292.67s         Wait for dev.eugenebessan.refripe to idle
+    t =   294.21s     Waiting 15.0s for "Réglages" NavigationBar to exist
+    t =   295.25s         Checking `Expect predicate `existsNoRetry == 1` for object "Réglages" NavigationBar`
+    t =   295.25s             Checking existence of `"Réglages" NavigationBar`
+    t =   295.54s     Waiting 15.0s for Any (First Match) to exist
+    t =   296.58s         Checking `Expect predicate `existsNoRetry == 1` for object Any (First Match)`
+    t =   296.58s             Checking existence of `Any (First Match)`
+    t =   297.06s     Find the Target Application 'dev.eugenebessan.refripe'
+    t =   297.39s     Added attachment named '14-settings'
+    t =   297.39s     Checking existence of `"settings.deleteAccount" Any`
+    t =   316.13s     Swipe up Target Application 'dev.eugenebessan.refripe'
+    t =   316.13s         Wait for dev.eugenebessan.refripe to idle
+    t =   316.14s         Find the Target Application 'dev.eugenebessan.refripe'
+    t =   316.29s         Check for interrupting elements affecting "ReFripe" Application
+    t =   316.43s         Synthesize event
+    t =   316.89s         Wait for dev.eugenebessan.refripe to idle
+    t =   317.95s     Checking existence of `"settings.deleteAccount" Any`
+    t =   318.91s     Waiting 15.0s for "settings.deleteAccount" Any to exist
+    t =   319.94s         Checking `Expect predicate `existsNoRetry == 1` for object "settings.deleteAccount" Any`
+    t =   319.94s             Checking existence of `"settings.deleteAccount" Any`
+    t =   322.01s     Checking existence of `"settings.deleteAccount" Any`
+    t =   323.78s     Find the "settings.deleteAccount" Any
+    t =   324.32s     Find the Target Application 'dev.eugenebessan.refripe'
+    t =   324.64s     Added attachment named '14-settings-bottom'
+    t =   324.65s     Waiting 2.0s for TabBar (First Match) to exist
+    t =   325.70s         Checking `Expect predicate `existsNoRetry == 1` for object TabBar (First Match)`
+    t =   325.70s             Checking existence of `TabBar (First Match)`
+    t =   325.74s     Waiting 15.0s for "Profil" Button to exist
+    t =   326.78s         Checking `Expect predicate `existsNoRetry == 1` for object "Profil" Button`
+    t =   326.78s             Checking existence of `"Profil" Button`
+    t =   326.88s     Tap "Profil" Button
+    t =   326.88s         Wait for dev.eugenebessan.refripe to idle
+    t =   326.89s         Find the "Profil" Button
+    t =   326.98s         Check for interrupting elements affecting "person" Button
+    t =   327.07s         Synthesize event
+    t =   327.41s         Wait for dev.eugenebessan.refripe to idle
+    t =   328.76s     Tap "person" Button
+    t =   328.76s         Wait for dev.eugenebessan.refripe to idle
+    t =   328.77s         Find the "person" Button
+    t =   329.00s         Check for interrupting elements affecting "person" Button
+    t =   329.19s         Synthesize event
+    t =   329.51s         Wait for dev.eugenebessan.refripe to idle
+    t =   331.02s Tear Down
+Test Case '-[ReFripeUITests.MainFlowScreenshotTests testMainFlowScreenshots]' failed (331.715 seconds).
+Test Suite 'MainFlowScreenshotTests' failed at 2026-11-03 22:14:09.402.
+	 Executed 2 tests, with 1 failure (0 unexpected) in 407.254 (407.258) seconds
+Test Suite 'ReFripeUITests.xctest' failed at 2026-11-03 22:14:09.405.
+	 Executed 2 tests, with 1 failure (0 unexpected) in 407.254 (407.261) seconds
+Test Suite 'All tests' failed at 2026-11-03 22:14:09.406.
+	 Executed 2 tests, with 1 failure (0 unexpected) in 407.254 (407.267) seconds
+2026-11-03 22:15:03.685 xcodebuild[8024:28445] [MT] IDETestOperationsObserverDebug: 617.772 elapsed -- Testing started completed.
+2026-11-03 22:15:03.688 xcodebuild[8024:28445] [MT] IDETestOperationsObserverDebug: 0.000 sec, +0.000 sec -- start
+2026-11-03 22:15:03.688 xcodebuild[8024:28445] [MT] IDETestOperationsObserverDebug: 617.772 sec, +617.772 sec -- end
+
+Test session results, code coverage, and logs:
+	/Users/runner/work/refripe/refripe/TestResults.xcresult
+
+** TEST FAILED **
+
+Testing started
