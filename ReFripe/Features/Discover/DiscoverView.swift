@@ -48,6 +48,8 @@ struct DiscoverView: View {
             await load()
         }
         .task { await store.refreshBadges() }
+        // Signing in (or switching account) changes what the feed hides: my own listings, blocked members.
+        .onChange(of: store.me?.id) { _, _ in Task { await load() } }
         .sheet(isPresented: $showFilters) {
             DiscoverFilterSheet(filters: $filters, resultCount: items.count, isLoading: isLoading,
                                 city: store.me?.city ?? "Abidjan")

@@ -48,6 +48,36 @@ final class MainFlowScreenshotTests: XCTestCase {
         step("14 settings") { settings() }
     }
 
+    /// Same app in dark mode (`-appearanceMode dark` sets the Réglages › Apparence value): a few key screens.
+    func testDarkModeScreenshots() throws {
+        continueAfterFailure = true
+        app = XCUIApplication()
+        app.launchArguments += ["-uiTestingSignedOut", "-appearanceMode", "dark"]
+        addUIInterruptionMonitor(withDescription: "System alert") { alert in
+            for label in ["Autoriser", "Allow", "OK"] where alert.buttons[label].exists {
+                alert.buttons[label].tap(); return true
+            }
+            return false
+        }
+        app.launch()
+        if button("Continuer avec mon numéro").waitForExistence(timeout: timeout) { snap("20-dark-signup") }
+        signUp()
+        openTab("Accueil")
+        _ = require(element(prefix: "Filtres"), "dark Accueil")
+        snap("21-dark-accueil")
+        let card = element(prefix: "Chemise vintage")
+        if require(card, "dark grid card") {
+            tapScrolling(card)
+            if require(productBuy, "dark product page") { snap("22-dark-product") }
+        }
+        openTab("Messages")
+        _ = require(app.navigationBars["Messages"], "dark Messages")
+        snap("23-dark-messages")
+        openTab("Profil")
+        _ = require(app.navigationBars["Profil"], "dark Profil")
+        snap("24-dark-profile")
+    }
+
     // MARK: - Sign-up
 
     private func signUp() {
@@ -130,7 +160,8 @@ final class MainFlowScreenshotTests: XCTestCase {
         let card = element(prefix: "Sac à main")
         guard require(card, "leather bag card") else { return }
         tapScrolling(card)
-        _ = require(app.navigationBars["Annonce"], "product page")
+        // The product page hides its navigation bar (photo goes edge to edge): check its action bar instead.
+        _ = require(productBuy, "product page")
         _ = require(productBuy, "Acheter button")
         _ = require(productOffer, "Faire une offre button")
         snap("04-product")
@@ -365,6 +396,19 @@ final class MainFlowScreenshotTests: XCTestCase {
 
     /// Selects a tab, then selects it again: re-selecting the current tab pops its stack to the root.
     private func openTab(_ name: String) {
+        // Pushed screens (order tracking, product…) hide the tab bar: pop back to the tab root first.
+        var pops = 0
+        while !app.tabBars.firstMatch.waitForExistence(timeout: 2) && pops < 5 {
+            let back = app.navigationBars.buttons.element(boundBy: 0)
+            let custom = app.buttons["Retour"].firstMatch
+            if back.exists && back.isHittable { back.tap() }
+            else if custom.exists && custom.isHittable { custom.tap() }
+            else {
+                let start = app.coordinate(withNormalizedOffset: CGVector(dx: 0.01, dy: 0.5))
+                start.press(forDuration: 0.05, thenDragTo: app.coordinate(withNormalizedOffset: CGVector(dx: 0.8, dy: 0.5)))
+            }
+            pops += 1
+        }
         let tab = app.tabBars.buttons[name]
         guard require(tab, "tab \(name)") else { return }
         tab.tap()
