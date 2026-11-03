@@ -255,8 +255,8 @@ final class MainFlowScreenshotTests: XCTestCase {
         let primary = app.buttons["sell.primary"]
         guard require(primary, "sell flow") else { return }
 
-        // 1 · Photos (demo photo injected by -uiTestingSellPhoto, checked on-device).
-        waitUntilEnabled(primary)
+        // 1 · Photos (demo photo injected by -uiTestingSellPhoto, checked on-device — slow on CI simulators).
+        waitUntilEnabled(primary, timeout: 45)
         snap("09-sell-1-photos")
         primary.tap()
 
