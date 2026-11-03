@@ -84,4 +84,20 @@ protocol Repository: AnyObject, Sendable {
     // Dashboard
     func sellerStats() async throws -> SellerStats
     func recommendations() async throws -> [SellerRecommendation]
+
+    // MARK: v3
+    /// Starts (or resumes) payment of a PAYMENT_PENDING order. Poll `order(id:)` until status leaves paymentPending.
+    func startPayment(orderId: UUID) async throws -> PaymentSession
+    /// Hand-off: the courier / relay / seller types the buyer's code → DELIVERED. Wrong code → invalidState.
+    func confirmHandoff(orderId: UUID, code: String) async throws -> Order
+    func submitReview(orderId: UUID, rating: Int, comment: String) async throws -> Review
+    func reviews(userId: UUID) async throws -> [Review]
+    /// Photo message in a conversation (JPEG data).
+    func sendPhoto(_ jpeg: Data, conversationId: UUID) async throws -> ChatMessage
+    func report(listingId: UUID?, userId: UUID?, reason: ReportReason, details: String) async throws
+    func block(userId: UUID) async throws
+    func unblock(userId: UUID) async throws
+    func blockedUserIds() async throws -> Set<UUID>
+    /// App Store 5.1.1(v): deletes the account; past orders are anonymised server-side.
+    func deleteAccount() async throws
 }

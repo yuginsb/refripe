@@ -22,6 +22,8 @@ enum RF {
         static let paperDim = Color(hex: 0xEFE3D1)
         static let marigold = Color(hex: 0xF2A33D)
         static let hibiscus = Color(hex: 0xE1483A)
+        /// Red for TEXT on paper/white (≥ 4.5:1). Use `hibiscus` only for filled buttons/badges.
+        static let hibiscusText = Color(hex: 0xC23A2E)
         static let money = Color(hex: 0x1E9E73)
         static let moneyDeep = Color(hex: 0x136E51)
         static let textOnInk = Color(hex: 0xF4EAD9)
