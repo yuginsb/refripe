@@ -1,0 +1,130 @@
+name: TestFlight
+
+# Builds a signed Release archive and uploads it to App Store Connect (→ TestFlight).
+# Triggers: a tag like v0.2.0 (`git tag v0.2.0 && git push origin v0.2.0`), or the "Run workflow" button.
+#
+# Repository secrets (Settings › Secrets and variables › Actions):
+#   APPLE_TEAM_ID         10-character Team ID (developer.apple.com › Membership)
+#   ASC_KEY_ID            App Store Connect API key ID
+#   ASC_ISSUER_ID         App Store Connect issuer ID
+#   ASC_KEY_P8            content of the AuthKey_XXXX.p8 file (the whole text, BEGIN/END lines included)
+#   SUPABASE_URL          optional — leave unset to ship the demo-data build
+#   SUPABASE_ANON_KEY     optional
+# The API key must have the Admin role: Xcode uses it to create the distribution certificate and
+# provisioning profile in the cloud (no certificate or profile to export from your Mac).
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+concurrency:
+  group: testflight
+  cancel-in-progress: false
+
+jobs:
+  upload:
+    name: Archive & upload
+    runs-on: macos-15
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Select Xcode
+        uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: latest-stable
+
+      - name: Install XcodeGen
+        run: brew install xcodegen
+
+      - name: Check secrets
+        env:
+          TEAM: ${{ secrets.APPLE_TEAM_ID }}
+          KID: ${{ secrets.ASC_KEY_ID }}
+          ISS: ${{ secrets.ASC_ISSUER_ID }}
+          P8: ${{ secrets.ASC_KEY_P8 }}
+        run: |
+          missing=""
+          [ -z "$TEAM" ] && missing="$missing APPLE_TEAM_ID"
+          [ -z "$KID" ] && missing="$missing ASC_KEY_ID"
+          [ -z "$ISS" ] && missing="$missing ASC_ISSUER_ID"
+          [ -z "$P8" ] && missing="$missing ASC_KEY_P8"
+          if [ -n "$missing" ]; then echo "::error::Missing secrets:$missing"; exit 1; fi
+
+      - name: Write API key and backend config
+        env:
+          P8: ${{ secrets.ASC_KEY_P8 }}
+          KID: ${{ secrets.ASC_KEY_ID }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+        run: |
+          mkdir -p "$RUNNER_TEMP/keys"
+          printf '%s\n' "$P8" > "$RUNNER_TEMP/keys/AuthKey_$KID.p8"
+          # "//" starts a comment in xcconfig files, hence the /$()/ trick.
+          url_escaped=$(printf '%s' "$SUPABASE_URL" | sed 's#//#/$()/#')
+          printf 'SUPABASE_URL = %s\nSUPABASE_ANON_KEY = %s\n' "$url_escaped" "$SUPABASE_ANON_KEY" > Config/Secrets.local.xcconfig
+
+      - name: Generate Xcode project
+        run: xcodegen generate
+
+      - name: Archive
+        env:
+          TEAM: ${{ secrets.APPLE_TEAM_ID }}
+          KID: ${{ secrets.ASC_KEY_ID }}
+          ISS: ${{ secrets.ASC_ISSUER_ID }}
+        run: |
+          set -o pipefail
+          # Build number must grow on every upload: use the run number (+100 to stay above manual uploads).
+          BUILD=$((GITHUB_RUN_NUMBER + 100))
+          xcodebuild archive \
+            -project ReFripe.xcodeproj \
+            -scheme ReFripe \
+            -configuration Release \
+            -destination 'generic/platform=iOS' \
+            -archivePath "$RUNNER_TEMP/ReFripe.xcarchive" \
+            -allowProvisioningUpdates \
+            -authenticationKeyPath "$RUNNER_TEMP/keys/AuthKey_$KID.p8" \
+            -authenticationKeyID "$KID" \
+            -authenticationKeyIssuerID "$ISS" \
+            DEVELOPMENT_TEAM="$TEAM" \
+            CODE_SIGN_STYLE=Automatic \
+            CURRENT_PROJECT_VERSION="$BUILD" \
+            | tail -n 80
+          echo "Build number: $BUILD" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload to App Store Connect
+        env:
+          TEAM: ${{ secrets.APPLE_TEAM_ID }}
+          KID: ${{ secrets.ASC_KEY_ID }}
+          ISS: ${{ secrets.ASC_ISSUER_ID }}
+        run: |
+          set -o pipefail
+          cat > "$RUNNER_TEMP/ExportOptions.plist" <<EOF
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+            <key>method</key><string>app-store-connect</string>
+            <key>destination</key><string>upload</string>
+            <key>teamID</key><string>$TEAM</string>
+            <key>signingStyle</key><string>automatic</string>
+            <key>manageAppVersionAndBuildNumber</key><false/>
+            <key>uploadSymbols</key><true/>
+          </dict>
+          </plist>
+          EOF
+          xcodebuild -exportArchive \
+            -archivePath "$RUNNER_TEMP/ReFripe.xcarchive" \
+            -exportOptionsPlist "$RUNNER_TEMP/ExportOptions.plist" \
+            -exportPath "$RUNNER_TEMP/export" \
+            -allowProvisioningUpdates \
+            -authenticationKeyPath "$RUNNER_TEMP/keys/AuthKey_$KID.p8" \
+            -authenticationKeyID "$KID" \
+            -authenticationKeyIssuerID "$ISS" \
+            | tail -n 60
+          echo "Uploaded to App Store Connect — TestFlight processing takes 10–30 min." >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Clean up key
+        if: always()
+        run: rm -rf "$RUNNER_TEMP/keys" Config/Secrets.local.xcconfig
