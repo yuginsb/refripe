@@ -100,6 +100,7 @@ struct ReportReasonSheet: View {
     var body: some View {
         NavigationStack {
             Form {
+                Group {
                 Section {
                     Picker("Motif", selection: $reason) {
                         ForEach(ReportReason.allCases) { r in
@@ -116,6 +117,8 @@ struct ReportReasonSheet: View {
                         .lineLimit(3...6)
                         .accessibilityLabel("Détails du signalement")
                 }
+                            }
+                .listRowBackground(RF.C.card)
             }
             .font(RF.T.body)
             .rfScreenBackground()

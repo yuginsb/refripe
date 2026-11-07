@@ -48,6 +48,7 @@ struct PayoutsView: View {
         let paid = orders.filter(Self.isPaidOut).reduce(0) { $0 + $1.itemPrice }
         let pending = orders.filter { !Self.isPaidOut($0) }.reduce(0) { $0 + $1.itemPrice }
         return List {
+            Group {
             Section {
                 HStack(spacing: 12) {
                     total("Versé", paid, color: RF.C.moneyDeep)
@@ -64,6 +65,8 @@ struct PayoutsView: View {
                         .buttonStyle(.plain)
                 }
             }
+                    }
+            .listRowBackground(RF.C.card)
         }
         .listStyle(.insetGrouped)
     }

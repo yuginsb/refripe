@@ -20,6 +20,7 @@ struct SettingsView: View {
 
     var body: some View {
         Form {
+            Group {
             account
             preferences
             appearanceSection
@@ -28,6 +29,8 @@ struct SettingsView: View {
             help
             signOutSection
             deleteSection
+                    }
+            .listRowBackground(RF.C.card)
         }
         .formStyle(.grouped)
         .font(RF.T.body)

@@ -37,6 +37,7 @@ struct ReviewsListView: View {
 
     private func list(_ reviews: [Review]) -> some View {
         List {
+            Group {
             Section {
                 summary(reviews)
             }
@@ -45,6 +46,8 @@ struct ReviewsListView: View {
                     row(review)
                 }
             }
+                    }
+            .listRowBackground(RF.C.card)
         }
         .listStyle(.insetGrouped)
     }

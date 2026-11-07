@@ -1,7 +1,7 @@
 import SwiftUI
 import UIKit
 
-// MARK: - Design tokens (CONTRACT) — v4: light + dark, white base, orange & blue brand, DM Sans / Newsreader.
+// MARK: - Design tokens (CONTRACT) — v4: light + dark (bleu nuit), white base, orange & blue brand, DM Sans / Newsreader.
 // Every colour is dynamic: it resolves for the current light/dark appearance (system, or the user's choice
 // in Réglages › Apparence). Never use hex literals or Color.white/.black in features: use these tokens.
 
@@ -56,10 +56,10 @@ enum AppearanceMode: String, CaseIterable, Identifiable {
 enum RF {
     /// UIKit versions of the tokens (bars, appearance proxies).
     enum U {
-        static let background = UIColor.rf(0xFFFFFF, 0x0F1013)
-        static let surface = UIColor.rf(0xF4F5F7, 0x1B1C21)
-        static let text = UIColor.rf(0x15161A, 0xF3F3F5)
-        static let textDim = UIColor.rf(0x6A6E76, 0xA3A6AE)
+        static let background = UIColor.rf(0xFFFFFF, 0x0B1630)
+        static let surface = UIColor.rf(0xF4F5F7, 0x15244A)
+        static let text = UIColor.rf(0x15161A, 0xF2F5FA)
+        static let textDim = UIColor.rf(0x6A6E76, 0xA6B2CC)
         static let line = UIColor.rf(0x000000, 0xFFFFFF, alpha: 0.08, darkAlpha: 0.12)
         static let accent = UIColor.rf(0xCC4309, 0xE2621B)          // orange — primary actions (white text ≥ 4.5:1 in light)
         static let accentText = UIColor.rf(0xB33A07, 0xFF8F4D)      // orange for text on background
@@ -72,7 +72,7 @@ enum RF {
         // Surfaces
         static let paper = Color(uiColor: U.background)          // screen background (white / near-black)
         static let paperDim = Color(uiColor: U.surface)           // fields, chips, secondary fills
-        static let card = Color(uiColor: UIColor.rf(0xFFFFFF, 0x1B1C21))   // cards and grouped rows
+        static let card = Color(uiColor: UIColor.rf(0xFFFFFF, 0x13213F))   // cards and grouped rows
         static let line = Color(uiColor: U.line)                  // hairlines
         static let scrim = Color(uiColor: UIColor.rf(0x000000, 0x000000, alpha: 0.40, darkAlpha: 0.60))
 
@@ -99,10 +99,10 @@ enum RF {
         static let marigold = Color(uiColor: UIColor.rf(0xF2A33D, 0xF5B556))   // rating stars
 
         // Inverse surface (selected chips, splash): dark on light mode, light on dark mode.
-        static let ink0 = Color(uiColor: UIColor.rf(0x15161A, 0xF3F3F5))
+        static let ink0 = Color(uiColor: UIColor.rf(0x15161A, 0xF2F5FA))
         static let ink1 = Color(uiColor: UIColor.rf(0x23252B, 0xDCDDE1))
         static let ink2 = Color(uiColor: UIColor.rf(0x30333A, 0xC4C6CC))
-        static let textOnInk = Color(uiColor: UIColor.rf(0xFFFFFF, 0x15161A))
+        static let textOnInk = Color(uiColor: UIColor.rf(0xFFFFFF, 0x0B1630))
         static let textOnInkDim = Color(uiColor: UIColor.rf(0xC9CBD1, 0x4A4D55))
         static let lineOnInk = Color(uiColor: UIColor.rf(0xFFFFFF, 0x000000, alpha: 0.16))
 
@@ -113,7 +113,7 @@ enum RF {
         /// Placeholder tile behind a listing photo.
         static func thumb(for id: UUID) -> Color {
             let light: [UInt32] = [0xF1F2F4, 0xEDEFF2, 0xF3F1EE, 0xEEF1F4, 0xF2F0F3, 0xEFF2EF]
-            let dark: [UInt32] = [0x22242A, 0x24262C, 0x262422, 0x22262A, 0x26232A, 0x232823]
+            let dark: [UInt32] = [0x1A2A50, 0x1C2C4F, 0x1F2B4A, 0x182B52, 0x1E284C, 0x1A2E4C]
             let i = Int(id.uuid.15) % light.count                      // stable across launches
             return Color(uiColor: UIColor.rf(light[i], dark[i]))
         }

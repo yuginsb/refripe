@@ -57,6 +57,7 @@ struct OrdersListView: View {
         let past = data.pastOrders(role)
         let threads = role == .buyer ? data.openBuyerThreads : []
         return List {
+            Group {
             if !open.isEmpty {
                 Section {
                     ForEach(open) { OrderListRow(order: $0) }
@@ -80,6 +81,8 @@ struct OrdersListView: View {
                     ForEach(past) { OrderListRow(order: $0) }
                 } header: { header(role == .buyer ? "Terminés" : "Terminées") }
             }
+                    }
+            .listRowBackground(RF.C.card)
         }
         .listStyle(.insetGrouped)
         .listSectionSpacing(24)

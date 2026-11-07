@@ -19,6 +19,7 @@ struct ProfileEditSheet: View {
     var body: some View {
         NavigationStack {
             Form {
+                Group {
                 Section {
                     TextField("Pseudo", text: $username)
                         .textInputAutocapitalization(.never)
@@ -34,6 +35,8 @@ struct ProfileEditSheet: View {
                     }
                     TextField("Quartier", text: $district)
                 }
+                            }
+                .listRowBackground(RF.C.card)
             }
             .font(RF.T.body)
             .rfScreenBackground()

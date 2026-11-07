@@ -16,9 +16,12 @@ struct BlockedMembersView: View {
                                    message: "Bloque depuis un profil.")
                 } else {
                     List {
+                        Group {
                         Section {
                             ForEach(members) { row($0) }
                         }
+                                            }
+                        .listRowBackground(RF.C.card)
                     }
                     .listStyle(.insetGrouped)
                 }

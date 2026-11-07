@@ -129,6 +129,7 @@ struct SellReviewStep: View {
 
     var body: some View {
         Form {
+            Group {
             Section {
                 ForEach(DeliveryMethod.allCases) { method in
                     SellMethodRow(symbol: method.symbol, title: shortLabel(method), subtitle: shortSubtitle(method),
@@ -191,6 +192,8 @@ struct SellReviewStep: View {
             } header: {
                 SellFormHeader("Relecture")
             }
+                    }
+            .listRowBackground(RF.C.card)
         }
         .formStyle(.grouped)
     }

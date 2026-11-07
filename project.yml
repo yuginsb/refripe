@@ -34,6 +34,7 @@ targets:
       path: ReFripe/Info.plist
       properties:
         CFBundleDisplayName: ReFripe
+        ITSAppUsesNonExemptEncryption: false   # HTTPS only → no export-compliance question in TestFlight
         CFBundleDevelopmentRegion: fr
         UILaunchScreen:
           UIColorName: LaunchBackground

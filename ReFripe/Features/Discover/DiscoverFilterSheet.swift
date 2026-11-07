@@ -14,6 +14,7 @@ struct DiscoverFilterSheet: View {
     var body: some View {
         NavigationStack {
             Form {
+                Group {
                 Section("Type") {
                     chips(ItemType.allCases, label: { $0.filterLabel }, keyPath: \.itemTypes)
                 }
@@ -56,6 +57,8 @@ struct DiscoverFilterSheet: View {
                         }
                     }
                 }
+                            }
+                .listRowBackground(RF.C.card)
             }
             .font(RF.T.body)
             .scrollContentBackground(.hidden)

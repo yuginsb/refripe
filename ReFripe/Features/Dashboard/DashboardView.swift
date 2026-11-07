@@ -31,6 +31,7 @@ struct DashboardView: View {
 
     private var list: some View {
         List {
+            Group {
             if let stats {
                 monthSection(stats)
                 goalSection(stats)
@@ -43,6 +44,8 @@ struct DashboardView: View {
                 }
             }
             recommendationsSection
+                    }
+            .listRowBackground(RF.C.card)
         }
         .listStyle(.insetGrouped)
         .listSectionSpacing(24)

@@ -5,7 +5,7 @@ Source : l'audit ergonomique + benchmark Vinted (doc « ReFripe — Ergonomie et
 ## v4 — thème (remplace les couleurs/polices ci-dessous)
 
 - **Clair / sombre** : tous les tokens `RF.C` sont dynamiques. Choix dans Réglages › Apparence et à l'inscription (Système · Clair · Sombre), stocké sous `@AppStorage("appearanceMode")`, appliqué par `.preferredColorScheme` à la racine.
-- **Couleurs** : fond blanc (`paper` #FFFFFF / #0F1013), surfaces #F4F5F7 / #1B1C21. Logo `Wordmark` : « Re » bleu #1F5FD6, « Fripe » orange #F26419. Actions principales orange (`accent` #CC4309), sélection bleue (`brandBlue`, `blueTint`). Plus de noir comme couleur d'action.
+- **Couleurs** : fond blanc (`paper` #FFFFFF / bleu nuit #0B1630), surfaces #F4F5F7 / #15244A, cartes #FFFFFF / #13213F. Logo `Wordmark` : « Re » bleu #1F5FD6, « Fripe » orange #F26419. Actions principales orange (`accent` #CC4309), sélection bleue (`brandBlue`, `blueTint`). Plus de noir comme couleur d'action.
 - **Polices** : DM Sans (interface, proche de Modern Era utilisée par Hinge) et Newsreader (grands titres, proche de Tiempos). Échelle compacte façon Vinted : corps 15, secondaire 13, méta 12, titres d'écran 30. Wordmark en Unbounded.
 - **Textes** : quelques mots, ton humain (« Confirmation » plutôt que « Tout est OK, je confirme »). Pas de phrase d'explication sous les champs sauf nécessité.
 - Pas de hex ni de `Color.white/.black` dans les features (sauf photos et pastilles de couleur d'article).

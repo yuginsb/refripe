@@ -90,6 +90,7 @@ struct ProductReportSheet: View {
     var body: some View {
         NavigationStack {
             Form {
+                Group {
                 Section {
                     ForEach(ReportReason.allCases) { r in
                         Button {
@@ -118,6 +119,8 @@ struct ProductReportSheet: View {
                     TextField("Détails (facultatif)", text: $details, axis: .vertical)
                         .lineLimit(2...5)
                 }
+                            }
+                .listRowBackground(RF.C.card)
             }
             .font(RF.T.body)
             .scrollContentBackground(.hidden)
